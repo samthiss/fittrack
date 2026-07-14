@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 export default function ActivityLog({ activityTypes, activities, onAdd, onDelete }) {
+  const { t } = useLanguage();
   const [type, setType] = useState('');
   const [duration, setDuration] = useState('');
   const [showRecurring, setShowRecurring] = useState(false);
@@ -92,7 +94,7 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
 
   return (
     <div>
-      <h2>Activités du jour</h2>
+      <h2>{t('activityLog.title')}</h2>
       <div className="card">
         <form className="inline-row" onSubmit={handleSubmit}>
           <select value={type} onChange={(e) => setType(e.target.value)}>
@@ -104,19 +106,19 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
           </select>
           <input
             type="number"
-            placeholder="min"
+            placeholder={t('activityLog.durationPlaceholder')}
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
             min="1"
             required
           />
           <button type="submit" className="btn btn-small">
-            Ajouter
+            {t('activityLog.add')}
           </button>
         </form>
 
         {activities.length === 0 ? (
-          <p className="hint">Aucune activité enregistrée aujourd'hui.</p>
+          <p className="hint">{t('activityLog.none')}</p>
         ) : (
           activities.map((a) => (
             <div className="row" key={a.id}>
@@ -127,7 +129,7 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
               <div className="field">
                 <b>{Math.round(a.kcal)} kcal</b>
                 <button className="btn-ghost" onClick={() => onDelete(a.id)}>
-                  Supprimer
+                  {t('activityLog.delete')}
                 </button>
               </div>
             </div>
@@ -136,7 +138,7 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
 
         <div className="card-actions" style={{ padding: 0 }}>
           <button type="button" className="btn-ghost" onClick={() => setShowRecurring(true)}>
-            🔁 Activités récurrentes
+            {t('activityLog.recurring')}
           </button>
         </div>
       </div>
@@ -144,11 +146,11 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
       {showRecurring && (
         <div className="modal-overlay" onClick={() => setShowRecurring(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Activités récurrentes</h2>
-            <p className="hint">Se répètent automatiquement chaque semaine, sur les jours choisis.</p>
+            <h2>{t('activityLog.recurringTitle')}</h2>
+            <p className="hint">{t('activityLog.recurringHint')}</p>
 
             {groups.length === 0 ? (
-              <p className="hint">Aucune activité récurrente pour l'instant.</p>
+              <p className="hint">{t('activityLog.noRecurring')}</p>
             ) : (
               groups.map((g) => (
                 <div className="row ingredient-sub-row" key={g.key}>
@@ -164,7 +166,7 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
                         key={i.id}
                         type="button"
                         className="btn-ghost"
-                        title={`Retirer ${dayLabelFor(i.day)}`}
+                        title={`${t('activityLog.remove')} ${dayLabelFor(i.day)}`}
                         onClick={() => handleDeleteRecurring(i.id)}
                       >
                         {dayLabelFor(i.day).slice(0, 3)} ✕
@@ -175,10 +177,10 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
               ))
             )}
 
-            <h4 className="section-label">Ajouter</h4>
+            <h4 className="section-label">{t('activityLog.addSection')}</h4>
             <form onSubmit={handleAddRecurring}>
               <div className="row">
-                <label>Activité</label>
+                <label>{t('activityLog.activity')}</label>
                 <div className="field">
                   <select value={planType} onChange={(e) => setPlanType(e.target.value)}>
                     {activityTypes.map((a) => (
@@ -190,12 +192,12 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
                 </div>
               </div>
               <div className="row">
-                <label>Durée</label>
+                <label>{t('activityLog.duration')}</label>
                 <div className="field">
                   <input
                     type="number"
                     min="1"
-                    placeholder="min"
+                    placeholder={t('activityLog.durationPlaceholder')}
                     value={planDuration}
                     onChange={(e) => setPlanDuration(e.target.value)}
                   />
@@ -209,7 +211,7 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
                   className={selectedDays.size === planDays.length ? 'day-chip active' : 'day-chip'}
                   onClick={toggleAllDays}
                 >
-                  Tous
+                  {t('activityLog.all')}
                 </button>
                 {planDays.map((d) => (
                   <button
@@ -224,12 +226,12 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
               </div>
 
               <button type="submit" className="btn btn-block" disabled={saving}>
-                {saving ? 'Enregistrement…' : 'Ajouter'}
+                {saving ? t('activityLog.saving') : t('activityLog.add')}
               </button>
             </form>
 
             <button type="button" className="done-btn" onClick={() => setShowRecurring(false)}>
-              Fermer
+              {t('activityLog.close')}
             </button>
           </div>
         </div>

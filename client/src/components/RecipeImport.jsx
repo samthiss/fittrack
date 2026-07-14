@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 // Always rendered from within a chosen recipe category (RecipeList) — presetCategory says which
 // meals/tag to apply automatically, so there's no separate category picker in this form anymore.
 export default function RecipeImport({ onImported, onSetCategories, onUpdate, presetCategory }) {
+  const { t } = useLanguage();
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
@@ -12,7 +14,7 @@ export default function RecipeImport({ onImported, onSetCategories, onUpdate, pr
     if (!text.trim()) return;
 
     setLoading(true);
-    setStatus({ text: 'Lecture de la recette…' });
+    setStatus({ text: t('recipeImport.reading') });
 
     try {
       const recipe = await onImported({ mode: 'text', text: text.trim() });
@@ -21,9 +23,9 @@ export default function RecipeImport({ onImported, onSetCategories, onUpdate, pr
         if (presetCategory.tag) await onUpdate(recipe.id, { tags: [presetCategory.tag] });
       }
       setText('');
-      setStatus({ text: 'Recette ajoutée.' });
+      setStatus({ text: t('recipeImport.added') });
     } catch (err) {
-      setStatus({ text: err.message || "Échec de l'import", error: true });
+      setStatus({ text: err.message || t('recipeImport.failed'), error: true });
     } finally {
       setLoading(false);
     }
@@ -31,20 +33,20 @@ export default function RecipeImport({ onImported, onSetCategories, onUpdate, pr
 
   return (
     <div>
-      <h2>Importer une recette</h2>
+      <h2>{t('recipeImport.title')}</h2>
       <div className="card">
         <form onSubmit={handleSubmit}>
           <textarea
             className="wide"
             rows={6}
-            placeholder="Colle ici le texte de la recette (titre, description, ingrédients, étapes)"
+            placeholder={t('recipeImport.placeholder')}
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
-          <p className="hint">Claude lit directement ce que tu colles et en extrait les ingrédients, les étapes et les kcal.</p>
+          <p className="hint">{t('recipeImport.hint')}</p>
 
           <button type="submit" className="btn btn-block" disabled={loading}>
-            {loading ? 'Import en cours…' : 'Importer la recette'}
+            {loading ? t('recipeImport.importing') : t('recipeImport.importAction')}
           </button>
         </form>
 

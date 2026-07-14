@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import CircularGauge from './CircularGauge';
 import ActivityLog from './ActivityLog';
+import { useLanguage } from '../i18n/LanguageContext';
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -22,19 +23,27 @@ function MacroMiniBar({ label, value, max }) {
   );
 }
 
-const WEEKDAY_LABELS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
 const WATER_GOAL_ML = 4000;
 
-function formatDateLabel(dateStr) {
+function formatDateLabel(dateStr, t) {
+  const WEEKDAY_LABELS = [
+    t('home.weekdaySun'),
+    t('home.weekdayMon'),
+    t('home.weekdayTue'),
+    t('home.weekdayWed'),
+    t('home.weekdayThu'),
+    t('home.weekdayFri'),
+    t('home.weekdaySat'),
+  ];
   const todayStr = new Date().toISOString().slice(0, 10);
-  if (dateStr === todayStr) return "Aujourd'hui";
+  if (dateStr === todayStr) return t('home.today');
   const d = new Date(`${dateStr}T00:00:00Z`);
   const yesterday = new Date(`${todayStr}T00:00:00Z`);
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  if (dateStr === yesterday.toISOString().slice(0, 10)) return 'Hier';
+  if (dateStr === yesterday.toISOString().slice(0, 10)) return t('home.yesterday');
   const tomorrow = new Date(`${todayStr}T00:00:00Z`);
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-  if (dateStr === tomorrow.toISOString().slice(0, 10)) return 'Demain';
+  if (dateStr === tomorrow.toISOString().slice(0, 10)) return t('home.tomorrow');
   const weekday = WEEKDAY_LABELS[d.getUTCDay()];
   return `${weekday} ${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
 }
@@ -54,6 +63,7 @@ export default function HomeDashboard({
   onDeleteActivity,
   onOpenWeight,
 }) {
+  const { t } = useLanguage();
   const [showDrinkSources, setShowDrinkSources] = useState(false);
   const [improvementIndex, setImprovementIndex] = useState(0);
   const [latestWeight, setLatestWeight] = useState(null);
@@ -99,11 +109,11 @@ export default function HomeDashboard({
   return (
     <div>
       <header className="app-header day-nav-header">
-        <button type="button" className="day-nav-btn" onClick={onPrevDay} aria-label="Jour précédent">
+        <button type="button" className="day-nav-btn" onClick={onPrevDay} aria-label={t('home.prevDay')}>
           ‹
         </button>
-        <h1>{formatDateLabel(date)}</h1>
-        <button type="button" className="day-nav-btn" onClick={onNextDay} aria-label="Jour suivant">
+        <h1>{formatDateLabel(date, t)}</h1>
+        <button type="button" className="day-nav-btn" onClick={onNextDay} aria-label={t('home.nextDay')}>
           ›
         </button>
       </header>
@@ -125,35 +135,35 @@ export default function HomeDashboard({
         </div>
       )}
 
-      <h2>Résumé</h2>
+      <h2>{t('home.summary')}</h2>
       <p className="hint" style={{ marginTop: -8 }}>
-        Objectif : {Math.round(targetIntake)} kcal/jour
+        {t('home.goal')} : {Math.round(targetIntake)} {t('home.perDay')}
       </p>
       <div className="card resume-card">
         <div className="gauge-row">
           <div className="gauge-stat">
             <b>{Math.round(consumedKcal)}</b>
-            <span>Mangées</span>
+            <span>{t('home.eaten')}</span>
           </div>
           <CircularGauge
             value={remainingKcal}
             max={targetIntake}
-            label={remainingKcal < 0 ? 'Dépassement' : 'Restantes'}
+            label={remainingKcal < 0 ? t('home.over') : t('home.remaining')}
           />
           <div className="gauge-stat">
             <b>{Math.round(burnedKcal)}</b>
-            <span>Brûlées</span>
+            <span>{t('home.burned')}</span>
           </div>
         </div>
 
         <div className="macro-bars-row">
-          <MacroMiniBar label="Glucides" value={macros.carbs.consumed} max={macros.carbs.target} />
-          <MacroMiniBar label="Protéines" value={macros.protein.consumed} max={macros.protein.target} />
-          <MacroMiniBar label="Lipides" value={macros.fat.consumed} max={macros.fat.target} />
+          <MacroMiniBar label={t('nutrient.carbs')} value={macros.carbs.consumed} max={macros.carbs.target} />
+          <MacroMiniBar label={t('nutrient.protein')} value={macros.protein.consumed} max={macros.protein.target} />
+          <MacroMiniBar label={t('nutrient.fat')} value={macros.fat.consumed} max={macros.fat.target} />
         </div>
       </div>
 
-      <h2>Alimentation</h2>
+      <h2>{t('home.food')}</h2>
       <div className="card">
         {meals.map((m) => (
           <div className="row meal-row" key={m.key} onClick={() => onSelectMeal(m.key)}>
@@ -177,7 +187,7 @@ export default function HomeDashboard({
         ))}
       </div>
 
-      <h2>Eau</h2>
+      <h2>{t('home.water')}</h2>
       <div className="card">
         <div className="row">
           <div className="name">
@@ -201,8 +211,8 @@ export default function HomeDashboard({
           onClick={() => water.drinkSources?.length > 0 && setShowDrinkSources(true)}
         >
           <div className="name">
-            <span>Eau provenant de l'alimentation</span>
-            <span className="rate">lait, whey, etc. ajoutés en ml</span>
+            <span>{t('home.waterFromFood')}</span>
+            <span className="rate">{t('home.waterFromFoodHint')}</span>
           </div>
           <div className="field">
             <b>{water.fromDrinksMl + water.fromCoffeeMl} ml</b>
@@ -211,7 +221,7 @@ export default function HomeDashboard({
 
         <div className="row">
           <div className="name">
-            <span>Total</span>
+            <span>{t('home.total')}</span>
           </div>
           <div className="field">
             <b>{water.totalMl} / {WATER_GOAL_ML} ml</b>
@@ -228,7 +238,7 @@ export default function HomeDashboard({
       {showDrinkSources && (
         <div className="modal-overlay" onClick={() => setShowDrinkSources(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Eau provenant de l'alimentation</h2>
+            <h2>{t('home.waterFromFood')}</h2>
             {(water.drinkSources || []).map((s, i) => (
               <div className="micro-source-row" key={i}>
                 <span>{s.label}</span>
@@ -236,7 +246,7 @@ export default function HomeDashboard({
               </div>
             ))}
             <button type="button" className="done-btn" onClick={() => setShowDrinkSources(false)}>
-              Fermer
+              {t('home.close')}
             </button>
           </div>
         </div>
@@ -249,7 +259,7 @@ export default function HomeDashboard({
         onDelete={onDeleteActivity}
       />
 
-      <h2>Poids</h2>
+      <h2>{t('home.weight')}</h2>
       <div className="card">
         <div className="row">
           <div className="name clickable" onClick={onOpenWeight}>

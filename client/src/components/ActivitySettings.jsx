@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function ActivitySettings({ activityTypes, onUpdate }) {
+  const { t } = useLanguage();
   const [values, setValues] = useState({});
   const [savedType, setSavedType] = useState(null);
 
@@ -21,11 +23,8 @@ export default function ActivitySettings({ activityTypes, onUpdate }) {
 
   return (
     <div>
-      <h2>Réglages des activités</h2>
-      <p className="hint">
-        Fixe toi-même le nombre de kcal brûlées par heure pour chaque activité, pour que
-        le calcul reste stable et sans mauvaise surprise.
-      </p>
+      <h2>{t('activitySettings.title')}</h2>
+      <p className="hint">{t('activitySettings.hint')}</p>
 
       <div className="card">
         {activityTypes.map((a) => (
@@ -42,7 +41,7 @@ export default function ActivitySettings({ activityTypes, onUpdate }) {
               />
               <span className="unit">kcal/h</span>
               <button type="button" className="btn btn-small" onClick={() => handleSave(a.type)}>
-                Enregistrer
+                {t('activitySettings.save')}
               </button>
               {savedType === a.type && <span className="hint success">✓</span>}
             </div>

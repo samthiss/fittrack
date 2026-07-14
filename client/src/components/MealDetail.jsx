@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import AddFoodToMeal from './AddFoodToMeal';
 import { findRecurringItems } from './MealPlanner';
 import { api } from '../api';
+import { useLanguage } from '../i18n/LanguageContext';
 
 function ProgressRow({ label, value, max, unit }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
@@ -21,6 +22,7 @@ function ProgressRow({ label, value, max, unit }) {
 }
 
 function EntryQuantityEditor({ entry, allowUnitToggle, onUpdateEntry, onSaved }) {
+  const { t } = useLanguage();
   const [unit, setUnit] = useState(allowUnitToggle ? entry.unit || 'g' : 'portion(s)');
   // Grams/ml are shown as whole numbers (nobody weighs food to the decimal gram); portions keep
   // their precision since fractional portions (e.g. 1.5) are meaningful.
@@ -53,7 +55,7 @@ function EntryQuantityEditor({ entry, allowUnitToggle, onUpdateEntry, onSaved })
         )}
       </div>
       <button type="button" className="btn btn-block" onClick={handleSave}>
-        Enregistrer
+        {t('meal.save')}
       </button>
     </div>
   );
@@ -100,6 +102,7 @@ export default function MealDetail({
   onAddFavorite,
   onRemoveFavorite,
 }) {
+  const { t } = useLanguage();
   const [showAdd, setShowAdd] = useState(false);
   const [replaceTargetIds, setReplaceTargetIds] = useState(null);
   const [viewingRecipeId, setViewingRecipeId] = useState(null);
@@ -154,7 +157,7 @@ export default function MealDetail({
       }}
     >
       <div className="meal-header">
-        <button className="btn-ghost back-btn" onClick={onBack} aria-label="Retour">
+        <button className="btn-ghost back-btn" onClick={onBack} aria-label={t('meal.back')}>
           &lt;
         </button>
         <h1 className="meal-title">{label}</h1>
@@ -165,28 +168,28 @@ export default function MealDetail({
           <b style={{ fontSize: 16 }}>
             {Math.round(consumed.kcal)} / {Math.round(budgetKcal)} kcal
           </b>
-          <span>Calories</span>
+          <span>{t('meal.calories')}</span>
         </div>
         <div className="tile">
           <b>{consumed.carbs.toFixed(1)} g</b>
-          <span>Glucides</span>
+          <span>{t('nutrient.carbs')}</span>
         </div>
         <div className="tile">
           <b>{consumed.protein.toFixed(1)} g</b>
-          <span>Protéines</span>
+          <span>{t('nutrient.protein')}</span>
         </div>
         <div className="tile">
           <b>{consumed.fat.toFixed(1)} g</b>
-          <span>Lipides</span>
+          <span>{t('nutrient.fat')}</span>
         </div>
       </div>
 
-      <h2>Valeurs nutritives</h2>
+      <h2>{t('meal.nutritionValues')}</h2>
       <div className="card">
-        <ProgressRow label="Calories" value={consumed.kcal} max={budgetKcal} unit="kcal" />
-        <ProgressRow label="Glucides" value={consumed.carbs} max={macroTargets.carbs} unit="g" />
-        <ProgressRow label="Protéines" value={consumed.protein} max={macroTargets.protein} unit="g" />
-        <ProgressRow label="Lipides" value={consumed.fat} max={macroTargets.fat} unit="g" />
+        <ProgressRow label={t('meal.calories')} value={consumed.kcal} max={budgetKcal} unit="kcal" />
+        <ProgressRow label={t('nutrient.carbs')} value={consumed.carbs} max={macroTargets.carbs} unit="g" />
+        <ProgressRow label={t('nutrient.protein')} value={consumed.protein} max={macroTargets.protein} unit="g" />
+        <ProgressRow label={t('nutrient.fat')} value={consumed.fat} max={macroTargets.fat} unit="g" />
       </div>
 
       {groups.length > 0 && (
@@ -205,7 +208,7 @@ export default function MealDetail({
                   <div className="field">
                     <b>{Math.round(e.kcal)} kcal</b>
                     {recurringKeys.has(`${e.source_type}-${e.source_id}`) && (
-                      <span className="recurring-indicator" title="Repas récurrant">
+                      <span className="recurring-indicator" title={t('meal.recurringMeal')}>
                         🔁
                       </span>
                     )}
@@ -229,19 +232,19 @@ export default function MealDetail({
                       className={recipe ? 'recipe-group-title clickable' : 'recipe-group-title'}
                       onClick={() => recipe && setViewingRecipeId(g.recipeId)}
                     >
-                      🍽️ {recipe ? recipe.title : 'Recette supprimée'}
+                      🍽️ {recipe ? recipe.title : t('meal.recipeDeleted')}
                     </span>
-                    <span className="rate">{g.entries.length} ingrédient(s)</span>
+                    <span className="rate">{g.entries.length} {t('meal.ingredients')}</span>
                   </div>
                   <div className="field">
                     <b>{Math.round(groupKcal)} kcal</b>
                     {recurringKeys.has(`recipe-${g.recipeId}`) && (
-                      <span className="recurring-indicator" title="Repas récurrant">
+                      <span className="recurring-indicator" title={t('meal.recurringMeal')}>
                         🔁
                       </span>
                     )}
                     <button className="btn-ghost" onClick={() => openReplace(ids)}>
-                      Remplacer
+                      {t('meal.replace')}
                     </button>
                     <button className="btn-ghost" onClick={() => handleDeleteGroup(ids)}>
                       🗑
@@ -270,7 +273,7 @@ export default function MealDetail({
 
       <div className="card-actions" style={{ padding: 0 }}>
         <button type="button" className="btn add-food-btn" onClick={() => setShowAdd(true)}>
-          + Ajouter
+          {t('meal.add')}
         </button>
       </div>
 
@@ -296,7 +299,7 @@ export default function MealDetail({
             />
           </div>
           <button type="button" className="done-btn" onClick={() => setShowAdd(false)}>
-            Terminé
+            {t('meal.done')}
           </button>
         </div>
       )}
@@ -304,7 +307,7 @@ export default function MealDetail({
       {replaceTargetIds && (
         <div className="modal-overlay" onClick={() => setReplaceTargetIds(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Remplacer par…</h2>
+            <h2>{t('meal.replaceWith')}</h2>
             <div className="replace-grid">
               {recipes.map((r) => (
                 <button
@@ -324,7 +327,7 @@ export default function MealDetail({
             </div>
           </div>
           <button type="button" className="done-btn" onClick={() => setReplaceTargetIds(null)}>
-            Fermer
+            {t('meal.close')}
           </button>
         </div>
       )}
@@ -353,18 +356,18 @@ export default function MealDetail({
               </div>
               <div className="tile">
                 <b>{viewingEntry.carbs.toFixed(1)} g</b>
-                <span>Glucides</span>
+                <span>{t('nutrient.carbs')}</span>
               </div>
               <div className="tile">
                 <b>{viewingEntry.protein.toFixed(1)} g</b>
-                <span>Protéines</span>
+                <span>{t('nutrient.protein')}</span>
               </div>
               <div className="tile">
                 <b>{viewingEntry.fat.toFixed(1)} g</b>
-                <span>Lipides</span>
+                <span>{t('nutrient.fat')}</span>
               </div>
             </div>
-            <h4 className="section-label">Quantité</h4>
+            <h4 className="section-label">{t('meal.quantity')}</h4>
             <EntryQuantityEditor
               key={viewingEntry.id}
               entry={viewingEntry}
@@ -383,7 +386,7 @@ export default function MealDetail({
             <h2>{viewingRecipe.title}</h2>
             {viewingRecipe.description && <p className="hint">{viewingRecipe.description}</p>}
 
-            <h4 className="section-label">Ingrédients ({viewingRecipe.portions} portion(s))</h4>
+            <h4 className="section-label">{t('meal.ingredientsCount').replace('{count}', viewingRecipe.portions)}</h4>
             {viewingRecipe.ingredients.map((ing, i) => (
               <div className="ingredient-row" key={i}>
                 <span className="ingredient-name">{ing.nom}</span>
@@ -395,7 +398,7 @@ export default function MealDetail({
 
             {viewingRecipe.steps.length > 0 && (
               <>
-                <h4 className="section-label">Étapes</h4>
+                <h4 className="section-label">{t('meal.steps')}</h4>
                 {viewingRecipe.steps.map((step, i) => (
                   <div className="step-row" key={i}>
                     <span className="step-num">{i + 1}</span>
@@ -406,7 +409,7 @@ export default function MealDetail({
             )}
           </div>
           <button type="button" className="done-btn" onClick={() => setViewingRecipeId(null)}>
-            Fermer
+            {t('meal.close')}
           </button>
         </div>
       )}

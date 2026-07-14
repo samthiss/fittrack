@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import RecipeImport from './RecipeImport';
 import RecipeManualForm from './RecipeManualForm';
+import { useLanguage } from '../i18n/LanguageContext';
 
-const CATEGORY_GROUPS = [
-  { key: 'lunch_dinner', label: 'Lunch & Dîner', meals: ['lunch', 'dinner'] },
-  { key: 'breakfast', label: 'Petit déjeuner', meals: ['breakfast'] },
-  { key: 'snack', label: 'En-cas', meals: ['snack'] },
-];
+function getCategoryGroups(t) {
+  return [
+    { key: 'lunch_dinner', label: t('recipeList.categoryLunchDinner'), meals: ['lunch', 'dinner'] },
+    { key: 'breakfast', label: t('recipeList.categoryBreakfast'), meals: ['breakfast'] },
+    { key: 'snack', label: t('recipeList.categorySnack'), meals: ['snack'] },
+  ];
+}
 
 function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorite, foods = [] }) {
+  const { t } = useLanguage();
+  const CATEGORY_GROUPS = getCategoryGroups(t);
   const [ingredients, setIngredients] = useState(recipe.ingredients);
   const [portions, setPortions] = useState(recipe.portions);
   const [imageUrl, setImageUrl] = useState(recipe.image || '');
@@ -144,13 +149,13 @@ function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorit
           type="button"
           className="favorite-star-btn"
           onClick={handleToggleGeneralFavorite}
-          aria-label="Coup de cœur"
+          aria-label={t('recipeList.favoriteAria')}
         >
           {favorite ? '★' : '☆'}
         </button>
         <h3>{recipe.title}</h3>
         <button className="btn-ghost" onClick={() => onDelete(recipe.id)}>
-          Supprimer
+          {t('recipeList.delete')}
         </button>
       </div>
 
@@ -160,7 +165,7 @@ function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorit
         {tags.map((tag) => (
           <span className="tag-chip" key={tag}>
             {tag}
-            <button type="button" onClick={() => handleRemoveTag(tag)} aria-label={`Retirer ${tag}`}>
+            <button type="button" onClick={() => handleRemoveTag(tag)} aria-label={t('recipeList.removeTag').replace('{tag}', tag)}>
               ✕
             </button>
           </span>
@@ -168,7 +173,7 @@ function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorit
         <input
           type="text"
           className="tag-input"
-          placeholder="+ tag"
+          placeholder={t('recipeList.addTag')}
           value={newTag}
           onChange={(e) => setNewTag(e.target.value)}
           onKeyDown={(e) => {
@@ -199,27 +204,27 @@ function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorit
 
       <div className="macro-chips">
         <span className="chip">
-          <b>{Math.round(totalKcal / p)}</b> kcal / portion
+          <b>{Math.round(totalKcal / p)}</b> {t('recipeList.perPortion')}
         </span>
         <span className="chip">
-          <b>{Math.round(totalProtein / p)} g</b> protéines
+          <b>{Math.round(totalProtein / p)} g</b> {t('recipeList.protein')}
         </span>
         <span className="chip">
-          <b>{Math.round(totalCarbs / p)} g</b> glucides
+          <b>{Math.round(totalCarbs / p)} g</b> {t('recipeList.carbs')}
         </span>
         <span className="chip">
-          <b>{Math.round(totalFat / p)} g</b> lipides
+          <b>{Math.round(totalFat / p)} g</b> {t('recipeList.fat')}
         </span>
       </div>
 
       <button type="button" className="btn-ghost expand-toggle" onClick={() => setExpanded((v) => !v)}>
-        {expanded ? '▾ Masquer ingrédients & étapes' : '▸ Voir ingrédients & étapes'}
+        {expanded ? t('recipeList.hideIngredientsSteps') : t('recipeList.showIngredientsSteps')}
       </button>
 
       {expanded && (
         <>
           <div className="row">
-            <label>Image (URL)</label>
+            <label>{t('recipeList.image')}</label>
             <div className="field">
               <input
                 type="url"
@@ -235,7 +240,7 @@ function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorit
             </div>
           </div>
 
-          <h4 className="section-label">Ingrédients</h4>
+          <h4 className="section-label">{t('recipeList.ingredients')}</h4>
           {ingredients.map((ing, i) => (
             <div className="ingredient-row" key={i}>
               <span className="ingredient-name">{ing.nom}</span>
@@ -256,14 +261,14 @@ function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorit
 
           <div className="inline-row">
             <button type="button" className="btn-ghost" onClick={() => setShowIngredientPicker(true)}>
-              📋 Choisir un aliment existant
+              {t('recipeList.pickExisting')}
             </button>
           </div>
           <div className="manual-ingredient-row">
             <input
               type="text"
               className="wide"
-              placeholder="Ou tape un nouveau nom d'ingrédient"
+              placeholder={t('recipeList.newIngredientPlaceholder')}
               value={newIngredientName}
               onChange={(e) => setNewIngredientName(e.target.value)}
               onKeyDown={(e) => {
@@ -274,17 +279,17 @@ function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorit
               }}
             />
             <button type="button" className="btn-ghost" onClick={handleAddIngredient}>
-              + Ajouter
+              {t('recipeList.add')}
             </button>
           </div>
 
           {showIngredientPicker && (
             <div className="modal-overlay" onClick={() => setShowIngredientPicker(false)}>
               <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>Choisir un aliment</h2>
+                <h2>{t('recipeList.pickFood')}</h2>
                 <input
                   type="text"
-                  placeholder="Rechercher un aliment..."
+                  placeholder={t('recipeList.searchFood')}
                   value={ingredientSearch}
                   onChange={(e) => setIngredientSearch(e.target.value)}
                   style={{ marginBottom: 10 }}
@@ -311,18 +316,18 @@ function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorit
                     </div>
                   ))}
                 {foods.filter((f) => f.name.toLowerCase().includes(ingredientSearch.trim().toLowerCase())).length === 0 && (
-                  <p className="hint">Aucun aliment trouvé.</p>
+                  <p className="hint">{t('recipeList.noFoodFound')}</p>
                 )}
               </div>
               <button type="button" className="done-btn" onClick={() => setShowIngredientPicker(false)}>
-                Fermer
+                {t('recipeList.close')}
               </button>
             </div>
           )}
 
           {recipe.steps.length > 0 && (
             <>
-              <h4 className="section-label">Étapes</h4>
+              <h4 className="section-label">{t('recipeList.steps')}</h4>
               {recipe.steps.map((step, i) => (
                 <div className="step-row" key={i}>
                   <span className="step-num">{i + 1}</span>
@@ -333,7 +338,7 @@ function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorit
           )}
 
           <div className="row" style={{ marginTop: 12 }}>
-            <label>Portions</label>
+            <label>{t('recipeList.portions')}</label>
             <div className="field">
               <input
                 type="number"
@@ -361,6 +366,7 @@ export default function RecipeList({
   onCreateRecipe,
   onSetCategories,
 }) {
+  const { t } = useLanguage();
   const [selectedCategory, setSelectedCategory] = useState(null);
 
   function favoriteMealsFor(recipeId) {
@@ -369,7 +375,7 @@ export default function RecipeList({
     );
   }
 
-  const groups = CATEGORY_GROUPS.map((g) => ({
+  const groups = getCategoryGroups(t).map((g) => ({
     ...g,
     recipes: recipes.filter((r) => {
       const favs = favoriteMealsFor(r.id);
@@ -381,8 +387,8 @@ export default function RecipeList({
   // effect on kcal budgets or the weekly planner, it's purely for browsing the recipe list.
   const boissonsRecipes = recipes.filter((r) => (r.tags || []).includes('Boissons'));
   const allGroups = [
-    { key: 'favorites', label: '⭐ Favoris', recipes: favoriteRecipes },
-    { key: 'boissons', label: '🥤 Boissons', tag: 'Boissons', recipes: boissonsRecipes },
+    { key: 'favorites', label: t('recipeList.categoryFavorites'), recipes: favoriteRecipes },
+    { key: 'boissons', label: t('recipeList.categoryDrinks'), tag: 'Boissons', recipes: boissonsRecipes },
     ...groups,
   ];
 
@@ -408,7 +414,7 @@ export default function RecipeList({
       <div>
         <div className="meal-header">
           <button className="btn-ghost back-btn" onClick={() => setSelectedCategory(null)}>
-            ← Retour
+            {t('recipeList.back')}
           </button>
           <h1 className="meal-title">{active.label}</h1>
         </div>
@@ -432,7 +438,7 @@ export default function RecipeList({
         )}
 
         {active.recipes.length === 0 ? (
-          <p className="hint">Aucune recette dans cette catégorie pour l'instant.</p>
+          <p className="hint">{t('recipeList.noRecipesInCategory')}</p>
         ) : (
           <div className="recipe-list">{active.recipes.map(renderCard)}</div>
         )}
@@ -442,7 +448,7 @@ export default function RecipeList({
 
   return (
     <div>
-      <h2>Recettes</h2>
+      <h2>{t('recipeList.title')}</h2>
       <div className="category-menu">
         {allGroups.map((g) => {
           const withImage = g.recipes.find((r) => r.image);
@@ -455,7 +461,7 @@ export default function RecipeList({
             >
               {withImage ? <img src={withImage.image} alt="" /> : <div className="category-card-noimg">🍽️</div>}
               <span className="category-card-label">{g.label}</span>
-              <span className="rate">{g.recipes.length} recette(s)</span>
+              <span className="rate">{g.recipes.length} {t('recipeList.recipeCount')}</span>
             </button>
           );
         })}

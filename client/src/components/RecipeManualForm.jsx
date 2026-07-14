@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const EMPTY_INGREDIENT = { nom: '', qte: '', unite: 'g', kcal: '', proteines: '', glucides: '', lipides: '' };
 const EMPTY_RECIPE = { title: '', description: '', image: '', portions: '1' };
@@ -6,6 +7,7 @@ const EMPTY_RECIPE = { title: '', description: '', image: '', portions: '1' };
 // Always rendered from within a chosen recipe category (RecipeList) — presetCategory says which
 // meals/tag to apply automatically, so there's no separate category picker in this form anymore.
 export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, foods = [], presetCategory }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [recipe, setRecipe] = useState(EMPTY_RECIPE);
   const [ingredients, setIngredients] = useState([{ ...EMPTY_INGREDIENT }]);
@@ -126,7 +128,7 @@ export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, 
     if (!recipe.title.trim()) return;
     const validIngredients = ingredients.filter((i) => i.nom.trim());
     if (validIngredients.length === 0) {
-      setStatus({ text: 'Ajoute au moins un ingrédient.', error: true });
+      setStatus({ text: t('recipeManual.needIngredient'), error: true });
       return;
     }
 
@@ -156,7 +158,7 @@ export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, 
       reset();
       setOpen(false);
     } catch (err) {
-      setStatus({ text: err.message || 'Échec de la création', error: true });
+      setStatus({ text: err.message || t('recipeManual.creationFailed'), error: true });
     } finally {
       setLoading(false);
     }
@@ -166,38 +168,38 @@ export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, 
     <div>
       <div className="card-actions" style={{ padding: 0 }}>
         <button type="button" className="btn-ghost" onClick={() => setOpen((o) => !o)}>
-          {open ? 'Annuler' : '✎ Créer une recette manuellement'}
+          {open ? t('recipeManual.cancel') : t('recipeManual.createManually')}
         </button>
       </div>
 
       {open && (
         <form className="card" onSubmit={handleSubmit} style={{ marginTop: 12 }}>
           <div className="row">
-            <label>Titre</label>
+            <label>{t('recipeManual.formTitle')}</label>
             <div className="field">
-              <input type="text" name="title" className="wide" value={recipe.title} onChange={handleRecipeChange} placeholder="Ex. Salade de quinoa" />
+              <input type="text" name="title" className="wide" value={recipe.title} onChange={handleRecipeChange} placeholder={t('recipeManual.titlePlaceholder')} />
             </div>
           </div>
           <div className="row">
-            <label>Description</label>
+            <label>{t('recipeManual.description')}</label>
             <div className="field">
-              <input type="text" name="description" className="wide" value={recipe.description} onChange={handleRecipeChange} placeholder="Optionnel" />
+              <input type="text" name="description" className="wide" value={recipe.description} onChange={handleRecipeChange} placeholder={t('recipeManual.optional')} />
             </div>
           </div>
           <div className="row">
-            <label>Image (URL)</label>
+            <label>{t('recipeManual.image')}</label>
             <div className="field">
-              <input type="url" name="image" className="wide" value={recipe.image} onChange={handleRecipeChange} placeholder="Optionnel" />
+              <input type="url" name="image" className="wide" value={recipe.image} onChange={handleRecipeChange} placeholder={t('recipeManual.optional')} />
             </div>
           </div>
           <div className="row">
-            <label>Portions</label>
+            <label>{t('recipeManual.portions')}</label>
             <div className="field">
               <input type="number" name="portions" min="1" step="any" value={recipe.portions} onChange={handleRecipeChange} />
             </div>
           </div>
 
-          <h4 className="section-label">Ingrédients</h4>
+          <h4 className="section-label">{t('recipeManual.ingredients')}</h4>
           <datalist id="known-foods">
             {foods.map((f) => (
               <option key={f.id} value={f.name} />
@@ -207,7 +209,7 @@ export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, 
             <div key={i} className="manual-ingredient-row">
               <input
                 type="text"
-                placeholder="Nom"
+                placeholder={t('recipeManual.name')}
                 list="known-foods"
                 value={ing.nom}
                 onChange={(e) => handleIngredientChange(i, 'nom', e.target.value)}
@@ -215,15 +217,15 @@ export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, 
                 className="wide"
               />
               <div className="manual-ingredient-grid">
-                <input type="number" placeholder="Qté" min="0" step="any" value={ing.qte} onChange={(e) => handleIngredientChange(i, 'qte', e.target.value)} />
+                <input type="number" placeholder={t('recipeManual.qty')} min="0" step="any" value={ing.qte} onChange={(e) => handleIngredientChange(i, 'qte', e.target.value)} />
                 <select value={ing.unite} onChange={(e) => handleIngredientChange(i, 'unite', e.target.value)}>
                   <option value="g">g</option>
                   <option value="ml">ml</option>
                 </select>
-                <input type="number" placeholder="Kcal" min="0" step="any" value={ing.kcal} onChange={(e) => handleIngredientChange(i, 'kcal', e.target.value)} />
-                <input type="number" placeholder="Prot" min="0" step="any" value={ing.proteines} onChange={(e) => handleIngredientChange(i, 'proteines', e.target.value)} />
-                <input type="number" placeholder="Gluc" min="0" step="any" value={ing.glucides} onChange={(e) => handleIngredientChange(i, 'glucides', e.target.value)} />
-                <input type="number" placeholder="Lip" min="0" step="any" value={ing.lipides} onChange={(e) => handleIngredientChange(i, 'lipides', e.target.value)} />
+                <input type="number" placeholder={t('recipeManual.kcal')} min="0" step="any" value={ing.kcal} onChange={(e) => handleIngredientChange(i, 'kcal', e.target.value)} />
+                <input type="number" placeholder={t('recipeManual.protein')} min="0" step="any" value={ing.proteines} onChange={(e) => handleIngredientChange(i, 'proteines', e.target.value)} />
+                <input type="number" placeholder={t('recipeManual.carbs')} min="0" step="any" value={ing.glucides} onChange={(e) => handleIngredientChange(i, 'glucides', e.target.value)} />
+                <input type="number" placeholder={t('recipeManual.fat')} min="0" step="any" value={ing.lipides} onChange={(e) => handleIngredientChange(i, 'lipides', e.target.value)} />
                 <button type="button" className="btn-ghost" onClick={() => removeIngredient(i)}>
                   ✕
                 </button>
@@ -232,20 +234,20 @@ export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, 
           ))}
           <div className="inline-row">
             <button type="button" className="btn-ghost" onClick={() => setShowIngredientPicker(true)}>
-              📋 Choisir un aliment existant
+              {t('recipeManual.pickExisting')}
             </button>
             <button type="button" className="btn-ghost" onClick={addIngredient}>
-              + Ingrédient personnalisé
+              {t('recipeManual.customIngredient')}
             </button>
           </div>
 
-          <h4 className="section-label">Étapes</h4>
+          <h4 className="section-label">{t('recipeManual.steps')}</h4>
           {steps.map((step, i) => (
             <div key={i} className="manual-step-row">
               <input
                 type="text"
                 className="wide"
-                placeholder={`Étape ${i + 1}`}
+                placeholder={t('recipeManual.stepPlaceholder').replace('{n}', i + 1)}
                 value={step}
                 onChange={(e) => handleStepChange(i, e.target.value)}
               />
@@ -255,12 +257,12 @@ export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, 
             </div>
           ))}
           <button type="button" className="btn-ghost" onClick={addStep}>
-            + Ajouter une étape
+            {t('recipeManual.addStep')}
           </button>
 
           <div className="card-actions">
             <button type="submit" className="btn" disabled={loading}>
-              {loading ? 'Création…' : 'Créer la recette'}
+              {loading ? t('recipeManual.creating') : t('recipeManual.createRecipe')}
             </button>
           </div>
 
@@ -271,10 +273,10 @@ export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, 
       {showIngredientPicker && (
         <div className="modal-overlay" onClick={() => setShowIngredientPicker(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Choisir un aliment</h2>
+            <h2>{t('recipeManual.pickFood')}</h2>
             <input
               type="text"
-              placeholder="Rechercher un aliment..."
+              placeholder={t('recipeManual.searchFood')}
               value={ingredientSearch}
               onChange={(e) => setIngredientSearch(e.target.value)}
               style={{ marginBottom: 10 }}
@@ -301,11 +303,11 @@ export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, 
                 </div>
               ))}
             {foods.filter((f) => f.name.toLowerCase().includes(ingredientSearch.trim().toLowerCase())).length === 0 && (
-              <p className="hint">Aucun aliment trouvé.</p>
+              <p className="hint">{t('recipeManual.noFoodFound')}</p>
             )}
           </div>
           <button type="button" className="done-btn" onClick={() => setShowIngredientPicker(false)}>
-            Fermer
+            {t('recipeManual.close')}
           </button>
         </div>
       )}

@@ -1,20 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../api';
-
-const RANGES = [
-  { key: '7', label: '7 jours' },
-  { key: '14', label: '14 jours' },
-  { key: '30', label: '30 jours' },
-  { key: '60', label: '60 jours' },
-  { key: '90', label: '90 jours' },
-  { key: 'week', label: 'Cette semaine' },
-];
-
-const ANGLES = [
-  { key: 'front', label: 'Face' },
-  { key: 'back', label: 'Dos' },
-  { key: 'side', label: 'Profil' },
-];
+import { useLanguage } from '../i18n/LanguageContext';
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -40,35 +26,35 @@ function MetricChart({ series }) {
   );
 }
 
-function MetricBlock({ title, unit, stats, decimals = 1 }) {
+function MetricBlock({ title, unit, stats, decimals = 1, t }) {
   if (!stats) return null;
   return (
     <div className="result">
       <h2>{title}</h2>
       <div className="res-line">
-        <span>Dernière valeur</span>
+        <span>{t('weight.lastValue')}</span>
         <b>
           {stats.last.toFixed(decimals)} {unit}
         </b>
       </div>
       <div className="res-line">
-        <span>Évolution sur la période</span>
+        <span>{t('weight.periodEvolution')}</span>
         <b>
           {stats.delta >= 0 ? '+' : ''}
           {stats.delta.toFixed(decimals)} {unit}
         </b>
       </div>
       <div className="res-line">
-        <span>Min / Max</span>
+        <span>{t('weight.minMax')}</span>
         <b>
           {stats.min.toFixed(decimals)} / {stats.max.toFixed(decimals)} {unit}
         </b>
       </div>
       <div className="res-line total">
-        <span>Rythme moyen</span>
+        <span>{t('weight.avgRate')}</span>
         <b>
           {stats.weeklyRate >= 0 ? '+' : ''}
-          {stats.weeklyRate.toFixed(2)} {unit}/semaine
+          {stats.weeklyRate.toFixed(2)} {unit}{t('weight.perWeek')}
         </b>
       </div>
       <MetricChart series={stats.series} />
@@ -76,7 +62,7 @@ function MetricBlock({ title, unit, stats, decimals = 1 }) {
   );
 }
 
-function PhotoCompare({ photos, angle, label }) {
+function PhotoCompare({ photos, angle, label, t }) {
   const list = photos.filter((p) => p.angle === angle);
   if (list.length === 0) return null;
   const oldest = list[list.length - 1];
@@ -97,13 +83,13 @@ function PhotoCompare({ photos, angle, label }) {
           <div className="photo-tile">
             <img src={oldest.url} alt={oldest.date} />
             <div className="photo-tile-footer">
-              <span>Avant · {oldest.date}</span>
+              <span>{t('weight.before')} · {oldest.date}</span>
             </div>
           </div>
           <div className="photo-tile">
             <img src={newest.url} alt={newest.date} />
             <div className="photo-tile-footer">
-              <span>Après · {newest.date}</span>
+              <span>{t('weight.after')} · {newest.date}</span>
             </div>
           </div>
         </div>
@@ -113,6 +99,20 @@ function PhotoCompare({ photos, angle, label }) {
 }
 
 export default function WeightTracker() {
+  const { t } = useLanguage();
+  const RANGES = [
+    { key: '7', label: t('weight.range7') },
+    { key: '14', label: t('weight.range14') },
+    { key: '30', label: t('weight.range30') },
+    { key: '60', label: t('weight.range60') },
+    { key: '90', label: t('weight.range90') },
+    { key: 'week', label: t('weight.rangeWeek') },
+  ];
+  const ANGLES = [
+    { key: 'front', label: t('weight.angleFront') },
+    { key: 'back', label: t('weight.angleBack') },
+    { key: 'side', label: t('weight.angleSide') },
+  ];
   const [range, setRange] = useState('30');
   const [logs, setLogs] = useState([]);
   const [report, setReport] = useState(null);
@@ -155,7 +155,7 @@ export default function WeightTracker() {
     setError(null);
     const weightNum = Number(weight);
     if (!weight || Number.isNaN(weightNum) || weightNum <= 0) {
-      setError('Poids invalide — utilise un point pour les décimales (ex: 81.2)');
+      setError(t('weight.invalidWeight'));
       return;
     }
     const savedDate = date;
@@ -167,7 +167,7 @@ export default function WeightTracker() {
         waist_cm: waist,
       });
     } catch (err) {
-      setError(err.message || "Échec de l'enregistrement");
+      setError(err.message || t('weight.saveFailed'));
       return;
     }
     setWeight('');
@@ -176,7 +176,7 @@ export default function WeightTracker() {
     // Reset to today so forgetting to re-pick the date before the next save can only
     // ever re-save today's entry, instead of silently overwriting the previous date's row.
     setDate(todayStr());
-    setSavedMessage(`Enregistré pour le ${savedDate}`);
+    setSavedMessage(t('weight.savedFor').replace('{date}', savedDate));
     setTimeout(() => setSavedMessage(null), 3000);
 
     // If the saved date falls outside the currently displayed period, the entry would
@@ -215,7 +215,7 @@ export default function WeightTracker() {
 
   return (
     <div>
-      <h2>Poids</h2>
+      <h2>{t('weight.title')}</h2>
       <div className="card">
         <form className="stack-form" onSubmit={handleSubmit}>
           <div className="inline-row">
@@ -223,7 +223,7 @@ export default function WeightTracker() {
             <input
               type="text"
               inputMode="decimal"
-              placeholder="Poids (kg)"
+              placeholder={t('weight.weightPlaceholder')}
               value={weight}
               onChange={decimalInput(setWeight)}
               required
@@ -233,20 +233,20 @@ export default function WeightTracker() {
             <input
               type="text"
               inputMode="decimal"
-              placeholder="Masse grasse % (optionnel)"
+              placeholder={t('weight.bodyFatPlaceholder')}
               value={bodyFat}
               onChange={decimalInput(setBodyFat)}
             />
             <input
               type="text"
               inputMode="decimal"
-              placeholder="Tour de taille cm (optionnel)"
+              placeholder={t('weight.waistPlaceholder')}
               value={waist}
               onChange={decimalInput(setWaist)}
             />
           </div>
           <button type="submit" className="btn btn-small">
-            Enregistrer
+            {t('weight.save')}
           </button>
           {savedMessage && <p className="hint success">✓ {savedMessage}</p>}
           {error && <p className="hint error">{error}</p>}
@@ -261,7 +261,7 @@ export default function WeightTracker() {
             ))}
           </select>
           <button type="button" className="btn-ghost" onClick={() => fileInputRef.current?.click()}>
-            + Importer des photos
+            {t('weight.importPhotos')}
           </button>
           <input
             ref={fileInputRef}
@@ -286,28 +286,28 @@ export default function WeightTracker() {
         </div>
       </div>
 
-      {loading && <p className="hint">Chargement…</p>}
+      {loading && <p className="hint">{t('weight.loading')}</p>}
 
       {!loading && report?.insufficientData && (
         <div className="card">
           <p className="hint">
-            Ajoute au moins 2 pesées dans cette période pour voir l'évolution
-            {report.daysLogged > 0 ? ` (${report.daysLogged} pour l'instant)` : ''}.
+            {t('weight.needMoreEntries')}
+            {report.daysLogged > 0 ? t('weight.soFar').replace('{count}', report.daysLogged) : ''}.
           </p>
         </div>
       )}
 
       {!loading && report && !report.insufficientData && (
         <>
-          <MetricBlock title="Poids" unit="kg" stats={report.weight} />
-          <MetricBlock title="Masse grasse" unit="%" stats={report.bodyFat} />
-          <MetricBlock title="Tour de taille" unit="cm" stats={report.waist} />
+          <MetricBlock title={t('weight.weight')} unit="kg" stats={report.weight} t={t} />
+          <MetricBlock title={t('weight.bodyFat')} unit="%" stats={report.bodyFat} t={t} />
+          <MetricBlock title={t('weight.waist')} unit="cm" stats={report.waist} t={t} />
         </>
       )}
 
       {logs.length > 0 && (
         <>
-          <h2>Historique</h2>
+          <h2>{t('weight.history')}</h2>
           <div className="card">
             {logs
               .slice()
@@ -317,7 +317,7 @@ export default function WeightTracker() {
                   <div className="name">
                     <span>{l.date}</span>
                     <span className="rate">
-                      {l.body_fat_pct != null ? `${l.body_fat_pct}% MG` : ''}
+                      {l.body_fat_pct != null ? `${l.body_fat_pct}% ${t('weight.bodyFatShort')}` : ''}
                       {l.body_fat_pct != null && l.waist_cm != null ? ' · ' : ''}
                       {l.waist_cm != null ? `${l.waist_cm} cm` : ''}
                     </span>
@@ -325,7 +325,7 @@ export default function WeightTracker() {
                   <div className="field">
                     <b>{l.weight_kg.toFixed(1)} kg</b>
                     <button className="btn-ghost" onClick={() => handleDeleteLog(l.id)}>
-                      Supprimer
+                      {t('weight.delete')}
                     </button>
                   </div>
                 </div>
@@ -336,14 +336,14 @@ export default function WeightTracker() {
 
       {photos.length > 0 && (
         <>
-          <h2>Avant / Après</h2>
+          <h2>{t('weight.beforeAfter')}</h2>
           <div className="card">
             {ANGLES.map((a) => (
-              <PhotoCompare key={a.key} photos={photos} angle={a.key} label={a.label} />
+              <PhotoCompare key={a.key} photos={photos} angle={a.key} label={a.label} t={t} />
             ))}
           </div>
 
-          <h2>Toutes les photos</h2>
+          <h2>{t('weight.allPhotos')}</h2>
           <div className="photo-grid">
             {photos.map((p) => (
               <div className="photo-tile" key={p.id}>

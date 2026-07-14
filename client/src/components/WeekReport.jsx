@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import ImprovementInsights from './ImprovementInsights';
 import SourceList from './SourceList';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function WeekReport({ period }) {
+  const { t } = useLanguage();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedKey, setExpandedKey] = useState(null);
@@ -18,17 +20,17 @@ export default function WeekReport({ period }) {
     refresh();
   }, [refresh]);
 
-  if (loading) return <p className="hint">Calcul du rapport…</p>;
+  if (loading) return <p className="hint">{t('week.computing')}</p>;
   if (!report) return null;
 
-  const periodLabel = period === 'month' ? 'ce mois' : period === 'quarter' ? 'ce trimestre' : 'cette semaine';
-  const periodWord = period === 'month' ? 'le mois' : period === 'quarter' ? 'le trimestre' : 'la semaine';
-  const periodWeeksWord = period === 'quarter' ? 'les semaines du trimestre' : 'les semaines du mois';
+  const periodLabel = period === 'month' ? t('week.periodThisMonth') : period === 'quarter' ? t('week.periodThisQuarter') : t('week.periodThisWeek');
+  const periodWord = period === 'month' ? t('week.periodTheMonth') : period === 'quarter' ? t('week.periodTheQuarter') : t('week.periodTheWeek');
+  const periodWeeksWord = period === 'quarter' ? t('week.periodQuarterWeeks') : t('week.periodMonthWeeks');
 
   if (report.insufficientData) {
     return (
       <div className="card">
-        <p className="hint">Aucun jour renseigné pour {periodLabel}.</p>
+        <p className="hint">{t('week.noDataFor').replace('{period}', periodLabel)}</p>
       </div>
     );
   }
@@ -43,11 +45,11 @@ export default function WeekReport({ period }) {
   return (
     <div>
       <p className="hint">
-        {daysLogged} jour(s) sur {daysInRange} renseigné(s)
+        {t('week.daysLogged').replace('{logged}', daysLogged).replace('{total}', daysInRange)}
       </p>
       {lowCoverageWarning && <p className="hint error">{lowCoverageWarning}</p>}
 
-      <h2>Seuils à ne pas dépasser (moyenne)</h2>
+      <h2>{t('week.limitsAvgTitle')}</h2>
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {limitAverages.map((l) => {
           const sources = microSources[l.key];
@@ -61,14 +63,16 @@ export default function WeekReport({ period }) {
                   {canExpand && <span className="micro-source-toggle">{expanded ? ' ▾' : ' ▸'}</span>}
                 </span>
                 <span className="rate" style={l.over ? { color: 'var(--danger)' } : undefined}>
-                  {l.over ? `dépassé en moyenne (+${(l.consumed - l.reference).toFixed(0)} ${l.unit})` : `${Math.round(l.pct)}% du seuil en moyenne`}
+                  {l.over
+                    ? t('week.exceededAvg').replace('{diff}', (l.consumed - l.reference).toFixed(0)).replace('{unit}', l.unit)
+                    : t('week.pctOfLimitAvg').replace('{pct}', Math.round(l.pct))}
                 </span>
               </div>
               <div className="progress-track">
                 <div className={l.over ? 'progress-fill fill-low' : 'progress-fill'} style={{ width: `${Math.min(100, l.pct)}%` }} />
               </div>
               <span className="hint" style={{ margin: 0 }}>
-                {l.consumed.toFixed(0)} / {l.reference.toFixed(0)} {l.unit} par jour
+                {l.consumed.toFixed(0)} / {l.reference.toFixed(0)} {l.unit} {t('week.perDay')}
               </span>
               {expanded && <SourceList sources={sources} unit={l.unit} />}
             </div>
@@ -76,9 +80,9 @@ export default function WeekReport({ period }) {
         })}
       </div>
 
-      <h2>Objectifs quotidiens (moyenne)</h2>
+      <h2>{t('week.dailyGoalsAvgTitle')}</h2>
       <p className="hint" style={{ marginTop: -8 }}>
-        Mêmes nutriments que le rapport Aujourd'hui, moyennés sur {periodWord}.
+        {t('week.sameAsTodayHint').replace('{period}', periodWord)}
       </p>
       <div className="card">
         {dailyAverageMicros.map((m) => {
@@ -106,10 +110,10 @@ export default function WeekReport({ period }) {
         })}
       </div>
 
-      <h2>Objectifs hebdomadaires{period !== 'current' && period !== 'past' ? ` (moyenne des ${periodWeeksWord})` : ''}</h2>
+      <h2>{t('week.weeklyGoalsTitle')}{period !== 'current' && period !== 'past' ? t('week.avgOfWeeks').replace('{weeks}', periodWeeksWord) : ''}</h2>
       <p className="hint" style={{ marginTop: -8 }}>
-        Nutriments qui se stockent dans le corps — jugés sur la semaine, pas sur un seul jour.
-        {period !== 'current' && period !== 'past' ? ` Chaque semaine ${period === 'quarter' ? 'du trimestre' : 'du mois'} est jugée séparément, puis moyennée.` : ''}
+        {t('week.storedNutrientsHint')}
+        {period !== 'current' && period !== 'past' ? t('week.judgedSeparately').replace('{period}', period === 'quarter' ? t('week.ofTheQuarter') : t('week.ofTheMonth')) : ''}
       </p>
       <div className="card">
         {weeklyObjectives.map((o) => {
@@ -125,7 +129,7 @@ export default function WeekReport({ period }) {
                 </span>
                 <span className="rate" style={o.met ? { color: 'var(--ok-green)' } : undefined}>
                   {o.met
-                    ? `✓ Objectif atteint en moyenne — inutile d'en consommer plus ${periodLabel}`
+                    ? t('week.goalMetAvg').replace('{period}', periodLabel)
                     : `${Math.round(o.pct)}%`}
                 </span>
               </div>
@@ -144,14 +148,14 @@ export default function WeekReport({ period }) {
         })}
       </div>
 
-      <h2>Microbiote</h2>
+      <h2>{t('week.microbiote')}</h2>
       <div className="card">
         <div style={{ textAlign: 'center', marginBottom: 10 }}>
           <div style={{ fontSize: 32, fontWeight: 700 }}>
             {microbiote.plantCount} / {microbiote.plantTarget}
           </div>
           <p className="hint" style={{ margin: 0 }}>
-            plantes différentes {period !== 'current' && period !== 'past' ? `en moyenne par semaine ${periodLabel}` : 'cette semaine'}
+            {t('week.differentPlants')} {period !== 'current' && period !== 'past' ? t('week.avgPerWeek').replace('{period}', periodLabel) : t('week.thisWeek')}
           </p>
         </div>
         <div className="progress-track">
@@ -163,12 +167,12 @@ export default function WeekReport({ period }) {
 
         {microbiote.plantList.length > 0 && (
           <p className="hint" style={{ marginTop: 10 }}>
-            Déjà mangées : {microbiote.plantList.join(', ')}
+            {t('week.alreadyEaten')} : {microbiote.plantList.join(', ')}
           </p>
         )}
         {microbiote.plantSuggestions.length > 0 && (
           <p className="hint micro-reco-line">
-            👉 Pour progresser, essaie : {microbiote.plantSuggestions.join(', ')}.
+            👉 {t('week.toProgress')} : {microbiote.plantSuggestions.join(', ')}.
           </p>
         )}
 
@@ -179,14 +183,14 @@ export default function WeekReport({ period }) {
         >
           <div className="name">
             <span>
-              Aliments fermentés
+              {t('week.fermentedFoods')}
               {microbiote.fermentedFoods.length > 0 && (
                 <span className="micro-source-toggle">{expandedKey === 'fermented' ? ' ▾' : ' ▸'}</span>
               )}
             </span>
-            <span className="rate">cible 1-2/jour</span>
+            <span className="rate">{t('week.fermentedTarget')}</span>
           </div>
-          <b>{microbiote.fermentedAvgPerDay.toFixed(1)} / jour</b>
+          <b>{microbiote.fermentedAvgPerDay.toFixed(1)} {t('week.perDayShort')}</b>
         </div>
         {expandedKey === 'fermented' && (
           <div className="micro-source-list">
@@ -200,19 +204,19 @@ export default function WeekReport({ period }) {
 
         {microbiote.prebioticSources.length > 0 && (
           <p className="hint" style={{ marginTop: 10 }}>
-            Prébiotiques consommés : {microbiote.prebioticSources.join(', ')}
+            {t('week.prebioticsEaten')} : {microbiote.prebioticSources.join(', ')}
           </p>
         )}
         {microbiote.polyphenolSources.length > 0 && (
           <p className="hint" style={{ marginTop: 4 }}>
-            Sources de polyphénols : {microbiote.polyphenolSources.join(', ')}
+            {t('week.polyphenolSources')} : {microbiote.polyphenolSources.join(', ')}
           </p>
         )}
       </div>
 
       {period !== 'current' && (
         <>
-          <h2>Améliorations</h2>
+          <h2>{t('week.improvements')}</h2>
           <ImprovementInsights insights={insights} />
         </>
       )}

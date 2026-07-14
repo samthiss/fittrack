@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-
-const OPTIONS = [
-  { value: 500, label: '−500 · ~0,45 kg/sem' },
-  { value: 750, label: '−750 · ~0,65 kg/sem' },
-  { value: 1000, label: '−1000 · ~0,85 kg/sem' },
-];
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function DeficitSelect({ profile, onSave }) {
+  const { t } = useLanguage();
   const [value, setValue] = useState(750);
+
+  const OPTIONS = [
+    { value: 500, label: t('deficitSelect.optionLow') },
+    { value: 750, label: t('deficitSelect.optionMid') },
+    { value: 1000, label: t('deficitSelect.optionHigh') },
+  ];
 
   useEffect(() => {
     if (profile?.goal_kcal) setValue(profile.goal_kcal);
@@ -21,10 +23,10 @@ export default function DeficitSelect({ profile, onSave }) {
 
   return (
     <div>
-      <h2>Déficit visé</h2>
+      <h2>{t('deficitSelect.title')}</h2>
       <div className="card">
         <div className="row">
-          <label htmlFor="deficit">Déficit visé</label>
+          <label htmlFor="deficit">{t('deficitSelect.title')}</label>
           <div className="field">
             <select id="deficit" value={value} onChange={handleChange}>
               {OPTIONS.map((o) => (

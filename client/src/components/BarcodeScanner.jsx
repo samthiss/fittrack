@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader, BarcodeFormat } from '@zxing/browser';
 import { DecodeHintType } from '@zxing/library';
+import { useLanguage } from '../i18n/LanguageContext';
 
 // Retail products use these 1D formats — narrowing to them (vs. the full QR/PDF417/DataMatrix/
 // Aztec/MaxiCode set the reader tries by default) skips wasted decode attempts on every frame.
@@ -16,6 +17,7 @@ const HINTS = new Map([
 ]);
 
 export default function BarcodeScanner({ onDetected, onClose }) {
+  const { t } = useLanguage();
   const videoRef = useRef(null);
   const [error, setError] = useState(null);
 
@@ -45,7 +47,7 @@ export default function BarcodeScanner({ onDetected, onClose }) {
       .then((c) => {
         controls = c;
       })
-      .catch((e) => setError("Impossible d'accéder à la caméra : " + e.message));
+      .catch((e) => setError(t('barcode.cameraError') + e.message));
 
     return () => {
       active = false;
@@ -66,11 +68,11 @@ export default function BarcodeScanner({ onDetected, onClose }) {
         </div>
       </div>
       <p className="hint" style={{ textAlign: 'center', marginTop: -4 }}>
-        Aligne le code-barre à l'horizontale dans le cadre
+        {t('barcode.guideHint')}
       </p>
       {error && <p className="hint error">{error}</p>}
       <button type="button" className="btn-ghost" onClick={onClose}>
-        Fermer la caméra
+        {t('barcode.close')}
       </button>
     </div>
   );

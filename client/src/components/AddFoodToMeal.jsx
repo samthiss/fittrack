@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import BarcodeScanner from './BarcodeScanner';
 import { api } from '../api';
 import { findRecurringItems } from './MealPlanner';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const EMPTY_FOOD = { name: '', kcal_per_100g: '', protein_per_100g: '', carbs_per_100g: '', fat_per_100g: '' };
 
@@ -25,33 +26,26 @@ function recipeMacrosPerPortion(recipe) {
   };
 }
 
-const TOOLS = [
-  { key: 'search', icon: '🔍', label: 'Recherche' },
-  { key: 'barcode', icon: '▦', label: 'Code-barres' },
-  { key: 'write', icon: '✎', label: 'Écrire' },
-  { key: 'manual', icon: '+', label: 'Manuel' },
-];
-
 const MICRO_FIELDS = [
-  { key: 'fiber', label: 'Fibres', unit: 'g' },
-  { key: 'sodium', label: 'Sodium', unit: 'mg' },
-  { key: 'potassium', label: 'Potassium', unit: 'mg' },
-  { key: 'magnesium', label: 'Magnésium', unit: 'mg' },
-  { key: 'calcium', label: 'Calcium', unit: 'mg' },
-  { key: 'zinc', label: 'Zinc', unit: 'mg' },
-  { key: 'iron', label: 'Fer', unit: 'mg' },
-  { key: 'selenium', label: 'Sélénium', unit: 'µg' },
-  { key: 'iodine', label: 'Iode', unit: 'µg' },
-  { key: 'vitamin_c', label: 'Vitamine C', unit: 'mg' },
-  { key: 'vitamin_a', label: 'Vitamine A', unit: 'µg' },
-  { key: 'vitamin_d', label: 'Vitamine D', unit: 'UI' },
-  { key: 'vitamin_e', label: 'Vitamine E', unit: 'mg' },
-  { key: 'vitamin_k', label: 'Vitamine K', unit: 'µg' },
-  { key: 'folate', label: 'Folates (B9)', unit: 'µg' },
-  { key: 'b12', label: 'Vitamine B12', unit: 'µg' },
-  { key: 'choline', label: 'Choline', unit: 'mg' },
-  { key: 'omega3', label: 'Oméga-3', unit: 'mg' },
-  { key: 'caffeine', label: 'Caféine', unit: 'mg' },
+  { key: 'fiber', labelKey: 'nutrient.fiber', unit: 'g' },
+  { key: 'sodium', labelKey: 'nutrient.sodium', unit: 'mg' },
+  { key: 'potassium', labelKey: 'nutrient.potassium', unit: 'mg' },
+  { key: 'magnesium', labelKey: 'nutrient.magnesium', unit: 'mg' },
+  { key: 'calcium', labelKey: 'nutrient.calcium', unit: 'mg' },
+  { key: 'zinc', labelKey: 'nutrient.zinc', unit: 'mg' },
+  { key: 'iron', labelKey: 'nutrient.iron', unit: 'mg' },
+  { key: 'selenium', labelKey: 'nutrient.selenium', unit: 'µg' },
+  { key: 'iodine', labelKey: 'nutrient.iodine', unit: 'µg' },
+  { key: 'vitamin_c', labelKey: 'nutrient.vitaminC', unit: 'mg' },
+  { key: 'vitamin_a', labelKey: 'nutrient.vitaminA', unit: 'µg' },
+  { key: 'vitamin_d', labelKey: 'nutrient.vitaminD', unit: 'UI' },
+  { key: 'vitamin_e', labelKey: 'nutrient.vitaminE', unit: 'mg' },
+  { key: 'vitamin_k', labelKey: 'nutrient.vitaminK', unit: 'µg' },
+  { key: 'folate', labelKey: 'nutrient.folate', unit: 'µg' },
+  { key: 'b12', labelKey: 'nutrient.b12', unit: 'µg' },
+  { key: 'choline', labelKey: 'nutrient.choline', unit: 'mg' },
+  { key: 'omega3', labelKey: 'nutrient.omega3', unit: 'mg' },
+  { key: 'caffeine', labelKey: 'nutrient.caffeine', unit: 'mg' },
 ];
 
 export default function AddFoodToMeal({
@@ -71,6 +65,13 @@ export default function AddFoodToMeal({
   onAddFavorite,
   onRemoveFavorite,
 }) {
+  const { t } = useLanguage();
+  const TOOLS = [
+    { key: 'search', icon: '🔍', label: t('addFood.toolSearch') },
+    { key: 'barcode', icon: '▦', label: t('addFood.toolBarcode') },
+    { key: 'write', icon: '✎', label: t('addFood.toolWrite') },
+    { key: 'manual', icon: '+', label: t('addFood.toolManual') },
+  ];
   const [activeTool, setActiveTool] = useState('search');
   const [search, setSearch] = useState('');
   const [itemKind, setItemKind] = useState('food');
@@ -292,7 +293,7 @@ export default function AddFoodToMeal({
   }
 
   async function handleBarcodeDetected(code) {
-    setScanStatus({ text: 'Recherche du produit…' });
+    setScanStatus({ text: t('addFood.searchingProduct') });
     setScanResult(null);
     try {
       const result = await onLookupBarcode(code);
@@ -300,7 +301,7 @@ export default function AddFoodToMeal({
       setScanQty(String(Math.round(result.suggestedQuantity || 100)));
       setScanStatus(null);
     } catch (err) {
-      setScanStatus({ text: err.message || 'Produit introuvable.', error: true });
+      setScanStatus({ text: err.message || t('addFood.productNotFound'), error: true });
     }
   }
 
@@ -315,7 +316,7 @@ export default function AddFoodToMeal({
       setOnlineResults(products);
       setOnlineSearchedFor(term);
     } catch (err) {
-      setOnlineError(err.message || 'Recherche en ligne indisponible pour le moment.');
+      setOnlineError(err.message || t('addFood.onlineSearchUnavailable'));
     } finally {
       setOnlineLoading(false);
     }
@@ -329,7 +330,7 @@ export default function AddFoodToMeal({
   async function handleParseText() {
     if (!textInput.trim()) return;
     setTextLoading(true);
-    setScanStatus({ text: 'Analyse en cours…' });
+    setScanStatus({ text: t('addFood.analyzing') });
     setScanResult(null);
     try {
       const result = await onParseText(textInput.trim());
@@ -338,7 +339,7 @@ export default function AddFoodToMeal({
       setScanStatus(null);
       setTextInput('');
     } catch (err) {
-      setScanStatus({ text: err.message || "Échec de l'analyse.", error: true });
+      setScanStatus({ text: err.message || t('addFood.analysisFailed'), error: true });
     } finally {
       setTextLoading(false);
     }
@@ -433,7 +434,7 @@ export default function AddFoodToMeal({
           <button
             type="button"
             className={isFavorite ? 'star-btn active' : 'star-btn'}
-            title="Ajouter à tes habitudes pour ce repas"
+            title={t('addFood.addToFavorites')}
             onClick={() => handleToggleFavorite(item)}
           >
             {isFavorite ? '★' : '☆'}
@@ -442,7 +443,7 @@ export default function AddFoodToMeal({
             <button
               type="button"
               className="btn-ghost"
-              title="Modifier les infos nutritionnelles"
+              title={t('addFood.editNutrition')}
               onClick={() => openEditFood(item)}
             >
               ✎
@@ -451,7 +452,7 @@ export default function AddFoodToMeal({
           <button
             type="button"
             className="btn-ghost"
-            title={item.type === 'food' ? 'Supprimer cet aliment de ta bibliothèque' : 'Supprimer cette recette'}
+            title={item.type === 'food' ? t('addFood.deleteFood') : t('addFood.deleteRecipe')}
             onClick={() => (item.type === 'food' ? onDeleteFood(item.id) : onDeleteRecipe(item.id))}
           >
             🗑
@@ -465,18 +466,18 @@ export default function AddFoodToMeal({
 
   return (
     <div>
-      <h2>Ajouter un aliment</h2>
+      <h2>{t('addFood.title')}</h2>
       <div className="card">
         <div className="tool-menu-row">
-          {TOOLS.map((t) => (
+          {TOOLS.map((tool) => (
             <button
-              key={t.key}
+              key={tool.key}
               type="button"
-              className={t.key === activeTool ? 'tool-tile active' : 'tool-tile'}
-              onClick={() => setActiveTool(t.key)}
+              className={tool.key === activeTool ? 'tool-tile active' : 'tool-tile'}
+              onClick={() => setActiveTool(tool.key)}
             >
-              <span className="tool-tile-icon">{t.icon}</span>
-              <span className="tool-tile-label">{t.label}</span>
+              <span className="tool-tile-icon">{tool.icon}</span>
+              <span className="tool-tile-label">{tool.label}</span>
             </button>
           ))}
         </div>
@@ -493,12 +494,12 @@ export default function AddFoodToMeal({
             <textarea
               className="wide"
               rows={4}
-              placeholder='Décris ce que tu as mangé, ex. "200gr skyr et une banane"'
+              placeholder={t('addFood.writePlaceholder')}
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
             />
             <button type="button" className="btn btn-block" onClick={handleParseText} disabled={textLoading}>
-              {textLoading ? 'Analyse…' : 'Analyser'}
+              {textLoading ? t('addFood.analyzingAction') : t('addFood.analyzeAction')}
             </button>
             {scanStatus && <p className={scanStatus.error ? 'hint error' : 'hint'}>{scanStatus.text}</p>}
           </>
@@ -507,34 +508,34 @@ export default function AddFoodToMeal({
         {activeTool === 'manual' && (
           <form onSubmit={handleManualSubmit}>
             <div className="row">
-              <label>Nom</label>
+              <label>{t('addFood.name')}</label>
               <div className="field">
-                <input type="text" name="name" value={manualForm.name} onChange={handleManualChange} placeholder="Ex. Riz blanc cuit" />
+                <input type="text" name="name" value={manualForm.name} onChange={handleManualChange} placeholder={t('addFood.namePlaceholder')} />
               </div>
             </div>
             <div className="row">
-              <label>Kcal / 100g</label>
+              <label>{t('addFood.kcalPer100g')}</label>
               <div className="field">
                 <input type="number" name="kcal_per_100g" min="0" step="any" value={manualForm.kcal_per_100g} onChange={handleManualChange} />
                 <span className="unit">kcal</span>
               </div>
             </div>
             <div className="row">
-              <label>Protéines / 100g</label>
+              <label>{t('addFood.proteinPer100g')}</label>
               <div className="field">
                 <input type="number" name="protein_per_100g" min="0" step="any" value={manualForm.protein_per_100g} onChange={handleManualChange} />
                 <span className="unit">g</span>
               </div>
             </div>
             <div className="row">
-              <label>Glucides / 100g</label>
+              <label>{t('addFood.carbsPer100g')}</label>
               <div className="field">
                 <input type="number" name="carbs_per_100g" min="0" step="any" value={manualForm.carbs_per_100g} onChange={handleManualChange} />
                 <span className="unit">g</span>
               </div>
             </div>
             <div className="row">
-              <label>Lipides / 100g</label>
+              <label>{t('addFood.fatPer100g')}</label>
               <div className="field">
                 <input type="number" name="fat_per_100g" min="0" step="any" value={manualForm.fat_per_100g} onChange={handleManualChange} />
                 <span className="unit">g</span>
@@ -542,7 +543,7 @@ export default function AddFoodToMeal({
             </div>
             <div className="card-actions">
               <button type="submit" className="btn">
-                Créer et ajouter
+                {t('addFood.createAndAdd')}
               </button>
             </div>
           </form>
@@ -553,7 +554,7 @@ export default function AddFoodToMeal({
             <input
               type="text"
               className="wide search-input"
-              placeholder="Qu'as-tu mangé ?"
+              placeholder={t('addFood.searchPlaceholder')}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -565,7 +566,7 @@ export default function AddFoodToMeal({
             {showingSearch ? (
               results.length === 0 ? (
                 <>
-                  <p className="hint">Aucun résultat dans ta bibliothèque.</p>
+                  <p className="hint">{t('addFood.noLibraryResults')}</p>
                   {onSearchOnline && (
                     <>
                       {onlineSearchedFor === search.trim() && onlineResults ? null : (
@@ -575,12 +576,12 @@ export default function AddFoodToMeal({
                           onClick={handleSearchOnline}
                           disabled={onlineLoading}
                         >
-                          {onlineLoading ? 'Recherche…' : '🔍 Rechercher en ligne'}
+                          {onlineLoading ? t('addFood.searching') : t('addFood.searchOnline')}
                         </button>
                       )}
                       {onlineError && <p className="hint error">{onlineError}</p>}
                       {onlineResults && onlineResults.length === 0 && (
-                        <p className="hint">Aucun résultat en ligne pour "{onlineSearchedFor}".</p>
+                        <p className="hint">{t('addFood.noOnlineResults').replace('{term}', onlineSearchedFor)}</p>
                       )}
                       {onlineResults &&
                         onlineResults.map((product, i) => (
@@ -593,7 +594,7 @@ export default function AddFoodToMeal({
                         ))}
                     </>
                   )}
-                  {!onSearchOnline && <p className="hint">Essaie le code-barre, "Écrire" ou "Manuel".</p>}
+                  {!onSearchOnline && <p className="hint">{t('addFood.tryOtherTools')}</p>}
                 </>
               ) : (
                 results.map(renderItemRow)
@@ -602,24 +603,24 @@ export default function AddFoodToMeal({
               <>
                 <div className="type-list-row">
                   <select className="pill-select" value={itemKind} onChange={(e) => setItemKind(e.target.value)}>
-                    <option value="food">Aliments</option>
-                    <option value="recipe">Recettes</option>
+                    <option value="food">{t('addFood.kindFood')}</option>
+                    <option value="recipe">{t('addFood.kindRecipe')}</option>
                   </select>
                   <select className="pill-select" value={listMode} onChange={(e) => setListMode(e.target.value)}>
-                    <option value="frequent">Fréquents</option>
-                    <option value="recent">Récents</option>
-                    <option value="favorite">Favoris</option>
-                    <option value="all">Toute la liste</option>
+                    <option value="frequent">{t('addFood.modeFrequent')}</option>
+                    <option value="recent">{t('addFood.modeRecent')}</option>
+                    <option value="favorite">{t('addFood.modeFavorite')}</option>
+                    <option value="all">{t('addFood.modeAll')}</option>
                   </select>
                 </div>
 
                 {browseListItems.length === 0 ? (
                   <p className="hint">
                     {listMode === 'favorite'
-                      ? "Aucun favori pour l'instant — appuie sur ★ sur un élément pour l'ajouter."
+                      ? t('addFood.noFavorites')
                       : listMode === 'all'
-                      ? "Rien ici pour l'instant — cherche ou crée un aliment."
-                      : "Aucun historique pour l'instant — cherche ou crée un aliment."}
+                      ? t('addFood.noItemsAll')
+                      : t('addFood.noHistory')}
                   </p>
                 ) : (
                   browseListItems.map(renderItemRow)
@@ -656,19 +657,19 @@ export default function AddFoodToMeal({
                 </div>
                 <div className="tile">
                   <b>{viewingItemMacros.carbs.toFixed(1)} g</b>
-                  <span>Glucides</span>
+                  <span>{t('nutrient.carbs')}</span>
                 </div>
                 <div className="tile">
                   <b>{viewingItemMacros.protein.toFixed(1)} g</b>
-                  <span>Protéines</span>
+                  <span>{t('nutrient.protein')}</span>
                 </div>
                 <div className="tile">
                   <b>{viewingItemMacros.fat.toFixed(1)} g</b>
-                  <span>Lipides</span>
+                  <span>{t('nutrient.fat')}</span>
                 </div>
               </div>
             )}
-            <h4 className="section-label">Quantité</h4>
+            <h4 className="section-label">{t('addFood.quantity')}</h4>
             <div className="qty-editor">
               <div className="qty-editor-row">
                 <input
@@ -688,11 +689,11 @@ export default function AddFoodToMeal({
                     <option value="ml">ml</option>
                   </select>
                 ) : (
-                  <span className="qty-editor-unit">portion(s)</span>
+                  <span className="qty-editor-unit">{t('addFood.portion')}</span>
                 )}
               </div>
               {viewingItem.type === 'food' && modalUnit === 'ml' && (
-                <p className="hint">💧 Comptera aussi dans le total d'eau du jour.</p>
+                <p className="hint">{t('addFood.waterNote')}</p>
               )}
               {mealKey && (
                 <label className="recurring-toggle-row">
@@ -701,11 +702,11 @@ export default function AddFoodToMeal({
                     checked={modalRecurring}
                     onChange={(e) => setModalRecurring(e.target.checked)}
                   />
-                  <span>🔁 Repas récurrant</span>
+                  <span>{t('addFood.recurringMeal')}</span>
                 </label>
               )}
               <button type="button" className="btn btn-block" onClick={handleModalSave} disabled={savingModal}>
-                {savingModal ? 'Enregistrement…' : 'Enregistrer'}
+                {savingModal ? t('addFood.saving') : t('addFood.save')}
               </button>
             </div>
           </div>
@@ -724,19 +725,19 @@ export default function AddFoodToMeal({
                 </div>
                 <div className="tile">
                   <b>{scanResultMacros.carbs.toFixed(1)} g</b>
-                  <span>Glucides</span>
+                  <span>{t('nutrient.carbs')}</span>
                 </div>
                 <div className="tile">
                   <b>{scanResultMacros.protein.toFixed(1)} g</b>
-                  <span>Protéines</span>
+                  <span>{t('nutrient.protein')}</span>
                 </div>
                 <div className="tile">
                   <b>{scanResultMacros.fat.toFixed(1)} g</b>
-                  <span>Lipides</span>
+                  <span>{t('nutrient.fat')}</span>
                 </div>
               </div>
             )}
-            <h4 className="section-label">Quantité</h4>
+            <h4 className="section-label">{t('addFood.quantity')}</h4>
             <div className="qty-editor">
               <div className="qty-editor-row">
                 <input
@@ -749,7 +750,7 @@ export default function AddFoodToMeal({
                 <span className="qty-editor-unit">g</span>
               </div>
               <button type="button" className="btn btn-block" onClick={handleAddScanResult} disabled={scanAdding}>
-                {scanAdding ? 'Enregistrement…' : 'Enregistrer'}
+                {scanAdding ? t('addFood.saving') : t('addFood.save')}
               </button>
             </div>
           </div>
@@ -759,10 +760,10 @@ export default function AddFoodToMeal({
       {editingFood && editForm && (
         <div className="modal-overlay" onClick={() => setEditingFood(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Modifier {editingFood.name}</h2>
+            <h2>{t('addFood.editTitle').replace('{name}', editingFood.name)}</h2>
             <form onSubmit={handleSaveEditFood}>
               <div className="row">
-                <label>Nom</label>
+                <label>{t('addFood.name')}</label>
                 <div className="field">
                   <input
                     type="text"
@@ -772,7 +773,7 @@ export default function AddFoodToMeal({
                 </div>
               </div>
               <div className="row">
-                <label>Portion de référence</label>
+                <label>{t('addFood.referencePortion')}</label>
                 <div className="field">
                   <input
                     type="number"
@@ -784,12 +785,9 @@ export default function AddFoodToMeal({
                   <span className="unit">g</span>
                 </div>
               </div>
-              <p className="hint">
-                Saisis les valeurs pour cette portion (ex: 80mg caféine pour 30g) — c'est converti
-                automatiquement en valeurs pour 100g.
-              </p>
+              <p className="hint">{t('addFood.referenceHint')}</p>
               <div className="row">
-                <label>Kcal / {editPortion}g</label>
+                <label>{t('addFood.kcalPer100g').replace('100g', `${editPortion}g`)}</label>
                 <div className="field">
                   <input
                     type="number"
@@ -802,7 +800,7 @@ export default function AddFoodToMeal({
                 </div>
               </div>
               <div className="row">
-                <label>Protéines / {editPortion}g</label>
+                <label>{t('addFood.proteinPer100g').replace('100g', `${editPortion}g`)}</label>
                 <div className="field">
                   <input
                     type="number"
@@ -815,7 +813,7 @@ export default function AddFoodToMeal({
                 </div>
               </div>
               <div className="row">
-                <label>Glucides / {editPortion}g</label>
+                <label>{t('addFood.carbsPer100g').replace('100g', `${editPortion}g`)}</label>
                 <div className="field">
                   <input
                     type="number"
@@ -828,7 +826,7 @@ export default function AddFoodToMeal({
                 </div>
               </div>
               <div className="row">
-                <label>Lipides / {editPortion}g</label>
+                <label>{t('addFood.fatPer100g').replace('100g', `${editPortion}g`)}</label>
                 <div className="field">
                   <input
                     type="number"
@@ -841,10 +839,10 @@ export default function AddFoodToMeal({
                 </div>
               </div>
 
-              <h4 className="section-label">Micronutriments / {editPortion}g</h4>
+              <h4 className="section-label">{t('addFood.micronutrientsFor').replace('{portion}', editPortion)}</h4>
               {MICRO_FIELDS.map((f) => (
                 <div className="row" key={f.key}>
-                  <label>{f.label}</label>
+                  <label>{t(f.labelKey)}</label>
                   <div className="field">
                     <input
                       type="number"
@@ -859,11 +857,11 @@ export default function AddFoodToMeal({
               ))}
 
               <button type="submit" className="btn btn-block" disabled={editSaving}>
-                {editSaving ? 'Enregistrement…' : 'Enregistrer'}
+                {editSaving ? t('addFood.saving') : t('addFood.save')}
               </button>
             </form>
             <button type="button" className="done-btn" onClick={() => setEditingFood(null)}>
-              Fermer
+              {t('addFood.close')}
             </button>
           </div>
         </div>

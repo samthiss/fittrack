@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import TodayReport from './TodayReport';
 import WeekReport from './WeekReport';
+import { useLanguage } from '../i18n/LanguageContext';
 
 function yesterdayStr() {
   const d = new Date();
@@ -8,18 +9,19 @@ function yesterdayStr() {
   return d.toISOString().slice(0, 10);
 }
 
-const VIEWS = [
-  { key: 'today', label: "Aujourd'hui" },
-  { key: 'yesterday', label: 'Hier' },
-  { key: 'week-current', label: 'Semaine en cours' },
-  { key: 'week-past', label: 'Semaine passée' },
-  { key: 'month', label: 'Mois passé' },
-  { key: 'quarter', label: 'Dernier trimestre' },
-];
-
 export default function Report() {
+  const { t } = useLanguage();
   const [activeView, setActiveView] = useState('today');
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const VIEWS = [
+    { key: 'today', label: t('report.viewToday') },
+    { key: 'yesterday', label: t('report.viewYesterday') },
+    { key: 'week-current', label: t('report.viewWeekCurrent') },
+    { key: 'week-past', label: t('report.viewWeekPast') },
+    { key: 'month', label: t('report.viewMonth') },
+    { key: 'quarter', label: t('report.viewQuarter') },
+  ];
 
   const current = VIEWS.find((v) => v.key === activeView);
 
@@ -30,7 +32,7 @@ export default function Report() {
 
   return (
     <div>
-      <h2>Rapport</h2>
+      <h2>{t('report.title')}</h2>
       <div className="view-picker">
         <button type="button" className="view-picker-btn" onClick={() => setMenuOpen((o) => !o)}>
           <span>{current.label}</span>

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import SourceList from './SourceList';
+import { useLanguage } from '../i18n/LanguageContext';
 
-function GoalRow({ g, sources, expanded, onToggle }) {
+function GoalRow({ g, sources, expanded, onToggle, t }) {
   const pct = g.target > 0 ? Math.min(100, Math.max(0, (g.consumed / g.target) * 100)) : 0;
   const over = g.remaining < 0;
   const canExpand = Boolean(sources && sources.length > 0);
@@ -14,7 +15,7 @@ function GoalRow({ g, sources, expanded, onToggle }) {
           {canExpand && <span className="micro-source-toggle">{expanded ? ' ▾' : ' ▸'}</span>}
         </span>
         <span className="rate" style={over ? { color: 'var(--danger)' } : undefined}>
-          {over ? `+${Math.abs(g.remaining).toFixed(0)} ${g.unit} au-dessus` : `${g.remaining.toFixed(0)} ${g.unit} restants`}
+          {over ? `+${Math.abs(g.remaining).toFixed(0)} ${g.unit} ${t('today.above')}` : `${g.remaining.toFixed(0)} ${g.unit} ${t('today.remaining')}`}
         </span>
       </div>
       <div className="progress-track">
@@ -28,7 +29,7 @@ function GoalRow({ g, sources, expanded, onToggle }) {
   );
 }
 
-function LimitRow({ l, sources, expanded, onToggle }) {
+function LimitRow({ l, sources, expanded, onToggle, t }) {
   const pct = l.reference > 0 ? Math.min(100, Math.max(0, (l.consumed / l.reference) * 100)) : 0;
   const over = l.remaining < 0;
   const canExpand = Boolean(sources && sources.length > 0);
@@ -41,8 +42,8 @@ function LimitRow({ l, sources, expanded, onToggle }) {
         </span>
         <span className="rate" style={over ? { color: 'var(--danger)' } : undefined}>
           {over
-            ? `+${Math.abs(l.remaining).toFixed(0)} ${l.unit} au-dessus`
-            : `il te reste ${l.remaining.toFixed(0)} ${l.unit} avant la limite`}
+            ? `+${Math.abs(l.remaining).toFixed(0)} ${l.unit} ${t('today.above')}`
+            : t('today.remainingBeforeLimit').replace('{remaining}', l.remaining.toFixed(0)).replace('{unit}', l.unit)}
         </span>
       </div>
       <div className="progress-track">
@@ -82,6 +83,7 @@ function NoGoalRow({ m, sources, expanded, onToggle }) {
 }
 
 export default function TodayReport({ date } = {}) {
+  const { t } = useLanguage();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedKey, setExpandedKey] = useState(null);
@@ -96,7 +98,7 @@ export default function TodayReport({ date } = {}) {
     refresh();
   }, [refresh]);
 
-  if (loading || !report) return <p className="hint">Calcul du rapport…</p>;
+  if (loading || !report) return <p className="hint">{t('today.computing')}</p>;
 
   const { limits, dailyGoals, noGoalMicros, microbiote, microSources } = report;
 
@@ -107,7 +109,7 @@ export default function TodayReport({ date } = {}) {
   return (
     <div>
       {/* 1. Seuils à ne pas dépasser */}
-      <h2>Seuils à ne pas dépasser</h2>
+      <h2>{t('today.limitsTitle')}</h2>
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {limits.map((l) => (
           <LimitRow
@@ -116,12 +118,13 @@ export default function TodayReport({ date } = {}) {
             sources={microSources[l.key]}
             expanded={expandedKey === l.key}
             onToggle={() => toggle(l.key)}
+            t={t}
           />
         ))}
       </div>
 
       {/* 2. Objectifs du jour */}
-      <h2>Objectifs du jour</h2>
+      <h2>{t('today.goalsTitle')}</h2>
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {dailyGoals.map((g) => (
           <GoalRow
@@ -130,13 +133,14 @@ export default function TodayReport({ date } = {}) {
             sources={microSources[g.key]}
             expanded={expandedKey === g.key}
             onToggle={() => toggle(g.key)}
+            t={t}
           />
         ))}
       </div>
 
       {/* 3. Autres nutriments — pas d'objectif journalier */}
-      <h2>Autres nutriments</h2>
-      <p className="hint" style={{ marginTop: -8 }}>Objectif hebdomadaire — voir rapport semaine.</p>
+      <h2>{t('today.otherNutrients')}</h2>
+      <p className="hint" style={{ marginTop: -8 }}>{t('today.weeklyGoalHint')}</p>
       <div className="card">
         {noGoalMicros.map((m) => (
           <NoGoalRow
@@ -150,7 +154,7 @@ export default function TodayReport({ date } = {}) {
       </div>
 
       {/* 4. Microbiote */}
-      <h2>Microbiote</h2>
+      <h2>{t('today.microbiote')}</h2>
       <div className="card">
         <div
           className={microbiote.fermentedFoods.length > 0 ? 'row clickable' : 'row'}
@@ -158,12 +162,12 @@ export default function TodayReport({ date } = {}) {
         >
           <div className="name">
             <span>
-              Aliments fermentés aujourd'hui
+              {t('today.fermentedToday')}
               {microbiote.fermentedFoods.length > 0 && (
                 <span className="micro-source-toggle">{expandedKey === 'fermented' ? ' ▾' : ' ▸'}</span>
               )}
             </span>
-            <span className="rate">cible 1-2/jour</span>
+            <span className="rate">{t('today.fermentedTarget')}</span>
           </div>
           <b>{microbiote.fermentedToday}</b>
         </div>
@@ -179,7 +183,7 @@ export default function TodayReport({ date } = {}) {
 
         <div className="row">
           <div className="name">
-            <span>Diversité végétale (semaine en cours)</span>
+            <span>{t('today.plantDiversity')}</span>
           </div>
           <b>
             {microbiote.plantCount} / {microbiote.plantTarget}
@@ -187,7 +191,7 @@ export default function TodayReport({ date } = {}) {
         </div>
         {microbiote.plantSuggestionToday && (
           <p className="hint micro-reco-line" style={{ marginTop: 10 }}>
-            👉 Pas encore mangé cette semaine : {microbiote.plantSuggestionToday}.
+            👉 {t('today.notEatenYet')} : {microbiote.plantSuggestionToday}.
           </p>
         )}
       </div>

@@ -1,8 +1,11 @@
 // Expandable "d'où ça vient" list, shared by TodayReport/WeekReport rows and the fermented-foods
 // microbiote row. `sources` is the [{label, value}] shape already used by MicronutrientList.
+import { useLanguage } from '../i18n/LanguageContext';
+
 export default function SourceList({ sources, unit }) {
+  const { t } = useLanguage();
   if (!sources || sources.length === 0) {
-    return <p className="hint" style={{ margin: '4px 0 0' }}>Aucune source identifiée.</p>;
+    return <p className="hint" style={{ margin: '4px 0 0' }}>{t('sources.none')}</p>;
   }
   return (
     <div className="micro-source-list">

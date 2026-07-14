@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
-
-const TABS = [
-  { key: 'login', label: 'Se connecter' },
-  { key: 'register', label: 'Créer un compte' },
-];
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function AuthScreen({ onAuthenticated }) {
+  const { t } = useLanguage();
   const [legacyClaimed, setLegacyClaimed] = useState(true);
   const [tab, setTab] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const TABS = [
+    { key: 'login', label: t('auth.login') },
+    { key: 'register', label: t('auth.register') },
+  ];
 
   useEffect(() => {
     api
@@ -28,7 +30,7 @@ export default function AuthScreen({ onAuthenticated }) {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!email.trim() || password.length < 8) {
-      setStatus({ text: 'Email et mot de passe (8 caractères minimum) requis.', error: true });
+      setStatus({ text: t('auth.requiredFields'), error: true });
       return;
     }
     setLoading(true);
@@ -41,7 +43,7 @@ export default function AuthScreen({ onAuthenticated }) {
           : await api.register(email.trim(), password);
       onAuthenticated(account);
     } catch (err) {
-      setStatus({ text: err.message || 'Échec.', error: true });
+      setStatus({ text: err.message || t('auth.genericError'), error: true });
     } finally {
       setLoading(false);
     }
@@ -54,23 +56,22 @@ export default function AuthScreen({ onAuthenticated }) {
           <h1 style={{ textAlign: 'center' }}>FitTrack</h1>
 
           <div className="view-toggle">
-            {TABS.map((t) => (
-              <button key={t.key} type="button" className={tab === t.key ? 'active' : ''} onClick={() => setTab(t.key)}>
-                {t.label}
+            {TABS.map((tb) => (
+              <button key={tb.key} type="button" className={tab === tb.key ? 'active' : ''} onClick={() => setTab(tb.key)}>
+                {tb.label}
               </button>
             ))}
           </div>
 
           {isClaimFlow && (
             <p className="hint" style={{ marginTop: 10 }}>
-              Premier compte sur cette installation — il récupère automatiquement les données déjà présentes
-              (aliments, recettes, journal, poids...).
+              {t('auth.claimFlowHint')}
             </p>
           )}
 
           <form onSubmit={handleSubmit} className="card" style={{ marginTop: 14 }}>
             <div className="row">
-              <label>Email</label>
+              <label>{t('auth.email')}</label>
               <div className="field">
                 <input
                   type="email"
@@ -83,7 +84,7 @@ export default function AuthScreen({ onAuthenticated }) {
               </div>
             </div>
             <div className="row">
-              <label>Mot de passe</label>
+              <label>{t('auth.password')}</label>
               <div className="field">
                 <input
                   type="password"
@@ -98,12 +99,12 @@ export default function AuthScreen({ onAuthenticated }) {
             <div className="card-actions">
               <button type="submit" className="btn btn-block" disabled={loading}>
                 {loading
-                  ? 'Un instant…'
+                  ? t('auth.submitting')
                   : isClaimFlow
-                    ? 'Créer mon compte et récupérer mes données'
+                    ? t('auth.claimSubmit')
                     : tab === 'login'
-                      ? 'Se connecter'
-                      : 'Créer le compte'}
+                      ? t('auth.login')
+                      : t('auth.registerSubmit')}
               </button>
             </div>
             {status && <p className={status.error ? 'hint error' : 'hint success'}>{status.text}</p>}

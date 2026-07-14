@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function ProfileForm({ profile, onSave }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     bmr: '',
     daily_movement_kcal: '',
@@ -34,10 +36,10 @@ export default function ProfileForm({ profile, onSave }) {
 
   return (
     <div>
-      <h2>Mon métabolisme</h2>
+      <h2>{t('profile.title')}</h2>
       <div className="card">
         <div className="row">
-          <label htmlFor="bmr">Métabolisme de base</label>
+          <label htmlFor="bmr">{t('profile.bmr')}</label>
           <div className="field">
             <input
               type="number"
@@ -53,7 +55,7 @@ export default function ProfileForm({ profile, onSave }) {
         </div>
 
         <div className="row">
-          <label htmlFor="daily_movement_kcal">Mouvement quotidien</label>
+          <label htmlFor="daily_movement_kcal">{t('profile.movement')}</label>
           <div className="field">
             <input
               type="number"
@@ -69,7 +71,7 @@ export default function ProfileForm({ profile, onSave }) {
         </div>
 
         <div className="row">
-          <label htmlFor="digestion_kcal">Dépense de digestion</label>
+          <label htmlFor="digestion_kcal">{t('profile.digestion')}</label>
           <div className="field">
             <input
               type="number"
