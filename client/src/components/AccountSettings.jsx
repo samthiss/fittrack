@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { api } from '../api';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function AccountSettings({ email, mustChangePassword, onLogout }) {
+  const { t, lang, setLang } = useLanguage();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [status, setStatus] = useState(null);
@@ -10,18 +12,18 @@ export default function AccountSettings({ email, mustChangePassword, onLogout })
   async function handleChangePassword(e) {
     e.preventDefault();
     if (newPassword.length < 8) {
-      setStatus({ text: 'Le nouveau mot de passe doit faire au moins 8 caractères.', error: true });
+      setStatus({ text: t('account.passwordTooShort'), error: true });
       return;
     }
     setLoading(true);
     setStatus(null);
     try {
       await api.changePassword(currentPassword, newPassword);
-      setStatus({ text: 'Mot de passe mis à jour.', error: false });
+      setStatus({ text: t('account.passwordUpdated'), error: false });
       setCurrentPassword('');
       setNewPassword('');
     } catch (err) {
-      setStatus({ text: err.message || 'Échec du changement de mot de passe.', error: true });
+      setStatus({ text: err.message || t('account.passwordChangeFailed'), error: true });
     } finally {
       setLoading(false);
     }
@@ -29,7 +31,7 @@ export default function AccountSettings({ email, mustChangePassword, onLogout })
 
   return (
     <div>
-      <h2>Compte</h2>
+      <h2>{t('account.title')}</h2>
       <div className="card">
         <div className="row">
           <div className="name">
@@ -37,15 +39,27 @@ export default function AccountSettings({ email, mustChangePassword, onLogout })
           </div>
         </div>
 
+        <div className="row">
+          <div className="name">
+            <span>{t('account.language')}</span>
+          </div>
+          <div className="field">
+            <select value={lang} onChange={(e) => setLang(e.target.value)}>
+              <option value="fr">Français</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+        </div>
+
         {mustChangePassword && (
           <p className="hint error" style={{ marginTop: 8 }}>
-            Pense à définir ton propre mot de passe ci-dessous.
+            {t('account.mustChangePassword')}
           </p>
         )}
 
         <form onSubmit={handleChangePassword} style={{ marginTop: 10 }}>
           <div className="row">
-            <label>Mot de passe actuel</label>
+            <label>{t('account.currentPassword')}</label>
             <div className="field">
               <input
                 type="password"
@@ -57,7 +71,7 @@ export default function AccountSettings({ email, mustChangePassword, onLogout })
             </div>
           </div>
           <div className="row">
-            <label>Nouveau mot de passe</label>
+            <label>{t('account.newPassword')}</label>
             <div className="field">
               <input
                 type="password"
@@ -70,7 +84,7 @@ export default function AccountSettings({ email, mustChangePassword, onLogout })
           </div>
           <div className="card-actions">
             <button type="submit" className="btn" disabled={loading}>
-              {loading ? 'Enregistrement…' : 'Changer le mot de passe'}
+              {loading ? t('common.saving') : t('account.changePassword')}
             </button>
           </div>
           {status && <p className={status.error ? 'hint error' : 'hint success'}>{status.text}</p>}
@@ -78,7 +92,7 @@ export default function AccountSettings({ email, mustChangePassword, onLogout })
 
         <div className="card-actions" style={{ marginTop: 14 }}>
           <button type="button" className="btn-ghost" onClick={onLogout}>
-            Se déconnecter
+            {t('account.logout')}
           </button>
         </div>
       </div>
