@@ -1,0 +1,406 @@
+import { useState, useEffect, useCallback } from 'react';
+import { api } from './api';
+import ProfileForm from './components/ProfileForm';
+import ActivitySettings from './components/ActivitySettings';
+import DeficitSelect from './components/DeficitSelect';
+import RecipeList from './components/RecipeList';
+import DeficitSummary from './components/DeficitSummary';
+import HomeDashboard from './components/HomeDashboard';
+import MealDetail from './components/MealDetail';
+import BottomTabBar from './components/BottomTabBar';
+import Report from './components/Report';
+import WeightTracker from './components/WeightTracker';
+import MealPlanner from './components/MealPlanner';
+import AccountSettings from './components/AccountSettings';
+import AuthScreen from './components/AuthScreen';
+import './App.css';
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function shiftDateStr(dateStr, deltaDays) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  return d.toISOString().slice(0, 10);
+}
+
+function MainApp({ onLogout, account }) {
+  const [view, setView] = useState('journal');
+  const [selectedMeal, setSelectedMeal] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [activityTypes, setActivityTypes] = useState([]);
+  const [activities, setActivities] = useState([]);
+  const [water, setWater] = useState({ logs: [], totalMl: 0 });
+  const [recipes, setRecipes] = useState([]);
+  const [foods, setFoods] = useState([]);
+  const [dashboard, setDashboard] = useState(null);
+  const [mealData, setMealData] = useState(null);
+  const [mealFavorites, setMealFavorites] = useState([]);
+  const [recipeFavorites, setRecipeFavorites] = useState([]);
+  const [frequentFoods, setFrequentFoods] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [date, setDate] = useState(todayStr());
+
+  const refreshCore = useCallback(async () => {
+    // Today's recurring activities flow in automatically, same idea as the meal plan auto-apply.
+    // Scoped to today only, same reasoning as the meal plan: back/forward-filling other days
+    // would misrepresent what was actually done.
+    if (date === todayStr()) {
+      try {
+        await api.applyActivityPlanToLog(date);
+      } catch {
+        // no plan yet, or nothing to add — fine either way
+      }
+    }
+    const [profileData, typesData, activitiesData, summaryData, waterData] = await Promise.all([
+      api.getProfile(),
+      api.getActivityTypes(),
+      api.getActivities(date),
+      api.getSummary(date),
+      api.getWater(date),
+    ]);
+    setProfile(profileData);
+    setActivityTypes(typesData);
+    setActivities(activitiesData);
+    setSummary(summaryData);
+    setWater(waterData);
+  }, [date]);
+
+  const refreshRecipes = useCallback(async () => {
+    setRecipes(await api.getRecipes());
+  }, []);
+
+  const refreshFoods = useCallback(async () => {
+    setFoods(await api.getFoods());
+  }, []);
+
+  const refreshDashboard = useCallback(async () => {
+    // Today's fixed/planned meals flow into the Journal automatically — no need to visit
+    // Planning and click "Ajouter au Journal" by hand. Already-logged meals are left alone
+    // (the endpoint skips them), so this is safe to call on every refresh. Scoped to today
+    // only: silently back- or forward-filling other days would misrepresent what was eaten.
+    if (date === todayStr()) {
+      try {
+        await api.applyMealPlanToJournal(date);
+      } catch {
+        // no plan yet, or nothing to add — fine either way
+      }
+    }
+    setDashboard(await api.getDashboard(date));
+  }, [date]);
+
+  const refreshMeal = useCallback(
+    async (key) => {
+      if (!key) return;
+      setMealData(await api.getMeal(key, date));
+    },
+    [date]
+  );
+
+  const refreshMealFavorites = useCallback(async (key) => {
+    if (!key) return;
+    setMealFavorites(await api.getMealFavorites(key));
+  }, []);
+
+  const refreshFrequentFoods = useCallback(async () => {
+    setFrequentFoods(await api.getFrequentFoods(40));
+  }, []);
+
+  const refreshRecipeFavorites = useCallback(async () => {
+    setRecipeFavorites(await api.getAllMealFavorites());
+  }, []);
+
+  useEffect(() => {
+    refreshCore();
+    refreshRecipes();
+    refreshFoods();
+    refreshDashboard();
+    refreshFrequentFoods();
+    refreshRecipeFavorites();
+  }, [refreshCore, refreshRecipes, refreshFoods, refreshDashboard, refreshFrequentFoods, refreshRecipeFavorites]);
+
+  useEffect(() => {
+    if (selectedMeal) {
+      refreshMeal(selectedMeal);
+      refreshMealFavorites(selectedMeal);
+    }
+  }, [selectedMeal, refreshMeal, refreshMealFavorites]);
+
+  async function handleProfileSave(data) {
+    await api.updateProfile(data);
+    await refreshCore();
+    await refreshDashboard();
+    if (selectedMeal) await refreshMeal(selectedMeal);
+  }
+
+  async function handleActivityTypeUpdate(type, kcalPerHour) {
+    await api.updateActivityType(type, { kcal_per_hour: kcalPerHour });
+    await refreshCore();
+  }
+
+  async function handleAddActivity(data) {
+    await api.addActivity({ ...data, date });
+    await refreshCore();
+    await refreshDashboard();
+  }
+
+  async function handleDeleteActivity(id) {
+    await api.deleteActivity(id);
+    await refreshCore();
+    await refreshDashboard();
+  }
+
+  async function handleAddWater() {
+    await api.addWater(date);
+    setWater(await api.getWater(date));
+  }
+
+  async function handleRemoveLastWater() {
+    const last = water.logs[water.logs.length - 1];
+    if (!last) return;
+    await api.deleteWater(last.id);
+    setWater(await api.getWater(date));
+  }
+
+  async function handleImportRecipe(data) {
+    const recipe = await api.importRecipe(data);
+    await refreshRecipes();
+    return recipe;
+  }
+
+  async function handleCreateRecipe(data) {
+    const recipe = await api.createRecipe(data);
+    await refreshRecipes();
+    return recipe;
+  }
+
+  async function handleSetRecipeCategories(recipe, mealKeys) {
+    for (const meal of mealKeys) {
+      await api.addMealFavorite({ meal, source_type: 'recipe', source_id: recipe.id, label: recipe.title });
+    }
+    await refreshRecipeFavorites();
+  }
+
+  async function handleUpdateRecipe(id, data) {
+    await api.updateRecipe(id, data);
+    // favorite/tags drive cross-card grouping (the Favoris category, etc.), so the parent's
+    // recipes list needs to actually reflect the change, not just the edited card's own state.
+    if ('favorite' in data || 'tags' in data) await refreshRecipes();
+  }
+
+  async function handleDeleteRecipe(id) {
+    await api.deleteRecipe(id);
+    await refreshRecipes();
+    await refreshFrequentFoods();
+  }
+
+  async function handleToggleRecipeFavorite(mealKeys, recipe, isFavorite) {
+    for (const meal of mealKeys) {
+      if (isFavorite) {
+        const fav = recipeFavorites.find(
+          (f) => f.meal === meal && f.source_type === 'recipe' && f.source_id === recipe.id
+        );
+        if (fav) await api.deleteMealFavorite(fav.id);
+      } else {
+        await api.addMealFavorite({ meal, source_type: 'recipe', source_id: recipe.id, label: recipe.title });
+      }
+    }
+    await refreshRecipeFavorites();
+  }
+
+  async function handleCreateFoodInline(data) {
+    const food = await api.addFood(data);
+    await refreshFoods();
+    return food;
+  }
+
+  async function handleUpdateFoodInline(id, data) {
+    const food = await api.updateFood(id, data);
+    await refreshFoods();
+    return food;
+  }
+
+  async function handleDeleteFood(id) {
+    await api.deleteFood(id);
+    await refreshFoods();
+    await refreshFrequentFoods();
+  }
+
+  async function handleAddEntry(sourceType, sourceId, quantity, unit = 'g') {
+    await api.addFoodLogEntry({
+      date,
+      meal: selectedMeal,
+      source_type: sourceType,
+      source_id: sourceId,
+      quantity,
+      unit,
+    });
+    await refreshMeal(selectedMeal);
+    await refreshDashboard();
+    await refreshFrequentFoods();
+    // A food logged in ml (e.g. milk, coffee) also counts toward the water total.
+    setWater(await api.getWater(date));
+  }
+
+  async function handleDeleteEntry(id) {
+    await api.deleteFoodLogEntry(id);
+    await refreshMeal(selectedMeal);
+    await refreshDashboard();
+    await refreshFrequentFoods();
+    setWater(await api.getWater(date));
+  }
+
+  async function handleUpdateEntry(id, quantity, unit) {
+    await api.updateFoodLogEntry(id, quantity, unit);
+    await refreshMeal(selectedMeal);
+    await refreshDashboard();
+    setWater(await api.getWater(date));
+  }
+
+  async function handleReplaceEntry(oldEntryIds, sourceType, sourceId, quantity) {
+    for (const id of oldEntryIds) await api.deleteFoodLogEntry(id);
+    await handleAddEntry(sourceType, sourceId, quantity);
+  }
+
+  async function handleAddFavorite(data) {
+    await api.addMealFavorite({ ...data, meal: selectedMeal });
+    await refreshMealFavorites(selectedMeal);
+  }
+
+  async function handleRemoveFavorite(id) {
+    await api.deleteMealFavorite(id);
+    await refreshMealFavorites(selectedMeal);
+  }
+
+  function handlePrevDay() {
+    setDate((d) => shiftDateStr(d, -1));
+  }
+
+  function handleNextDay() {
+    setDate((d) => shiftDateStr(d, 1));
+  }
+
+  function handleSelectMeal(key) {
+    setSelectedMeal(key);
+  }
+
+  function handleBackFromMeal() {
+    setSelectedMeal(null);
+    setMealData(null);
+    setMealFavorites([]);
+  }
+
+  function handleViewChange(next) {
+    setView(next);
+    setSelectedMeal(null);
+    setMealData(null);
+    setMealFavorites([]);
+  }
+
+  return (
+    <div className="app">
+      <div className="shell">
+        <main className="app-main">
+          {view === 'journal' && !selectedMeal && (
+            <HomeDashboard
+              dashboard={dashboard}
+              date={date}
+              onPrevDay={handlePrevDay}
+              onNextDay={handleNextDay}
+              onSelectMeal={handleSelectMeal}
+              water={water}
+              onAddWater={handleAddWater}
+              onRemoveLastWater={handleRemoveLastWater}
+              activityTypes={activityTypes}
+              activities={activities}
+              onAddActivity={handleAddActivity}
+              onDeleteActivity={handleDeleteActivity}
+              onOpenWeight={() => setView('poids')}
+            />
+          )}
+          {view === 'journal' && selectedMeal && (
+            <MealDetail
+              meal={mealData}
+              foods={foods}
+              recipes={recipes}
+              favorites={mealFavorites}
+              frequentItems={frequentFoods}
+              onBack={handleBackFromMeal}
+              onAddEntry={handleAddEntry}
+              onDeleteEntry={handleDeleteEntry}
+              onUpdateEntry={handleUpdateEntry}
+              onReplaceEntry={handleReplaceEntry}
+              onLookupBarcode={api.lookupFood}
+              onSearchOnline={api.searchFoodsOnline}
+              onCreateFood={handleCreateFoodInline}
+              onUpdateFood={handleUpdateFoodInline}
+              onDeleteFood={handleDeleteFood}
+              onDeleteRecipe={handleDeleteRecipe}
+              onParseText={api.parseFoodText}
+              onAddFavorite={handleAddFavorite}
+              onRemoveFavorite={handleRemoveFavorite}
+            />
+          )}
+          {view === 'recettes' && (
+            <RecipeList
+              recipes={recipes}
+              onUpdate={handleUpdateRecipe}
+              onDelete={handleDeleteRecipe}
+              favorites={recipeFavorites}
+              onToggleFavorite={handleToggleRecipeFavorite}
+              foods={foods}
+              onImportRecipe={handleImportRecipe}
+              onCreateRecipe={handleCreateRecipe}
+              onSetCategories={handleSetRecipeCategories}
+            />
+          )}
+          {view === 'rapport' && <Report />}
+          {view === 'poids' && (
+            <>
+              <button type="button" className="btn-ghost back-btn" onClick={() => setView('journal')} aria-label="Retour">
+                &lt;
+              </button>
+              <WeightTracker />
+            </>
+          )}
+          {view === 'planning' && <MealPlanner recipes={recipes} foods={foods} />}
+          {view === 'reglages' && (
+            <>
+              <ProfileForm profile={profile} onSave={handleProfileSave} />
+              <DeficitSelect profile={profile} onSave={handleProfileSave} />
+              <DeficitSummary summary={summary} />
+              <ActivitySettings activityTypes={activityTypes} onUpdate={handleActivityTypeUpdate} />
+              <AccountSettings email={account.email} mustChangePassword={account.mustChangePassword} onLogout={onLogout} />
+            </>
+          )}
+        </main>
+      </div>
+
+      <BottomTabBar view={view} onChange={handleViewChange} />
+    </div>
+  );
+}
+
+function App() {
+  // undefined = still checking, null = not authenticated, object = { id, email, mustChangePassword }
+  const [account, setAccount] = useState(undefined);
+
+  useEffect(() => {
+    api
+      .getMe()
+      .then(setAccount)
+      .catch(() => setAccount(null));
+  }, []);
+
+  async function handleLogout() {
+    await api.logout();
+    setAccount(null);
+  }
+
+  if (account === undefined) return null;
+  if (!account) return <AuthScreen onAuthenticated={setAccount} />;
+  return <MainApp account={account} onLogout={handleLogout} />;
+}
+
+export default App;

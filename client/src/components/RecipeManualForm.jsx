@@ -1,0 +1,314 @@
+import { useState } from 'react';
+
+const EMPTY_INGREDIENT = { nom: '', qte: '', unite: 'g', kcal: '', proteines: '', glucides: '', lipides: '' };
+const EMPTY_RECIPE = { title: '', description: '', image: '', portions: '1' };
+
+// Always rendered from within a chosen recipe category (RecipeList) — presetCategory says which
+// meals/tag to apply automatically, so there's no separate category picker in this form anymore.
+export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, foods = [], presetCategory }) {
+  const [open, setOpen] = useState(false);
+  const [recipe, setRecipe] = useState(EMPTY_RECIPE);
+  const [ingredients, setIngredients] = useState([{ ...EMPTY_INGREDIENT }]);
+  const [steps, setSteps] = useState(['']);
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [showIngredientPicker, setShowIngredientPicker] = useState(false);
+  const [ingredientSearch, setIngredientSearch] = useState('');
+
+  function addIngredientFromFood(food) {
+    // per100 is kept so the quantity can be edited later and have kcal/macros rescale with it,
+    // instead of staying frozen at whatever they were when the ingredient was first added.
+    const per100 = {
+      kcal: food.kcal_per_100g,
+      proteines: food.protein_per_100g,
+      glucides: food.carbs_per_100g,
+      lipides: food.fat_per_100g,
+    };
+    setIngredients((prev) => [
+      ...prev,
+      {
+        nom: food.name,
+        qte: '100',
+        unite: 'g',
+        kcal: per100.kcal,
+        proteines: per100.proteines,
+        glucides: per100.glucides,
+        lipides: per100.lipides,
+        per100,
+      },
+    ]);
+  }
+
+  // Picking an ingredient name that matches a food already in the library auto-fills its
+  // macros (scaled to the entered quantity) instead of typing them in by hand every time.
+  function handleIngredientNomBlur(index, value) {
+    const match = foods.find((f) => f.name.toLowerCase() === value.trim().toLowerCase());
+    if (!match) return;
+    const per100 = {
+      kcal: match.kcal_per_100g,
+      proteines: match.protein_per_100g,
+      glucides: match.carbs_per_100g,
+      lipides: match.fat_per_100g,
+    };
+    setIngredients((prev) =>
+      prev.map((ing, i) => {
+        if (i !== index) return ing;
+        const qty = Number(ing.qte) || 100;
+        const factor = qty / 100;
+        return {
+          ...ing,
+          nom: match.name,
+          qte: ing.qte || '100',
+          unite: 'g',
+          kcal: Math.round(per100.kcal * factor * 10) / 10,
+          proteines: Math.round(per100.proteines * factor * 10) / 10,
+          glucides: Math.round(per100.glucides * factor * 10) / 10,
+          lipides: Math.round(per100.lipides * factor * 10) / 10,
+          per100,
+        };
+      })
+    );
+  }
+
+  function handleRecipeChange(e) {
+    setRecipe({ ...recipe, [e.target.name]: e.target.value });
+  }
+
+  function handleIngredientChange(index, field, value) {
+    setIngredients(
+      ingredients.map((ing, i) => {
+        if (i !== index) return { ...ing };
+        if (field !== 'qte' || !ing.per100) return { ...ing, [field]: value };
+        // Quantity changed on a food-sourced ingredient — rescale its macros from the food's
+        // per-100g reference instead of leaving them frozen at the previous quantity's values.
+        const factor = (Number(value) || 0) / 100;
+        return {
+          ...ing,
+          qte: value,
+          kcal: Math.round(ing.per100.kcal * factor * 10) / 10,
+          proteines: Math.round(ing.per100.proteines * factor * 10) / 10,
+          glucides: Math.round(ing.per100.glucides * factor * 10) / 10,
+          lipides: Math.round(ing.per100.lipides * factor * 10) / 10,
+        };
+      })
+    );
+  }
+
+  function addIngredient() {
+    setIngredients([...ingredients, { ...EMPTY_INGREDIENT }]);
+  }
+
+  function removeIngredient(index) {
+    setIngredients(ingredients.filter((_, i) => i !== index));
+  }
+
+  function handleStepChange(index, value) {
+    setSteps(steps.map((s, i) => (i === index ? value : s)));
+  }
+
+  function addStep() {
+    setSteps([...steps, '']);
+  }
+
+  function removeStep(index) {
+    setSteps(steps.filter((_, i) => i !== index));
+  }
+
+  function reset() {
+    setRecipe(EMPTY_RECIPE);
+    setIngredients([{ ...EMPTY_INGREDIENT }]);
+    setSteps(['']);
+    setStatus(null);
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!recipe.title.trim()) return;
+    const validIngredients = ingredients.filter((i) => i.nom.trim());
+    if (validIngredients.length === 0) {
+      setStatus({ text: 'Ajoute au moins un ingrédient.', error: true });
+      return;
+    }
+
+    setLoading(true);
+    setStatus(null);
+    try {
+      const created = await onCreate({
+        title: recipe.title.trim(),
+        description: recipe.description.trim() || null,
+        image: recipe.image.trim() || null,
+        portions: Number(recipe.portions) || 1,
+        ingredients: validIngredients.map((i) => ({
+          nom: i.nom.trim(),
+          qte: Number(i.qte) || 0,
+          unite: i.unite || null,
+          kcal: Number(i.kcal) || 0,
+          proteines: Number(i.proteines) || 0,
+          glucides: Number(i.glucides) || 0,
+          lipides: Number(i.lipides) || 0,
+        })),
+        steps: steps.filter((s) => s.trim()),
+      });
+      if (created && presetCategory) {
+        if (presetCategory.meals) await onSetCategories(created, presetCategory.meals);
+        if (presetCategory.tag) await onUpdate(created.id, { tags: [presetCategory.tag] });
+      }
+      reset();
+      setOpen(false);
+    } catch (err) {
+      setStatus({ text: err.message || 'Échec de la création', error: true });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="card-actions" style={{ padding: 0 }}>
+        <button type="button" className="btn-ghost" onClick={() => setOpen((o) => !o)}>
+          {open ? 'Annuler' : '✎ Créer une recette manuellement'}
+        </button>
+      </div>
+
+      {open && (
+        <form className="card" onSubmit={handleSubmit} style={{ marginTop: 12 }}>
+          <div className="row">
+            <label>Titre</label>
+            <div className="field">
+              <input type="text" name="title" className="wide" value={recipe.title} onChange={handleRecipeChange} placeholder="Ex. Salade de quinoa" />
+            </div>
+          </div>
+          <div className="row">
+            <label>Description</label>
+            <div className="field">
+              <input type="text" name="description" className="wide" value={recipe.description} onChange={handleRecipeChange} placeholder="Optionnel" />
+            </div>
+          </div>
+          <div className="row">
+            <label>Image (URL)</label>
+            <div className="field">
+              <input type="url" name="image" className="wide" value={recipe.image} onChange={handleRecipeChange} placeholder="Optionnel" />
+            </div>
+          </div>
+          <div className="row">
+            <label>Portions</label>
+            <div className="field">
+              <input type="number" name="portions" min="1" step="any" value={recipe.portions} onChange={handleRecipeChange} />
+            </div>
+          </div>
+
+          <h4 className="section-label">Ingrédients</h4>
+          <datalist id="known-foods">
+            {foods.map((f) => (
+              <option key={f.id} value={f.name} />
+            ))}
+          </datalist>
+          {ingredients.map((ing, i) => (
+            <div key={i} className="manual-ingredient-row">
+              <input
+                type="text"
+                placeholder="Nom"
+                list="known-foods"
+                value={ing.nom}
+                onChange={(e) => handleIngredientChange(i, 'nom', e.target.value)}
+                onBlur={(e) => handleIngredientNomBlur(i, e.target.value)}
+                className="wide"
+              />
+              <div className="manual-ingredient-grid">
+                <input type="number" placeholder="Qté" min="0" step="any" value={ing.qte} onChange={(e) => handleIngredientChange(i, 'qte', e.target.value)} />
+                <select value={ing.unite} onChange={(e) => handleIngredientChange(i, 'unite', e.target.value)}>
+                  <option value="g">g</option>
+                  <option value="ml">ml</option>
+                </select>
+                <input type="number" placeholder="Kcal" min="0" step="any" value={ing.kcal} onChange={(e) => handleIngredientChange(i, 'kcal', e.target.value)} />
+                <input type="number" placeholder="Prot" min="0" step="any" value={ing.proteines} onChange={(e) => handleIngredientChange(i, 'proteines', e.target.value)} />
+                <input type="number" placeholder="Gluc" min="0" step="any" value={ing.glucides} onChange={(e) => handleIngredientChange(i, 'glucides', e.target.value)} />
+                <input type="number" placeholder="Lip" min="0" step="any" value={ing.lipides} onChange={(e) => handleIngredientChange(i, 'lipides', e.target.value)} />
+                <button type="button" className="btn-ghost" onClick={() => removeIngredient(i)}>
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+          <div className="inline-row">
+            <button type="button" className="btn-ghost" onClick={() => setShowIngredientPicker(true)}>
+              📋 Choisir un aliment existant
+            </button>
+            <button type="button" className="btn-ghost" onClick={addIngredient}>
+              + Ingrédient personnalisé
+            </button>
+          </div>
+
+          <h4 className="section-label">Étapes</h4>
+          {steps.map((step, i) => (
+            <div key={i} className="manual-step-row">
+              <input
+                type="text"
+                className="wide"
+                placeholder={`Étape ${i + 1}`}
+                value={step}
+                onChange={(e) => handleStepChange(i, e.target.value)}
+              />
+              <button type="button" className="btn-ghost" onClick={() => removeStep(i)}>
+                ✕
+              </button>
+            </div>
+          ))}
+          <button type="button" className="btn-ghost" onClick={addStep}>
+            + Ajouter une étape
+          </button>
+
+          <div className="card-actions">
+            <button type="submit" className="btn" disabled={loading}>
+              {loading ? 'Création…' : 'Créer la recette'}
+            </button>
+          </div>
+
+          {status && <p className={status.error ? 'hint error' : 'hint success'}>{status.text}</p>}
+        </form>
+      )}
+
+      {showIngredientPicker && (
+        <div className="modal-overlay" onClick={() => setShowIngredientPicker(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Choisir un aliment</h2>
+            <input
+              type="text"
+              placeholder="Rechercher un aliment..."
+              value={ingredientSearch}
+              onChange={(e) => setIngredientSearch(e.target.value)}
+              style={{ marginBottom: 10 }}
+            />
+            {foods
+              .filter((f) => f.name.toLowerCase().includes(ingredientSearch.trim().toLowerCase()))
+              .map((f) => (
+                <div className="row" key={f.id}>
+                  <div className="name">
+                    <span>{f.name}</span>
+                    <span className="rate">{Math.round(f.kcal_per_100g)} kcal / 100g</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="round-add-btn"
+                    onClick={() => {
+                      addIngredientFromFood(f);
+                      setShowIngredientPicker(false);
+                      setIngredientSearch('');
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              ))}
+            {foods.filter((f) => f.name.toLowerCase().includes(ingredientSearch.trim().toLowerCase())).length === 0 && (
+              <p className="hint">Aucun aliment trouvé.</p>
+            )}
+          </div>
+          <button type="button" className="done-btn" onClick={() => setShowIngredientPicker(false)}>
+            Fermer
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

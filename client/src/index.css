@@ -1,0 +1,135 @@
+:root {
+  --bg: #131318;
+  --card: #1c1c24;
+  --line: #2a2a35;
+  --txt: #eceaf2;
+  --dim: #8b8899;
+  --acc: #a855f7;
+  --soft: rgba(168, 85, 247, 0.14);
+  --soft-border: rgba(168, 85, 247, 0.3);
+  --warn: #f0a04b;
+  --danger: #f0505f;
+  --ok-green: #34d399;
+  --info-blue: #60a5fa;
+
+  --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  font: 16px/1.45 var(--sans);
+  color-scheme: dark;
+  color: var(--txt);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  /* Kills the gray flash-on-tap Safari draws on every touchable element by default — native
+     apps don't have it, and it reads as web-page chrome instead of app UI. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  /* iOS Safari's own pull-to-refresh/rubber-band bounce on the outer page — contained here so
+     only inner scroll areas bounce, not the whole app shifting behind the fixed bottom tab bar. */
+  overscroll-behavior-y: none;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  overscroll-behavior-y: none;
+  /* Long-press-to-select/callout menu on text is a browser affordance, not something a
+     touch-driven app UI expects on every label and button. */
+  -webkit-touch-callout: none;
+}
+
+#root {
+  width: 100%;
+  min-height: 100svh;
+  min-height: -webkit-fill-available;
+  display: flex;
+  flex-direction: column;
+  /* Buttons/rows get an instant tap response instead of iOS's ~300ms delay while it waits to
+     see if this is the first half of a double-tap-to-zoom (which the viewport meta already
+     disables, but touch-action makes it explicit down to individual elements too). */
+  touch-action: manipulation;
+}
+
+input,
+select,
+textarea {
+  /* Belt-and-suspenders on top of the per-component font-sizes: anything under 16px here makes
+     iOS Safari auto-zoom the whole page in on focus, which then has to be manually pinched back
+     out — the single most "this is just a website" tell on a form-heavy app like this one.
+     max() with 1em preserves any component that intentionally sets a LARGER font-size. */
+  font-size: max(16px, 1em);
+}
+
+h1,
+h2 {
+  font-family: var(--sans);
+  color: var(--txt);
+  margin: 0;
+}
+
+h1 {
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--dim);
+  font-weight: 600;
+  margin: 0 0 9px;
+  /* padding, not margin — margin-top here can collapse through a nested wrapper div (e.g.
+     ActivityLog's own root <div>) and merge with a preceding .card's margin-bottom instead of
+     adding to it, which silently shrank the gap between sections no matter how large this got. */
+  padding-top: 16px;
+}
+
+p {
+  margin: 0;
+}
+
+input,
+select,
+textarea {
+  background: #101015;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--txt);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 14px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--acc);
+}
+
+input[type='radio'] {
+  accent-color: var(--acc);
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  text-align: right;
+  width: 96px;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
