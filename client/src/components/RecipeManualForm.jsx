@@ -4,6 +4,45 @@ import { useLanguage } from '../i18n/LanguageContext';
 const EMPTY_INGREDIENT = { nom: '', qte: '', unite: 'g', kcal: '', proteines: '', glucides: '', lipides: '' };
 const EMPTY_RECIPE = { title: '', description: '', image: '', portions: '1' };
 
+// Recipe ingredients store micronutrients under French keys (see server INGREDIENT_NUTRIENT_FIELDS)
+// while foods store them as English `${key}_per_100g` columns — this maps one to the other so
+// picking an existing food as an ingredient carries its full nutrition profile over, not just
+// the 4 macros.
+const INGREDIENT_MICRO_FIELDS = [
+  { food: 'fiber_per_100g', ing: 'fibres' },
+  { food: 'sodium_per_100g', ing: 'sodium' },
+  { food: 'potassium_per_100g', ing: 'potassium' },
+  { food: 'magnesium_per_100g', ing: 'magnesium' },
+  { food: 'calcium_per_100g', ing: 'calcium' },
+  { food: 'zinc_per_100g', ing: 'zinc' },
+  { food: 'iron_per_100g', ing: 'fer' },
+  { food: 'selenium_per_100g', ing: 'selenium' },
+  { food: 'iodine_per_100g', ing: 'iode' },
+  { food: 'vitamin_c_per_100g', ing: 'vitamine_c' },
+  { food: 'vitamin_a_per_100g', ing: 'vitamine_a' },
+  { food: 'vitamin_d_per_100g', ing: 'vitamine_d' },
+  { food: 'vitamin_e_per_100g', ing: 'vitamine_e' },
+  { food: 'vitamin_k_per_100g', ing: 'vitamine_k' },
+  { food: 'folate_per_100g', ing: 'folates' },
+  { food: 'b12_per_100g', ing: 'b12' },
+  { food: 'choline_per_100g', ing: 'choline' },
+  { food: 'omega3_per_100g', ing: 'omega3' },
+  { food: 'caffeine_per_100g', ing: 'cafeine' },
+];
+
+function per100FromFood(food) {
+  const per100 = {
+    kcal: food.kcal_per_100g,
+    proteines: food.protein_per_100g,
+    glucides: food.carbs_per_100g,
+    lipides: food.fat_per_100g,
+  };
+  for (const { food: foodKey, ing: ingKey } of INGREDIENT_MICRO_FIELDS) {
+    if (food[foodKey]) per100[ingKey] = food[foodKey];
+  }
+  return per100;
+}
+
 // Always rendered from within a chosen recipe category (RecipeList) — presetCategory says which
 // meals/tag to apply automatically, so there's no separate category picker in this form anymore.
 export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, foods = [], presetCategory }) {
@@ -18,46 +57,37 @@ export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, 
   const [ingredientSearch, setIngredientSearch] = useState('');
 
   function addIngredientFromFood(food) {
-    // per100 is kept so the quantity can be edited later and have kcal/macros rescale with it,
-    // instead of staying frozen at whatever they were when the ingredient was first added.
-    const per100 = {
-      kcal: food.kcal_per_100g,
-      proteines: food.protein_per_100g,
-      glucides: food.carbs_per_100g,
-      lipides: food.fat_per_100g,
+    // per100 is kept so the quantity can be edited later and have kcal/macros/micronutrients
+    // rescale with it, instead of staying frozen at whatever they were when first added.
+    const per100 = per100FromFood(food);
+    const ingredient = {
+      nom: food.name,
+      qte: '100',
+      unite: 'g',
+      kcal: per100.kcal,
+      proteines: per100.proteines,
+      glucides: per100.glucides,
+      lipides: per100.lipides,
+      per100,
     };
-    setIngredients((prev) => [
-      ...prev,
-      {
-        nom: food.name,
-        qte: '100',
-        unite: 'g',
-        kcal: per100.kcal,
-        proteines: per100.proteines,
-        glucides: per100.glucides,
-        lipides: per100.lipides,
-        per100,
-      },
-    ]);
+    for (const { ing: ingKey } of INGREDIENT_MICRO_FIELDS) {
+      if (per100[ingKey] !== undefined) ingredient[ingKey] = per100[ingKey];
+    }
+    setIngredients((prev) => [...prev, ingredient]);
   }
 
   // Picking an ingredient name that matches a food already in the library auto-fills its
-  // macros (scaled to the entered quantity) instead of typing them in by hand every time.
+  // full nutrition profile (scaled to the entered quantity) instead of typing it in by hand.
   function handleIngredientNomBlur(index, value) {
     const match = foods.find((f) => f.name.toLowerCase() === value.trim().toLowerCase());
     if (!match) return;
-    const per100 = {
-      kcal: match.kcal_per_100g,
-      proteines: match.protein_per_100g,
-      glucides: match.carbs_per_100g,
-      lipides: match.fat_per_100g,
-    };
+    const per100 = per100FromFood(match);
     setIngredients((prev) =>
       prev.map((ing, i) => {
         if (i !== index) return ing;
         const qty = Number(ing.qte) || 100;
         const factor = qty / 100;
-        return {
+        const next = {
           ...ing,
           nom: match.name,
           qte: ing.qte || '100',
@@ -68,6 +98,10 @@ export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, 
           lipides: Math.round(per100.lipides * factor * 10) / 10,
           per100,
         };
+        for (const { ing: ingKey } of INGREDIENT_MICRO_FIELDS) {
+          if (per100[ingKey] !== undefined) next[ingKey] = Math.round(per100[ingKey] * factor * 100) / 100;
+        }
+        return next;
       })
     );
   }
@@ -81,10 +115,10 @@ export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, 
       ingredients.map((ing, i) => {
         if (i !== index) return { ...ing };
         if (field !== 'qte' || !ing.per100) return { ...ing, [field]: value };
-        // Quantity changed on a food-sourced ingredient — rescale its macros from the food's
-        // per-100g reference instead of leaving them frozen at the previous quantity's values.
+        // Quantity changed on a food-sourced ingredient — rescale its macros/micronutrients from
+        // the food's per-100g reference instead of leaving them frozen at the previous quantity.
         const factor = (Number(value) || 0) / 100;
-        return {
+        const next = {
           ...ing,
           qte: value,
           kcal: Math.round(ing.per100.kcal * factor * 10) / 10,
@@ -92,6 +126,10 @@ export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, 
           glucides: Math.round(ing.per100.glucides * factor * 10) / 10,
           lipides: Math.round(ing.per100.lipides * factor * 10) / 10,
         };
+        for (const { ing: ingKey } of INGREDIENT_MICRO_FIELDS) {
+          if (ing.per100[ingKey] !== undefined) next[ingKey] = Math.round(ing.per100[ingKey] * factor * 100) / 100;
+        }
+        return next;
       })
     );
   }

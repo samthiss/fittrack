@@ -3,6 +3,48 @@ import RecipeImport from './RecipeImport';
 import RecipeManualForm from './RecipeManualForm';
 import { useLanguage } from '../i18n/LanguageContext';
 
+// Recipe ingredients store micronutrients under French keys (see server INGREDIENT_NUTRIENT_FIELDS)
+// while foods store them as English `${key}_per_100g` columns — this maps one to the other so
+// picking an existing food as an ingredient carries its full nutrition profile over, not just
+// the 4 macros.
+const INGREDIENT_MICRO_FIELDS = [
+  { food: 'fiber_per_100g', ing: 'fibres' },
+  { food: 'sodium_per_100g', ing: 'sodium' },
+  { food: 'potassium_per_100g', ing: 'potassium' },
+  { food: 'magnesium_per_100g', ing: 'magnesium' },
+  { food: 'calcium_per_100g', ing: 'calcium' },
+  { food: 'zinc_per_100g', ing: 'zinc' },
+  { food: 'iron_per_100g', ing: 'fer' },
+  { food: 'selenium_per_100g', ing: 'selenium' },
+  { food: 'iodine_per_100g', ing: 'iode' },
+  { food: 'vitamin_c_per_100g', ing: 'vitamine_c' },
+  { food: 'vitamin_a_per_100g', ing: 'vitamine_a' },
+  { food: 'vitamin_d_per_100g', ing: 'vitamine_d' },
+  { food: 'vitamin_e_per_100g', ing: 'vitamine_e' },
+  { food: 'vitamin_k_per_100g', ing: 'vitamine_k' },
+  { food: 'folate_per_100g', ing: 'folates' },
+  { food: 'b12_per_100g', ing: 'b12' },
+  { food: 'choline_per_100g', ing: 'choline' },
+  { food: 'omega3_per_100g', ing: 'omega3' },
+  { food: 'caffeine_per_100g', ing: 'cafeine' },
+];
+
+function ingredientFromFood(food, qte = 100) {
+  const ingredient = {
+    nom: food.name,
+    qte,
+    unite: 'g',
+    kcal: food.kcal_per_100g,
+    proteines: food.protein_per_100g,
+    glucides: food.carbs_per_100g,
+    lipides: food.fat_per_100g,
+  };
+  for (const { food: foodKey, ing: ingKey } of INGREDIENT_MICRO_FIELDS) {
+    if (food[foodKey]) ingredient[ingKey] = food[foodKey];
+  }
+  return ingredient;
+}
+
 function getCategoryGroups(t) {
   return [
     { key: 'lunch_dinner', label: t('recipeList.categoryLunchDinner'), meals: ['lunch', 'dinner'] },
@@ -48,18 +90,7 @@ function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorit
   }
 
   function addIngredientFromFood(food) {
-    const next = [
-      ...ingredients,
-      {
-        nom: food.name,
-        qte: 100,
-        unite: 'g',
-        kcal: food.kcal_per_100g,
-        proteines: food.protein_per_100g,
-        glucides: food.carbs_per_100g,
-        lipides: food.fat_per_100g,
-      },
-    ];
+    const next = [...ingredients, ingredientFromFood(food)];
     setIngredients(next);
     onUpdate(recipe.id, { ingredients: next });
   }
@@ -77,7 +108,7 @@ function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorit
       const nextQty = Number(newQty) || 0;
       if (oldQty <= 0) return { ...ing, qte: nextQty };
       const factor = nextQty / oldQty;
-      return {
+      const scaled = {
         ...ing,
         qte: nextQty,
         kcal: (Number(ing.kcal) || 0) * factor,
@@ -85,30 +116,24 @@ function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorit
         glucides: (Number(ing.glucides) || 0) * factor,
         lipides: (Number(ing.lipides) || 0) * factor,
       };
+      for (const { ing: ingKey } of INGREDIENT_MICRO_FIELDS) {
+        if (ing[ingKey] !== undefined) scaled[ingKey] = (Number(ing[ingKey]) || 0) * factor;
+      }
+      return scaled;
     });
     setIngredients(next);
     onUpdate(recipe.id, { ingredients: next });
   }
 
-  // Adding an ingredient that matches a food already in the library pulls in its macros
-  // (for a default 100g) instead of starting from a blank row every time.
+  // Adding an ingredient that matches a food already in the library pulls in its full nutrition
+  // profile (for a default 100g) instead of starting from a blank row every time.
   function handleAddIngredient() {
     const name = newIngredientName.trim();
     if (!name) return;
     const match = foods.find((f) => f.name.toLowerCase() === name.toLowerCase());
     const next = [
       ...ingredients,
-      match
-        ? {
-            nom: match.name,
-            qte: 100,
-            unite: 'g',
-            kcal: match.kcal_per_100g,
-            proteines: match.protein_per_100g,
-            glucides: match.carbs_per_100g,
-            lipides: match.fat_per_100g,
-          }
-        : { nom: name, qte: 0, unite: 'g', kcal: 0, proteines: 0, glucides: 0, lipides: 0 },
+      match ? ingredientFromFood(match) : { nom: name, qte: 0, unite: 'g', kcal: 0, proteines: 0, glucides: 0, lipides: 0 },
     ];
     setIngredients(next);
     onUpdate(recipe.id, { ingredients: next });
