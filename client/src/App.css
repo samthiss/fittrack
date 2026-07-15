@@ -7,8 +7,8 @@
      stays fully expanded, but on a taller one (e.g. Journal) scrolling collapses it, so the
      fixed bar's on-screen position moved depending on which tab was open. */
   height: 100svh; /* fallback for browsers without dvh support */
-  height: 100dvh; /* tracks the actual visible viewport live, so the bar sits flush with
-                     whatever space the browser chrome currently leaves, not the worst case */
+  height: 100dvh; /* fallback for browsers without JS-computed --app-height (see index.html) */
+  height: var(--app-height, 100dvh); /* real, current visible height — see index.html for why */
   overflow: hidden;
   text-align: left;
 }

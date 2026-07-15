@@ -19,6 +19,26 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <title>FitTrack</title>
+    <script>
+      // 100dvh/100svh have been unreliable in standalone (Add to Home Screen) mode on some iOS
+      // versions — they can end up shorter than the actual visible area, leaving a gap of the
+      // page's own background exposed below fixed/flex-bottom content. window.visualViewport
+      // (or innerHeight as a fallback) reports the real, current visible height directly, so
+      // --app-height is used instead of the vh units wherever the layout needs the true screen
+      // height (see .app, html, body, #root in the stylesheets).
+      (function () {
+        function setAppHeight() {
+          var h = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+          document.documentElement.style.setProperty('--app-height', h + 'px');
+        }
+        setAppHeight();
+        window.addEventListener('resize', setAppHeight);
+        window.addEventListener('orientationchange', setAppHeight);
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', setAppHeight);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
