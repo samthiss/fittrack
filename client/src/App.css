@@ -6,7 +6,9 @@
      bar visibly shift between views: on a short page (e.g. Recipes) the browser's address bar
      stays fully expanded, but on a taller one (e.g. Journal) scrolling collapses it, so the
      fixed bar's on-screen position moved depending on which tab was open. */
-  height: 100svh;
+  height: 100svh; /* fallback for browsers without dvh support */
+  height: 100dvh; /* tracks the actual visible viewport live, so the bar sits flush with
+                     whatever space the browser chrome currently leaves, not the worst case */
   overflow: hidden;
   text-align: left;
 }
