@@ -35,12 +35,17 @@ html {
   /* iOS Safari's own pull-to-refresh/rubber-band bounce on the outer page — contained here so
      only inner scroll areas bounce, not the whole app shifting behind the fixed bottom tab bar. */
   overscroll-behavior-y: none;
-  height: 100%;
+  /* Must track the same dynamic viewport unit as .app (see App.css) — height: 100% here
+     resolves against a different (larger, static) reference than .app's 100dvh, which left a
+     sliver of this element's own background exposed below the app content on iOS Safari. */
+  height: 100svh;
+  height: 100dvh;
 }
 
 body {
   margin: 0;
-  height: 100%;
+  height: 100svh;
+  height: 100dvh;
   overscroll-behavior-y: none;
   /* Long-press-to-select/callout menu on text is a browser affordance, not something a
      touch-driven app UI expects on every label and button. */
@@ -50,7 +55,7 @@ body {
 #root {
   width: 100%;
   min-height: 100svh;
-  min-height: -webkit-fill-available;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   /* Buttons/rows get an instant tap response instead of iOS's ~300ms delay while it waits to
