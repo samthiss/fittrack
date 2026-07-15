@@ -1,9 +1,14 @@
 import Database from 'better-sqlite3';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const db = new Database(path.join(__dirname, 'fittrack.sqlite'));
+// DATA_DIR points at a mounted persistent volume in production (e.g. Railway) so the database
+// survives redeploys — the container filesystem itself is ephemeral and gets wiped otherwise.
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+fs.mkdirSync(DATA_DIR, { recursive: true });
+const db = new Database(path.join(DATA_DIR, 'fittrack.sqlite'));
 
 db.pragma('journal_mode = WAL');
 

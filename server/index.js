@@ -16,7 +16,11 @@ import { estimateMissingNutrients, estimateNutrientsForFood } from './nutrientEs
 import { classifyFoodsBatch, classifyFood, classifyIngredientsBatch } from './microbiomeClassification.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const WEIGHT_PHOTOS_DIR = path.join(__dirname, 'uploads', 'weight-photos');
+// DATA_DIR points at a mounted persistent volume in production (e.g. Railway) so uploaded
+// photos survive redeploys — the container filesystem itself is ephemeral and gets wiped otherwise.
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+const WEIGHT_PHOTOS_DIR = path.join(UPLOADS_DIR, 'weight-photos');
 fs.mkdirSync(WEIGHT_PHOTOS_DIR, { recursive: true });
 
 const weightPhotoStorage = multer.diskStorage({
@@ -71,7 +75,7 @@ app.use(
   })
 );
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 app.use(
   session({
