@@ -5,7 +5,9 @@ import { useLanguage } from '../i18n/LanguageContext';
 
 function GoalRow({ g, sources, expanded, onToggle, t }) {
   const pct = g.target > 0 ? Math.min(100, Math.max(0, (g.consumed / g.target) * 100)) : 0;
-  const over = g.remaining < 0;
+  // Floor nutrient (fiber, potassium...): the target is a minimum to reach, not a ceiling —
+  // consuming more than the target is a good thing, so it's shown as met (green), never as "over".
+  const goalMet = g.remaining <= 0;
   const canExpand = Boolean(sources && sources.length > 0);
   return (
     <div className="row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
@@ -14,12 +16,12 @@ function GoalRow({ g, sources, expanded, onToggle, t }) {
           {g.label}
           {canExpand && <span className="micro-source-toggle">{expanded ? ' ▾' : ' ▸'}</span>}
         </span>
-        <span className="rate" style={over ? { color: 'var(--danger)' } : undefined}>
-          {over ? `+${Math.abs(g.remaining).toFixed(0)} ${g.unit} ${t('today.above')}` : `${g.remaining.toFixed(0)} ${g.unit} ${t('today.remaining')}`}
+        <span className="rate" style={goalMet ? { color: 'var(--ok-green)' } : undefined}>
+          {goalMet ? t('today.goalMet') : `${g.remaining.toFixed(0)} ${g.unit} ${t('today.remaining')}`}
         </span>
       </div>
       <div className="progress-track">
-        <div className={over ? 'progress-fill fill-low' : 'progress-fill'} style={{ width: `${pct}%` }} />
+        <div className={goalMet ? 'progress-fill fill-ok' : 'progress-fill'} style={{ width: `${pct}%` }} />
       </div>
       <span className="hint" style={{ margin: 0 }}>
         {g.consumed.toFixed(0)} / {g.target.toFixed(0)} {g.unit}
