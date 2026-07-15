@@ -22,10 +22,11 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   /* Status bar is drawn translucent-over-content (see apple-mobile-web-app-status-bar-style in
-     index.html) and the bottom tab bar grows into the home-indicator safe area — both insets are
-     0 on a browser tab and non-zero once this is added to the home screen, so padding has to
-     react to env() rather than assume a fixed notch height. */
-  padding: calc(22px + env(safe-area-inset-top)) 16px calc(88px + env(safe-area-inset-bottom));
+     index.html) — that inset is 0 on a browser tab and non-zero once this is added to the home
+     screen, so top padding has to react to env() rather than assume a fixed notch height. No
+     bottom clearance needed here anymore: .bottom-tabs is a real flex sibling below .shell now,
+     not an overlay, so it already occupies its own space instead of covering scrolled content. */
+  padding: calc(22px + env(safe-area-inset-top)) 16px 22px;
 }
 
 .app-header {
@@ -63,15 +64,17 @@
 }
 
 .bottom-tabs {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  /* A normal flex item (last child of .app, which is the exact height of the viewport and never
+     scrolls itself — see .app below) instead of position: fixed. Fixed positioning is relative to
+     the browser's visual viewport, whose reported size lags/mismatches the dvh unit during iOS
+     Safari's chrome show/hide transitions, which is what left a gap of the page's own background
+     peeking out below the bar. Being a plain flex item sidesteps that entirely: it always renders
+     at the true bottom edge of .app's own box, no viewport-unit math involved. */
+  flex-shrink: 0;
   display: flex;
   background: var(--card);
   border-top: 1px solid var(--line);
   padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px));
-  z-index: 10;
 }
 
 .bottom-tab {
