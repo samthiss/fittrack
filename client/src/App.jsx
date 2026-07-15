@@ -13,6 +13,7 @@ import WeightTracker from './components/WeightTracker';
 import MealPlanner from './components/MealPlanner';
 import AccountSettings from './components/AccountSettings';
 import AuthScreen from './components/AuthScreen';
+import { useLanguage } from './i18n/LanguageContext';
 import './App.css';
 
 function todayStr() {
@@ -26,6 +27,7 @@ function shiftDateStr(dateStr, deltaDays) {
 }
 
 function MainApp({ onLogout, account }) {
+  const { t } = useLanguage();
   const [view, setView] = useState('journal');
   const [selectedMeal, setSelectedMeal] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -358,7 +360,7 @@ function MainApp({ onLogout, account }) {
           {view === 'rapport' && <Report />}
           {view === 'poids' && (
             <>
-              <button type="button" className="btn-ghost back-btn" onClick={() => setView('journal')} aria-label="Retour">
+              <button type="button" className="btn-ghost back-btn" onClick={() => setView('journal')} aria-label={t('common.back')}>
                 &lt;
               </button>
               <WeightTracker />
