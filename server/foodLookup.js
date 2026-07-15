@@ -67,7 +67,10 @@ function mapOffProduct(product) {
 
   for (const { off, key, factor } of OFF_NUTRIENT_MAP) {
     const raw = n[`${off}_100g`];
-    result[key] = raw !== undefined ? raw * factor : 0;
+    // Left undefined (not 0) when OFF has no data for it, so the food-creation endpoint's
+    // "missing = not sent at all" check still triggers AI estimation for it — a real 0 straight
+    // from OFF is different information and is kept as-is.
+    if (raw !== undefined) result[key] = raw * factor;
   }
 
   return result;

@@ -169,6 +169,8 @@ export const translations = {
     'addFood.referenceHint':
       "Saisis les valeurs pour cette portion (ex: 80mg caféine pour 30g) — c'est converti automatiquement en valeurs pour 100g.",
     'addFood.micronutrientsFor': 'Micronutriments / {portion}g',
+    'addFood.micronutrientsPer100g': 'Micronutriments / 100g (optionnel)',
+    'addFood.autoEstimate': 'auto',
     'addFood.close': 'Fermer',
 
     // Micronutrient list
@@ -627,6 +629,8 @@ export const translations = {
     'addFood.referenceHint':
       'Enter the values for this portion (e.g. 80mg caffeine for 30g) — it is automatically converted to per-100g values.',
     'addFood.micronutrientsFor': 'Micronutrients / {portion}g',
+    'addFood.micronutrientsPer100g': 'Micronutrients / 100g (optional)',
+    'addFood.autoEstimate': 'auto',
     'addFood.close': 'Close',
 
     // Micronutrient list

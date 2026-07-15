@@ -4,8 +4,6 @@ import { api } from '../api';
 import { findRecurringItems } from './MealPlanner';
 import { useLanguage } from '../i18n/LanguageContext';
 
-const EMPTY_FOOD = { name: '', kcal_per_100g: '', protein_per_100g: '', carbs_per_100g: '', fat_per_100g: '' };
-
 function recipeMacrosPerPortion(recipe) {
   const totals = recipe.ingredients.reduce(
     (acc, i) => {
@@ -47,6 +45,17 @@ const MICRO_FIELDS = [
   { key: 'omega3', labelKey: 'nutrient.omega3', unit: 'mg' },
   { key: 'caffeine', labelKey: 'nutrient.caffeine', unit: 'mg' },
 ];
+
+// Every micronutrient field starts blank, not 0 — left blank, the server auto-estimates it;
+// explicitly typing 0 (e.g. "this really has no sodium") is a real value and is kept as entered.
+const EMPTY_FOOD = {
+  name: '',
+  kcal_per_100g: '',
+  protein_per_100g: '',
+  carbs_per_100g: '',
+  fat_per_100g: '',
+  ...Object.fromEntries(MICRO_FIELDS.map((f) => [`${f.key}_per_100g`, ''])),
+};
 
 export default function AddFoodToMeal({
   mealKey,
@@ -369,13 +378,20 @@ export default function AddFoodToMeal({
   async function handleManualSubmit(e) {
     e.preventDefault();
     if (!manualForm.name.trim() || manualForm.kcal_per_100g === '') return;
-    const food = await onCreateFood({
+    const payload = {
       name: manualForm.name.trim(),
       kcal_per_100g: Number(manualForm.kcal_per_100g),
       protein_per_100g: Number(manualForm.protein_per_100g) || 0,
       carbs_per_100g: Number(manualForm.carbs_per_100g) || 0,
       fat_per_100g: Number(manualForm.fat_per_100g) || 0,
-    });
+    };
+    // Left-blank micronutrients are omitted entirely (not sent as 0) so the server knows to
+    // auto-estimate them; a field the user actually typed into — 0 included — is sent as-is.
+    for (const f of MICRO_FIELDS) {
+      const key = `${f.key}_per_100g`;
+      if (manualForm[key] !== '') payload[key] = Number(manualForm[key]) || 0;
+    }
+    const food = await onCreateFood(payload);
     await onAddEntry('food', food.id, 100);
     setManualForm(EMPTY_FOOD);
   }
@@ -541,6 +557,26 @@ export default function AddFoodToMeal({
                 <span className="unit">g</span>
               </div>
             </div>
+
+            <h4 className="section-label">{t('addFood.micronutrientsPer100g')}</h4>
+            {MICRO_FIELDS.map((f) => (
+              <div className="row" key={f.key}>
+                <label>{t(f.labelKey)}</label>
+                <div className="field">
+                  <input
+                    type="number"
+                    name={`${f.key}_per_100g`}
+                    min="0"
+                    step="any"
+                    placeholder={t('addFood.autoEstimate')}
+                    value={manualForm[`${f.key}_per_100g`]}
+                    onChange={handleManualChange}
+                  />
+                  <span className="unit">{f.unit}</span>
+                </div>
+              </div>
+            ))}
+
             <div className="card-actions">
               <button type="submit" className="btn">
                 {t('addFood.createAndAdd')}

@@ -767,7 +767,10 @@ app.post('/api/foods', async (req, res) => {
   // category) go straight to the AI; a barcode scan (category set) first tries copying from
   // another already-estimated food in the same OFF category (a second brand of eggs/skyr reuses
   // the first one's profile) and only calls the AI for whatever no peer has either.
-  const missingKeys = NUTRIENT_KEYS.filter((k) => !nutrientValues[k]);
+  // "Missing" means the client didn't send the field at all — not just that it's 0, since the
+  // manual creation form lets 0 be typed in as a real value (e.g. "this really has no sodium")
+  // that must not get silently overwritten by an estimate.
+  const missingKeys = NUTRIENT_KEYS.filter((k) => req.body[`${k}_per_100g`] === undefined);
   if (missingKeys.length > 0) {
     let stillMissing = missingKeys;
     if (category) {
