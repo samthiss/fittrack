@@ -763,27 +763,28 @@ app.post('/api/foods', async (req, res) => {
   const nutrientValues = {};
   for (const k of NUTRIENT_KEYS) nutrientValues[k] = Number(req.body[`${k}_per_100g`]) || 0;
 
-  // Only for foods coming from a barcode scan (category is set there): a food missing
-  // micronutrients gets them filled in — first by copying from another already-estimated food
-  // in the same OFF category (a second brand of eggs/skyr reuses the first one's profile), and
-  // only calling the AI when nothing in that category has the field yet.
-  if (category) {
-    const missingKeys = NUTRIENT_KEYS.filter((k) => !nutrientValues[k]);
-    if (missingKeys.length > 0) {
+  // Any newly created food gets its missing micronutrients filled in — manual entries (no
+  // category) go straight to the AI; a barcode scan (category set) first tries copying from
+  // another already-estimated food in the same OFF category (a second brand of eggs/skyr reuses
+  // the first one's profile) and only calls the AI for whatever no peer has either.
+  const missingKeys = NUTRIENT_KEYS.filter((k) => !nutrientValues[k]);
+  if (missingKeys.length > 0) {
+    let stillMissing = missingKeys;
+    if (category) {
       const categoryPeers = db.prepare('SELECT * FROM foods WHERE user_id = ? AND category = ?').all(req.userId, category);
-      const stillMissing = [];
+      stillMissing = [];
       for (const k of missingKeys) {
         const peer = categoryPeers.find((p) => p[`${k}_per_100g`]);
         if (peer) nutrientValues[k] = peer[`${k}_per_100g`];
         else stillMissing.push(k);
       }
-      if (stillMissing.length > 0) {
-        try {
-          const estimated = await estimateNutrientsForFood(name, stillMissing, INGREDIENT_NUTRIENT_FIELDS);
-          for (const k of stillMissing) nutrientValues[k] = estimated[k] || 0;
-        } catch (err) {
-          console.error('Nutrient estimation failed for', name, ':', err.message);
-        }
+    }
+    if (stillMissing.length > 0) {
+      try {
+        const estimated = await estimateNutrientsForFood(name, stillMissing, INGREDIENT_NUTRIENT_FIELDS);
+        for (const k of stillMissing) nutrientValues[k] = estimated[k] || 0;
+      } catch (err) {
+        console.error('Nutrient estimation failed for', name, ':', err.message);
       }
     }
   }
@@ -823,19 +824,36 @@ app.post('/api/foods', async (req, res) => {
   res.status(201).json(row);
 });
 
-app.put('/api/foods/:id', (req, res) => {
+app.put('/api/foods/:id', async (req, res) => {
   const current = db.prepare('SELECT * FROM foods WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   if (!current) return res.status(404).json({ error: 'aliment introuvable' });
 
   const baseFields = ['name', 'kcal_per_100g', 'protein_per_100g', 'carbs_per_100g', 'fat_per_100g'];
   const allCols = [...baseFields, ...NUTRIENT_KEYS.map((k) => `${k}_per_100g`)];
-  const setCols = allCols.map((c) => `${c} = ?`);
-  const values = allCols.map((c) => {
-    if (req.body[c] === undefined) return current[c];
-    return c === 'name' ? req.body[c] : Number(req.body[c]) || 0;
-  });
+  const values = {};
+  for (const c of allCols) {
+    values[c] = req.body[c] === undefined ? current[c] : c === 'name' ? req.body[c] : Number(req.body[c]) || 0;
+  }
 
-  db.prepare(`UPDATE foods SET ${setCols.join(', ')} WHERE id = ? AND user_id = ?`).run(...values, req.params.id, req.userId);
+  // Same auto-fill as creation: this food may predate estimation, or have been created manually
+  // (no category to trigger it) — whatever micronutrient is still 0 after this edit gets
+  // estimated instead of silently staying at 0 forever.
+  const missingKeys = NUTRIENT_KEYS.filter((k) => !values[`${k}_per_100g`]);
+  if (missingKeys.length > 0) {
+    try {
+      const estimated = await estimateNutrientsForFood(values.name, missingKeys, INGREDIENT_NUTRIENT_FIELDS);
+      for (const k of missingKeys) values[`${k}_per_100g`] = estimated[k] || 0;
+    } catch (err) {
+      console.error('Nutrient estimation failed for', values.name, ':', err.message);
+    }
+  }
+
+  const setCols = allCols.map((c) => `${c} = ?`);
+  db.prepare(`UPDATE foods SET ${setCols.join(', ')} WHERE id = ? AND user_id = ?`).run(
+    ...allCols.map((c) => values[c]),
+    req.params.id,
+    req.userId
+  );
   res.json(db.prepare('SELECT * FROM foods WHERE id = ?').get(req.params.id));
 });
 
