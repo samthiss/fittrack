@@ -1,19 +1,29 @@
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100svh;
+  /* Fixed to the viewport height with its own scrolling done entirely inside .shell (below) —
+     the outer page itself never scrolls. Letting the whole document scroll made the bottom tab
+     bar visibly shift between views: on a short page (e.g. Recipes) the browser's address bar
+     stays fully expanded, but on a taller one (e.g. Journal) scrolling collapses it, so the
+     fixed bar's on-screen position moved depending on which tab was open. */
+  height: 100svh;
+  overflow: hidden;
   text-align: left;
-  /* Status bar is drawn translucent-over-content (see apple-mobile-web-app-status-bar-style in
-     index.html) and the bottom tab bar grows into the home-indicator safe area — both insets are
-     0 on a browser tab and non-zero once this is added to the home screen, so padding has to
-     react to env() rather than assume a fixed notch height. */
-  padding: calc(22px + env(safe-area-inset-top)) 16px calc(88px + env(safe-area-inset-bottom));
 }
 
 .shell {
   max-width: 600px;
   width: 100%;
   margin: 0 auto;
+  flex: 1;
+  min-height: 0; /* lets a flex child actually scroll instead of growing to fit its content */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Status bar is drawn translucent-over-content (see apple-mobile-web-app-status-bar-style in
+     index.html) and the bottom tab bar grows into the home-indicator safe area — both insets are
+     0 on a browser tab and non-zero once this is added to the home screen, so padding has to
+     react to env() rather than assume a fixed notch height. */
+  padding: calc(22px + env(safe-area-inset-top)) 16px calc(88px + env(safe-area-inset-bottom));
 }
 
 .app-header {
