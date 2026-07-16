@@ -746,6 +746,9 @@ export default function AddFoodToMeal({
               </button>
             </div>
           </div>
+          <button type="button" className="done-btn" onClick={() => setViewingItem(null)}>
+            {t('addFood.close')}
+          </button>
         </div>
       )}
 
@@ -790,6 +793,9 @@ export default function AddFoodToMeal({
               </button>
             </div>
           </div>
+          <button type="button" className="done-btn" onClick={() => setScanResult(null)}>
+            {t('addFood.close')}
+          </button>
         </div>
       )}
 
