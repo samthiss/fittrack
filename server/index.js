@@ -2201,6 +2201,40 @@ app.get('/api/meal-plan', (req, res) => {
   res.json({ days: PLAN_DAYS, meals, entries: rows, targetIntake });
 });
 
+// Wipes the whole week's plan in one go, EXCEPT recurring meals (same day/meal/source on all 7
+// days — a stable routine, not a one-off plan to discard) which are left untouched. Also cleans
+// up today's Journal for whatever's actually removed, same as deleting a single entry below.
+app.delete('/api/meal-plan', (req, res) => {
+  const allEntries = db.prepare('SELECT * FROM meal_plan_entries WHERE user_id = ?').all(req.userId);
+
+  const recurringKeysByMeal = new Map();
+  for (const meal of new Set(allEntries.map((e) => e.meal))) {
+    const perDay = PLAN_DAYS.map((d) => allEntries.filter((e) => e.day === d.key && e.meal === meal));
+    if (perDay.some((list) => list.length === 0)) continue;
+    const [first, ...rest] = perDay;
+    const recurring = first.filter((item) =>
+      rest.every((dayItems) => dayItems.some((e) => e.source_type === item.source_type && e.source_id === item.source_id))
+    );
+    recurringKeysByMeal.set(meal, new Set(recurring.map((r) => `${r.source_type}-${r.source_id}`)));
+  }
+
+  const today = todayStr();
+  const todayPlanDay = WEEKDAY_TO_PLAN_DAY[new Date(`${today}T00:00:00Z`).getUTCDay()];
+  const toDelete = allEntries.filter((e) => !recurringKeysByMeal.get(e.meal)?.has(`${e.source_type}-${e.source_id}`));
+
+  for (const entry of toDelete) {
+    if (entry.day === todayPlanDay) {
+      const logSourceType = entry.source_type === 'recipe' ? 'recipe_ingredient' : entry.source_type;
+      db.prepare(
+        'DELETE FROM food_logs WHERE user_id = ? AND date = ? AND meal = ? AND source_type = ? AND source_id = ?'
+      ).run(req.userId, today, entry.meal, logSourceType, entry.source_id);
+    }
+    db.prepare('DELETE FROM meal_plan_entries WHERE id = ?').run(entry.id);
+  }
+
+  res.status(204).end();
+});
+
 app.post('/api/meal-plan/entry', (req, res) => {
   const { day, meal, source_type, source_id, quantity } = req.body;
   if (!PLAN_DAYS.some((d) => d.key === day)) return res.status(400).json({ error: 'day invalide' });

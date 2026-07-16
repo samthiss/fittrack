@@ -105,6 +105,7 @@ export const api = {
   },
   deleteWeightPhoto: (id) => request(`/weight-photos/${id}`, { method: 'DELETE' }),
   getMealPlan: () => request('/meal-plan'),
+  clearMealPlan: () => request('/meal-plan', { method: 'DELETE' }),
   setMealPlanEntry: (data) =>
     request('/meal-plan/entry', { method: 'POST', body: JSON.stringify(data) }),
   applyMealPlanToWeek: (data) =>

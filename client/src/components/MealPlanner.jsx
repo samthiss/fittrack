@@ -155,6 +155,7 @@ export default function MealPlanner({ recipes, foods }) {
   const [overwriteFilled, setOverwriteFilled] = useState(false);
   const [journalMessage, setJournalMessage] = useState(null);
   const [genMode, setGenMode] = useState('library'); // 'ai' | 'library' | 'favorites'
+  const [clearingWeek, setClearingWeek] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -389,6 +390,17 @@ export default function MealPlanner({ recipes, foods }) {
     setJournalMessage(parts.length > 0 ? parts.join(' · ') : t('planner.nothingToAddToday'));
   }
 
+  async function handleClearWeek() {
+    if (!window.confirm(t('planner.confirmClearWeek'))) return;
+    setClearingWeek(true);
+    try {
+      await api.clearMealPlan();
+      await refresh();
+    } finally {
+      setClearingWeek(false);
+    }
+  }
+
   const entriesForDay = plan.entries.filter((e) => e.day === day);
   const dayTotalKcal = entriesForDay.reduce((s, e) => s + e.kcal, 0);
 
@@ -500,6 +512,16 @@ export default function MealPlanner({ recipes, foods }) {
             : t('planner.generateFullWeek')}
         </button>
         {weekMessage && <p className="hint">{weekMessage}</p>}
+
+        <button
+          type="button"
+          className="btn-ghost btn-block"
+          style={{ marginTop: 10 }}
+          disabled={clearingWeek}
+          onClick={handleClearWeek}
+        >
+          {clearingWeek ? t('planner.clearingWeek') : t('planner.clearWeek')}
+        </button>
       </div>
 
       <div className="card">
