@@ -20,7 +20,12 @@
   flex: 1;
   min-height: 0; /* lets a flex child actually scroll instead of growing to fit its content */
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  /* No -webkit-overflow-scrolling: touch here — on older WebKit that property promotes this
+     element to its own compositing layer, which traps any position: fixed descendant (like
+     .modal-overlay) inside it instead of letting it cover the true viewport. That's what left
+     modals (e.g. "Add a food") clipped to .shell's bounds, with the bottom tab bar still showing
+     underneath and the modal's own bottom button unreachable. Modern iOS already scrolls
+     smoothly without this legacy hack. */
   /* Status bar is drawn translucent-over-content (see apple-mobile-web-app-status-bar-style in
      index.html) — that inset is 0 on a browser tab and non-zero once this is added to the home
      screen, so top padding has to react to env() rather than assume a fixed notch height. No
