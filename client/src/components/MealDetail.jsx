@@ -107,6 +107,9 @@ export default function MealDetail({
   const [replaceTargetIds, setReplaceTargetIds] = useState(null);
   const [viewingRecipeId, setViewingRecipeId] = useState(null);
   const [viewingEntryId, setViewingEntryId] = useState(null);
+  const [editingGroupId, setEditingGroupId] = useState(null);
+  const [groupPortions, setGroupPortions] = useState('1');
+  const [savingGroupPortions, setSavingGroupPortions] = useState(false);
   const [recurringKeys, setRecurringKeys] = useState(new Set());
   const swipeRef = useRef(null);
   const mealKeyForEffect = meal?.key;
@@ -141,6 +144,35 @@ export default function MealDetail({
 
   async function handleDeleteGroup(ids) {
     for (const id of ids) await onDeleteEntry(id);
+  }
+
+  // Logged recipe ingredients don't store the portions count directly (only each ingredient's
+  // already-scaled quantity), so it's recovered from the ratio between what's logged and what
+  // the recipe's own definition says for that same ingredient.
+  function currentPortionsForGroup(g, recipe) {
+    if (!recipe || g.entries.length === 0) return recipe?.portions || 1;
+    const defIngredient = recipe.ingredients.find((i) => i.nom === g.entries[0].label);
+    if (!defIngredient || !defIngredient.qte) return recipe.portions || 1;
+    const ratio = g.entries[0].quantity / defIngredient.qte;
+    return Math.round(ratio * (recipe.portions || 1) * 100) / 100;
+  }
+
+  function openEditGroup(g, recipe) {
+    setEditingGroupId(g.recipeId);
+    setGroupPortions(String(currentPortionsForGroup(g, recipe)));
+  }
+
+  async function handleSaveGroupPortions(g) {
+    const next = Number(groupPortions);
+    if (!next || next <= 0) return;
+    setSavingGroupPortions(true);
+    try {
+      await handleDeleteGroup(g.entries.map((e) => e.id));
+      await onAddEntry('recipe', g.recipeId, next);
+      setEditingGroupId(null);
+    } finally {
+      setSavingGroupPortions(false);
+    }
   }
 
   // Unlike the one-directional recurring checkbox in AddFoodToMeal (which only ever turns
@@ -261,6 +293,11 @@ export default function MealDetail({
                     <button className="btn-ghost" onClick={() => openReplace(ids)}>
                       {t('meal.replace')}
                     </button>
+                    {recipe && (
+                      <button className="btn-ghost" onClick={() => openEditGroup(g, recipe)}>
+                        {t('meal.edit')}
+                      </button>
+                    )}
                     <button className="btn-ghost" onClick={() => handleDeleteGroup(ids)}>
                       🗑
                     </button>
@@ -410,6 +447,57 @@ export default function MealDetail({
           </div>
         </div>
       )}
+
+      {editingGroupId != null && (() => {
+        const g = groups.find((gr) => gr.kind === 'recipe' && gr.recipeId === editingGroupId);
+        const recipe = g && recipes.find((r) => r.id === g.recipeId);
+        if (!g || !recipe) return null;
+        const groupKcal = g.entries.reduce((s, e) => s + e.kcal, 0);
+        return (
+          <div className="modal-overlay" onClick={() => setEditingGroupId(null)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h2>{recipe.title}</h2>
+              <div className="tile-grid">
+                <div className="tile">
+                  <b style={{ fontSize: 16 }}>{Math.round(groupKcal)}</b>
+                  <span>kcal</span>
+                </div>
+              </div>
+              <h4 className="section-label">{t('meal.quantity')}</h4>
+              <div className="qty-editor">
+                <div className="qty-editor-row">
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={groupPortions}
+                    onChange={(e) => setGroupPortions(e.target.value)}
+                  />
+                  <span className="qty-editor-unit">{t('addFood.portion')}</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-block"
+                  onClick={() => handleSaveGroupPortions(g)}
+                  disabled={savingGroupPortions}
+                >
+                  {savingGroupPortions ? t('addFood.saving') : t('meal.save')}
+                </button>
+              </div>
+              <label className="recurring-toggle-row">
+                <input
+                  type="checkbox"
+                  checked={recurringKeys.has(`recipe-${g.recipeId}`)}
+                  onChange={(e) =>
+                    handleToggleRecurring('recipe', g.recipeId, Number(groupPortions) || 1, e.target.checked)
+                  }
+                />
+                <span>{t('addFood.recurringMeal')}</span>
+              </label>
+            </div>
+          </div>
+        );
+      })()}
 
       {viewingRecipe && (
         <div className="modal-overlay" onClick={() => setViewingRecipeId(null)}>
