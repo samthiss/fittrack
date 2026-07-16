@@ -128,7 +128,7 @@ export default function MealDetail({
   }, [refreshRecurringKeys, meal?.entries]);
 
   if (!meal) return null;
-  const { key: mealKey, label, budgetKcal, consumed, macroTargets, entries } = meal;
+  const { key: mealKey, budgetKcal, consumed, macroTargets, entries } = meal;
   const groups = groupEntries(entries);
   const viewingRecipe = viewingRecipeId ? recipes.find((r) => r.id === viewingRecipeId) : null;
   const viewingEntry = viewingEntryId ? entries.find((e) => e.id === viewingEntryId) : null;
@@ -204,7 +204,7 @@ export default function MealDetail({
         <button className="btn-ghost back-btn" onClick={onBack} aria-label={t('meal.back')}>
           &lt;
         </button>
-        <h1 className="meal-title">{label}</h1>
+        <h1 className="meal-title">{t(`mealName.${mealKey}`)}</h1>
       </div>
 
       <div className="tile-grid">

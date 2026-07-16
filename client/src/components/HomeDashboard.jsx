@@ -168,7 +168,7 @@ export default function HomeDashboard({
         {meals.map((m) => (
           <div className="row meal-row" key={m.key} onClick={() => onSelectMeal(m.key)}>
             <div className="name">
-              <span>{m.label} →</span>
+              <span>{t(`mealName.${m.key}`)} →</span>
               <span className="rate">
                 {Math.round(m.consumedKcal)} / {Math.round(m.budgetKcal)} kcal
               </span>

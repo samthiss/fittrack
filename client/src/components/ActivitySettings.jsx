@@ -29,7 +29,7 @@ export default function ActivitySettings({ activityTypes, onUpdate }) {
       <div className="card">
         {activityTypes.map((a) => (
           <div className="row" key={a.type}>
-            <label htmlFor={`t-${a.type}`}>{a.label}</label>
+            <label htmlFor={`t-${a.type}`}>{t(`activityType.${a.type}`)}</label>
             <div className="field">
               <input
                 type="number"

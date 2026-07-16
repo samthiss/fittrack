@@ -73,8 +73,8 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
     await refreshPlan();
   }
 
-  const labelFor = (t) => activityTypes.find((a) => a.type === t)?.label || t;
-  const dayLabelFor = (d) => planDays.find((p) => p.key === d)?.label || d;
+  const labelFor = (type) => (activityTypes.some((a) => a.type === type) ? t(`activityType.${type}`) : type);
+  const dayLabelFor = (d) => (planDays.some((p) => p.key === d) ? t(`dayName.${d}`) : d);
 
   // Group flat (day, type, duration) rows back into one card per activity, listing its days —
   // "Course à pied · 30 min" with "Lun, Mer, Ven" instead of 3 separate identical-looking rows.
@@ -100,7 +100,7 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
           <select value={type} onChange={(e) => setType(e.target.value)}>
             {activityTypes.map((a) => (
               <option key={a.type} value={a.type}>
-                {a.label}
+                {t(`activityType.${a.type}`)}
               </option>
             ))}
           </select>
@@ -185,7 +185,7 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
                   <select value={planType} onChange={(e) => setPlanType(e.target.value)}>
                     {activityTypes.map((a) => (
                       <option key={a.type} value={a.type}>
-                        {a.label}
+                        {t(`activityType.${a.type}`)}
                       </option>
                     ))}
                   </select>
@@ -220,7 +220,7 @@ export default function ActivityLog({ activityTypes, activities, onAdd, onDelete
                     className={selectedDays.has(d.key) ? 'day-chip active' : 'day-chip'}
                     onClick={() => toggleDay(d.key)}
                   >
-                    {d.label.slice(0, 3)}
+                    {t(`dayName.${d.key}`).slice(0, 3)}
                   </button>
                 ))}
               </div>

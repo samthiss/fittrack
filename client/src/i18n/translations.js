@@ -11,6 +11,34 @@ export const translations = {
     'nav.planning': 'Planning',
     'nav.settings': 'Réglages',
 
+    // Meal names (fixed set of 4, sent by the server as plain French labels — translated
+    // client-side by matching the meal's stable key instead)
+    'mealName.breakfast': 'Petit déjeuner',
+    'mealName.snack': 'En-cas',
+    'mealName.lunch': 'Déjeuner',
+    'mealName.dinner': 'Dîner',
+
+    // Activity type names (fixed set of 9 defaults, not user-renamable — same client-side
+    // translation-by-key approach as meal names)
+    'activityType.marche': 'Marche (tranquille)',
+    'activityType.marche_tapis': 'Marche sur tapis',
+    'activityType.stepper': 'Stepper (tranquille)',
+    'activityType.force': 'Entraînement de force',
+    'activityType.marche_tapis_incline_6': 'Tapis incliné 6%',
+    'activityType.marche_tapis_incline_8': 'Tapis incliné 8%',
+    'activityType.marche_tapis_incline_10': 'Tapis incliné 10%',
+    'activityType.marche_tapis_incline_12': 'Tapis incliné 12%',
+    'activityType.velo_ville': 'Vélo de ville',
+
+    // Weekly plan day names (fixed set of 7, same translate-by-key approach)
+    'dayName.mon': 'Lundi',
+    'dayName.tue': 'Mardi',
+    'dayName.wed': 'Mercredi',
+    'dayName.thu': 'Jeudi',
+    'dayName.fri': 'Vendredi',
+    'dayName.sat': 'Samedi',
+    'dayName.sun': 'Dimanche',
+
     // Common actions
     'common.save': 'Enregistrer',
     'common.saving': 'Enregistrement…',
@@ -475,6 +503,32 @@ export const translations = {
     'nav.report': 'Report',
     'nav.planning': 'Planning',
     'nav.settings': 'Settings',
+
+    // Meal names
+    'mealName.breakfast': 'Breakfast',
+    'mealName.snack': 'Snack',
+    'mealName.lunch': 'Lunch',
+    'mealName.dinner': 'Dinner',
+
+    // Activity type names
+    'activityType.marche': 'Walking (leisurely)',
+    'activityType.marche_tapis': 'Treadmill walking',
+    'activityType.stepper': 'Stepper (leisurely)',
+    'activityType.force': 'Strength training',
+    'activityType.marche_tapis_incline_6': 'Incline treadmill 6%',
+    'activityType.marche_tapis_incline_8': 'Incline treadmill 8%',
+    'activityType.marche_tapis_incline_10': 'Incline treadmill 10%',
+    'activityType.marche_tapis_incline_12': 'Incline treadmill 12%',
+    'activityType.velo_ville': 'City cycling',
+
+    // Weekly plan day names
+    'dayName.mon': 'Monday',
+    'dayName.tue': 'Tuesday',
+    'dayName.wed': 'Wednesday',
+    'dayName.thu': 'Thursday',
+    'dayName.fri': 'Friday',
+    'dayName.sat': 'Saturday',
+    'dayName.sun': 'Sunday',
 
     // Common actions
     'common.save': 'Save',

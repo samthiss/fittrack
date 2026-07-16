@@ -541,7 +541,7 @@ export default function MealPlanner({ recipes, foods }) {
               className={d.key === day ? 'day-chip active' : 'day-chip'}
               onClick={() => setDay(d.key)}
             >
-              {d.label.slice(0, 3)}
+              {t(`dayName.${d.key}`).slice(0, 3)}
             </button>
           ))}
         </div>
@@ -557,7 +557,7 @@ export default function MealPlanner({ recipes, foods }) {
             <div className="plan-row" key={m.key}>
               <div className="row" style={{ borderBottom: mealEntries.length > 0 ? undefined : 0 }}>
                 <div className="name">
-                  <span>{m.label}</span>
+                  <span>{t(`mealName.${m.key}`)}</span>
                   {mealEntries.length === 0 && (
                     <span className="rate">{t('planner.toDefine')} · {t('planner.goalShort')} {Math.round(m.budgetKcal)} kcal</span>
                   )}
