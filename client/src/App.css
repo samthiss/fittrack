@@ -1282,10 +1282,6 @@ textarea.wide {
   line-height: 1;
 }
 
-.recurring-indicator.clickable {
-  cursor: pointer;
-}
-
 .recurring-toggle-row {
   display: flex;
   align-items: center;

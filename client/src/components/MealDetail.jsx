@@ -143,8 +143,15 @@ export default function MealDetail({
     for (const id of ids) await onDeleteEntry(id);
   }
 
-  async function handleRemoveRecurring(sourceType, sourceId) {
-    await api.removeMealPlanForSource(mealKey, sourceType, sourceId);
+  // Unlike the one-directional recurring checkbox in AddFoodToMeal (which only ever turns
+  // recurring ON, so logging a second portion can never accidentally un-mark it), this one is a
+  // deliberate edit action — toggling it off here is the whole point.
+  async function handleToggleRecurring(sourceType, sourceId, quantity, nextChecked) {
+    if (nextChecked) {
+      await api.applyMealPlanToWeek({ meal: mealKey, source_type: sourceType, source_id: sourceId, quantity });
+    } else {
+      await api.removeMealPlanForSource(mealKey, sourceType, sourceId);
+    }
     await refreshRecurringKeys();
   }
 
@@ -213,14 +220,13 @@ export default function MealDetail({
                   <div className="field">
                     <b>{Math.round(e.kcal)} kcal</b>
                     {recurringKeys.has(`${e.source_type}-${e.source_id}`) && (
-                      <span
-                        className="recurring-indicator clickable"
-                        title={t('meal.removeRecurring')}
-                        onClick={() => handleRemoveRecurring(e.source_type, e.source_id)}
-                      >
+                      <span className="recurring-indicator" title={t('meal.recurringMeal')}>
                         🔁
                       </span>
                     )}
+                    <button className="btn-ghost" onClick={() => setViewingEntryId(e.id)}>
+                      {t('meal.edit')}
+                    </button>
                     <button className="btn-ghost" onClick={() => onDeleteEntry(e.id)}>
                       🗑
                     </button>
@@ -248,11 +254,7 @@ export default function MealDetail({
                   <div className="field">
                     <b>{Math.round(groupKcal)} kcal</b>
                     {recurringKeys.has(`recipe-${g.recipeId}`) && (
-                      <span
-                        className="recurring-indicator clickable"
-                        title={t('meal.removeRecurring')}
-                        onClick={() => handleRemoveRecurring('recipe', g.recipeId)}
-                      >
+                      <span className="recurring-indicator" title={t('meal.recurringMeal')}>
                         🔁
                       </span>
                     )}
@@ -388,6 +390,23 @@ export default function MealDetail({
               onUpdateEntry={onUpdateEntry}
               onSaved={() => setViewingEntryId(null)}
             />
+            {viewingEntry.source_type === 'food' && (
+              <label className="recurring-toggle-row">
+                <input
+                  type="checkbox"
+                  checked={recurringKeys.has(`${viewingEntry.source_type}-${viewingEntry.source_id}`)}
+                  onChange={(e) =>
+                    handleToggleRecurring(
+                      viewingEntry.source_type,
+                      viewingEntry.source_id,
+                      viewingEntry.quantity,
+                      e.target.checked
+                    )
+                  }
+                />
+                <span>{t('addFood.recurringMeal')}</span>
+              </label>
+            )}
           </div>
         </div>
       )}
