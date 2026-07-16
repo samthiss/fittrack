@@ -2236,7 +2236,23 @@ app.post('/api/meal-plan/apply-all', (req, res) => {
 });
 
 app.delete('/api/meal-plan/entry/:id', (req, res) => {
+  const entry = db.prepare('SELECT * FROM meal_plan_entries WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   db.prepare('DELETE FROM meal_plan_entries WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
+
+  // If this was today's planned entry, also clear its reflection in the Journal — the daily
+  // auto-apply (apply-to-journal) may have already logged it, and changing your mind about a
+  // plan entry should mean it's gone from today's Journal too, not just from future days.
+  if (entry) {
+    const today = todayStr();
+    const todayPlanDay = WEEKDAY_TO_PLAN_DAY[new Date(`${today}T00:00:00Z`).getUTCDay()];
+    if (entry.day === todayPlanDay) {
+      const logSourceType = entry.source_type === 'recipe' ? 'recipe_ingredient' : entry.source_type;
+      db.prepare(
+        'DELETE FROM food_logs WHERE user_id = ? AND date = ? AND meal = ? AND source_type = ? AND source_id = ?'
+      ).run(req.userId, today, entry.meal, logSourceType, entry.source_id);
+    }
+  }
+
   res.status(204).end();
 });
 
