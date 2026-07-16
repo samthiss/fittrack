@@ -110,6 +110,11 @@ export const api = {
   applyMealPlanToWeek: (data) =>
     request('/meal-plan/apply-all', { method: 'POST', body: JSON.stringify(data) }),
   deleteMealPlanEntry: (id) => request(`/meal-plan/entry/${id}`, { method: 'DELETE' }),
+  removeMealPlanForSource: (meal, source_type, source_id) =>
+    request(
+      `/meal-plan/by-source?meal=${encodeURIComponent(meal)}&source_type=${encodeURIComponent(source_type)}&source_id=${encodeURIComponent(source_id)}`,
+      { method: 'DELETE' }
+    ),
   generateMealPlanEntry: (data) =>
     request('/meal-plan/generate', { method: 'POST', body: JSON.stringify(data) }),
   applyMealPlanToJournal: (date) =>

@@ -2240,6 +2240,20 @@ app.delete('/api/meal-plan/entry/:id', (req, res) => {
   res.status(204).end();
 });
 
+// Un-marks a food/recipe as recurring for a meal — the inverse of apply-all, which is how
+// something becomes recurring in the first place (one row per day, every day of the week).
+app.delete('/api/meal-plan/by-source', (req, res) => {
+  const { meal, source_type, source_id } = req.query;
+  if (!MEALS.some((m) => m.key === meal)) return res.status(400).json({ error: 'meal invalide' });
+  db.prepare('DELETE FROM meal_plan_entries WHERE user_id = ? AND meal = ? AND source_type = ? AND source_id = ?').run(
+    req.userId,
+    meal,
+    source_type,
+    source_id
+  );
+  res.status(204).end();
+});
+
 // Turns a recipe or food into a common shape for macro-ratio matching: kcal/protein/carbs/fat
 // "per unit" (per portion for a recipe, per 100g for a food) plus the unit each is quantified in.
 function toMatchItem(userId, source_type, source_id) {

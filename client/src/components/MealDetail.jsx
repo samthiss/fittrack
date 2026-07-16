@@ -143,6 +143,11 @@ export default function MealDetail({
     for (const id of ids) await onDeleteEntry(id);
   }
 
+  async function handleRemoveRecurring(sourceType, sourceId) {
+    await api.removeMealPlanForSource(mealKey, sourceType, sourceId);
+    await refreshRecurringKeys();
+  }
+
   return (
     <div
       onTouchStart={(e) => {
@@ -208,7 +213,11 @@ export default function MealDetail({
                   <div className="field">
                     <b>{Math.round(e.kcal)} kcal</b>
                     {recurringKeys.has(`${e.source_type}-${e.source_id}`) && (
-                      <span className="recurring-indicator" title={t('meal.recurringMeal')}>
+                      <span
+                        className="recurring-indicator clickable"
+                        title={t('meal.removeRecurring')}
+                        onClick={() => handleRemoveRecurring(e.source_type, e.source_id)}
+                      >
                         🔁
                       </span>
                     )}
@@ -239,7 +248,11 @@ export default function MealDetail({
                   <div className="field">
                     <b>{Math.round(groupKcal)} kcal</b>
                     {recurringKeys.has(`recipe-${g.recipeId}`) && (
-                      <span className="recurring-indicator" title={t('meal.recurringMeal')}>
+                      <span
+                        className="recurring-indicator clickable"
+                        title={t('meal.removeRecurring')}
+                        onClick={() => handleRemoveRecurring('recipe', g.recipeId)}
+                      >
                         🔁
                       </span>
                     )}
