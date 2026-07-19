@@ -9,13 +9,13 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function MacroMiniBar({ label, value, max }) {
+function MacroMiniBar({ label, value, max, color }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
   return (
     <div className="macro-mini">
       <span className="macro-mini-label">{label}</span>
       <div className="progress-track">
-        <div className="progress-fill" style={{ width: `${pct}%` }} />
+        <div className="progress-fill" style={{ width: `${pct}%`, background: color }} />
       </div>
       <span className="macro-mini-value">
         {Math.round(value)} / {Math.round(max)} g
@@ -25,6 +25,24 @@ function MacroMiniBar({ label, value, max }) {
 }
 
 const WATER_GOAL_ML = 4000;
+
+const MEAL_ICONS = {
+  breakfast: 'sunrise',
+  snack: 'apple',
+  lunch: 'utensils',
+  dinner: 'moon',
+};
+
+function formatDateSubtitle(dateStr, lang) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const formatted = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(d);
+  return formatted;
+}
 
 function formatDateLabel(dateStr, t) {
   const WEEKDAY_LABELS = [
@@ -63,8 +81,9 @@ export default function HomeDashboard({
   onAddActivity,
   onDeleteActivity,
   onOpenWeight,
+  onOpenReport,
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [showDrinkSources, setShowDrinkSources] = useState(false);
   const [improvementIndex, setImprovementIndex] = useState(0);
   const [latestWeight, setLatestWeight] = useState(null);
@@ -111,11 +130,14 @@ export default function HomeDashboard({
     <div>
       <header className="app-header day-nav-header">
         <button type="button" className="day-nav-btn" onClick={onPrevDay} aria-label={t('home.prevDay')}>
-          <Icon name="chevron-left" size={15} />
+          <Icon name="chevron-left" size={20} />
         </button>
-        <h1>{formatDateLabel(date, t)}</h1>
+        <div>
+          <h1 style={{ textAlign: 'center' }}>{formatDateLabel(date, t)}</h1>
+          <p className="day-nav-subtitle">{formatDateSubtitle(date, lang)}</p>
+        </div>
         <button type="button" className="day-nav-btn" onClick={onNextDay} aria-label={t('home.nextDay')}>
-          <Icon name="chevron-right" size={15} />
+          <Icon name="chevron-right" size={20} />
         </button>
       </header>
 
@@ -125,29 +147,47 @@ export default function HomeDashboard({
           onClick={improvementItems.length > 1 ? nextImprovement : undefined}
         >
           <div className="insight-card-icon">
-            <Icon name="sparkles" size={20} color="var(--accent)" />
+            <Icon name="sparkles" size={19} color="var(--acc)" />
           </div>
           <div className="insight-card-content">
             <h3 className="insight-card-title">{currentImprovement.label}</h3>
             <p className="insight-card-body">{currentImprovement.detail}</p>
-            {improvementItems.length > 1 && (
-              <div className="insight-dots">
-                {improvementItems.map((item, i) => (
-                  <span key={item.key} className={i === currentImprovementIndex ? 'insight-dot active' : 'insight-dot'} />
-                ))}
-              </div>
-            )}
+            <div className="insight-bottom-row">
+              {improvementItems.length > 1 ? (
+                <div className="insight-dots">
+                  {improvementItems.map((item, i) => (
+                    <span key={item.key} className={i === currentImprovementIndex ? 'insight-dot active' : 'insight-dot'} />
+                  ))}
+                </div>
+              ) : (
+                <span />
+              )}
+              <button
+                type="button"
+                className="report-link"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenReport?.();
+                }}
+              >
+                {t('home.viewReport')}
+                <Icon name="chevron-right" size={14} />
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      <h2>{t('home.summary')}</h2>
+      <div className="section-header">
+        <span className="section-title">{t('home.summary')}</span>
+        <span className="section-hint">
+          {t('home.goal')} <b>{Math.round(targetIntake)}</b> {t('home.perDay')}
+        </span>
+      </div>
       <div className="card resume-card">
-        <p className="resume-goal">
-          {t('home.goal')} · <b>{Math.round(targetIntake)} {t('home.perDay')}</b>
-        </p>
         <div className="gauge-row">
           <div className="gauge-stat">
+            <Icon name="utensils" size={22} color="var(--macro-carb)" />
             <b>{Math.round(consumedKcal)}</b>
             <span>{t('home.eaten')}</span>
           </div>
@@ -157,53 +197,91 @@ export default function HomeDashboard({
             label={remainingKcal < 0 ? t('home.over') : t('home.remaining')}
           />
           <div className="gauge-stat">
+            <Icon name="flame" size={22} color="var(--warning)" />
             <b>{Math.round(burnedKcal)}</b>
             <span>{t('home.burned')}</span>
           </div>
         </div>
 
         <div className="macro-bars-row">
-          <MacroMiniBar label={t('nutrient.carbs')} value={macros.carbs.consumed} max={macros.carbs.target} />
-          <MacroMiniBar label={t('nutrient.protein')} value={macros.protein.consumed} max={macros.protein.target} />
-          <MacroMiniBar label={t('nutrient.fat')} value={macros.fat.consumed} max={macros.fat.target} />
+          <MacroMiniBar
+            label={t('nutrient.carbs')}
+            value={macros.carbs.consumed}
+            max={macros.carbs.target}
+            color="var(--macro-carb)"
+          />
+          <MacroMiniBar
+            label={t('nutrient.protein')}
+            value={macros.protein.consumed}
+            max={macros.protein.target}
+            color="var(--macro-protein)"
+          />
+          <MacroMiniBar
+            label={t('nutrient.fat')}
+            value={macros.fat.consumed}
+            max={macros.fat.target}
+            color="var(--macro-fat)"
+          />
+        </div>
+
+        <div className="resume-water-row">
+          <span className="resume-water-icon">
+            <Icon name="droplet" size={19} />
+          </span>
+          <div className="resume-water-body">
+            <div className="resume-water-top">
+              <span>{t('home.water')}</span>
+              <span>
+                {water.totalMl} / {WATER_GOAL_ML} ml
+              </span>
+            </div>
+            <div className="progress-track">
+              <div
+                className="progress-fill"
+                style={{ width: `${Math.min(100, Math.round((water.totalMl / WATER_GOAL_ML) * 100))}%`, background: 'var(--macro-water)' }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
       <h2>{t('home.food')}</h2>
-      <div className="card" style={{ padding: 0 }}>
-        {meals.map((m, i) => {
-          const pct = m.budgetKcal > 0 ? Math.min(100, Math.round((m.consumedKcal / m.budgetKcal) * 100)) : 0;
-          return (
-            <div
-              className="row meal-row"
-              key={m.key}
-              onClick={() => onSelectMeal(m.key)}
-              style={{ borderBottom: i < meals.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
-            >
-              <div className="name meal-row-name">
+      <div className="meal-card-list">
+        {meals.map((m) => (
+          <div className="meal-card" key={m.key} onClick={() => onSelectMeal(m.key)}>
+            <span className="meal-icon-box">
+              <Icon name={MEAL_ICONS[m.key] || 'utensils'} size={21} />
+            </span>
+            <div className="meal-card-body">
+              <div className="meal-card-title">{t(`mealName.${m.key}`)}</div>
+              <div className="meal-card-kcal">{Math.round(m.consumedKcal)} kcal</div>
+              <div className="meal-card-macros">
                 <span>
-                  {t(`mealName.${m.key}`)} <Icon name="chevron-right" size={14} color="var(--text-muted)" />
+                  <i style={{ background: 'var(--macro-protein)' }} />
+                  {Math.round(m.consumedProtein || 0)}g
                 </span>
-                <span className="rate">
-                  {Math.round(m.consumedKcal)} / {Math.round(m.budgetKcal)} kcal
+                <span>
+                  <i style={{ background: 'var(--macro-carb)' }} />
+                  {Math.round(m.consumedCarbs || 0)}g
                 </span>
-                <div className="progress-track" style={{ marginTop: 7 }}>
-                  <div className="progress-fill" style={{ width: `${pct}%` }} />
-                </div>
+                <span>
+                  <i style={{ background: 'var(--macro-fat)' }} />
+                  {Math.round(m.consumedFat || 0)}g
+                </span>
               </div>
-              <button
-                type="button"
-                className="round-add-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectMeal(m.key);
-                }}
-              >
-                <Icon name="plus" size={17} color="var(--text-on-accent)" />
-              </button>
             </div>
-          );
-        })}
+            <button
+              type="button"
+              className="meal-add-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectMeal(m.key);
+              }}
+            >
+              <Icon name="plus" size={22} color="var(--text-on-accent)" />
+            </button>
+          </div>
+        ))}
       </div>
 
       <h2>{t('home.water')}</h2>
@@ -281,11 +359,17 @@ export default function HomeDashboard({
         onDelete={onDeleteActivity}
       />
 
-      <h2>{t('home.weight')}</h2>
+      <div className="section-header">
+        <span className="section-title">{t('home.weight')}</span>
+        <button type="button" className="report-link" onClick={onOpenReport}>
+          {t('home.viewReport')}
+          <Icon name="chevron-right" size={14} />
+        </button>
+      </div>
       <div className="card">
         <div className="row">
           <span className="row-icon-box weight-icon-box">
-            <Icon name="scale" size={24} color="var(--purple-500)" />
+            <Icon name="scale" size={21} />
           </span>
           <div className="name clickable" onClick={onOpenWeight}>
             <span className="weight-value">{latestWeight != null ? `${latestWeight.toFixed(1)} kg` : '—'}</span>
@@ -293,19 +377,19 @@ export default function HomeDashboard({
           <div className="field">
             <button
               type="button"
-              className="round-remove-btn"
+              className="weight-minus-btn"
               onClick={() => handleAdjustWeight(-0.1)}
               disabled={weightSaving}
             >
-              <Icon name="minus" size={15} />
+              <Icon name="minus" size={18} />
             </button>
             <button
               type="button"
-              className="round-add-btn"
+              className="weight-plus-btn"
               onClick={() => handleAdjustWeight(0.1)}
               disabled={weightSaving}
             >
-              <Icon name="plus" size={15} color="var(--text-on-accent)" />
+              <Icon name="plus" size={18} />
             </button>
           </div>
         </div>

@@ -243,6 +243,7 @@ export const translations = {
     'home.total': 'Total',
     'home.close': 'Fermer',
     'home.weight': 'Poids',
+    'home.viewReport': 'Voir le rapport',
 
     // Improvement insights
     'insights.nothing': 'Rien à signaler — pas de carence ni de dépassement sur la période.',
@@ -734,6 +735,7 @@ export const translations = {
     'home.total': 'Total',
     'home.close': 'Close',
     'home.weight': 'Weight',
+    'home.viewReport': 'View report',
 
     // Improvement insights
     'insights.nothing': 'Nothing to report — no deficiency or excess over the period.',

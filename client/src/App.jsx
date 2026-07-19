@@ -319,6 +319,7 @@ function MainApp({ onLogout, account }) {
               onAddActivity={handleAddActivity}
               onDeleteActivity={handleDeleteActivity}
               onOpenWeight={() => setView('poids')}
+              onOpenReport={() => setView('rapport')}
             />
           )}
           {view === 'journal' && selectedMeal && (

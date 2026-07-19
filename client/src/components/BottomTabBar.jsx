@@ -4,10 +4,10 @@ import { useLanguage } from '../i18n/LanguageContext';
 export default function BottomTabBar({ view, onChange }) {
   const { t } = useLanguage();
   const TABS = [
-    { key: 'journal', label: t('nav.journal'), icon: 'book-open' },
-    { key: 'recettes', label: t('nav.recipes'), icon: 'utensils' },
+    { key: 'journal', label: t('nav.journal'), icon: 'notebook-pen' },
+    { key: 'recettes', label: t('nav.recipes'), icon: 'salad' },
     { key: 'rapport', label: t('nav.report'), icon: 'bar-chart-3' },
-    { key: 'planning', label: t('nav.planning'), icon: 'calendar' },
+    { key: 'planning', label: t('nav.planning'), icon: 'calendar-days' },
     { key: 'reglages', label: t('nav.settings'), icon: 'settings' },
   ];
 

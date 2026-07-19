@@ -1396,12 +1396,23 @@ app.get('/api/dashboard', (req, res) => {
 
   const meals = MEALS.map((m) => {
     const mealLogs = logs.filter((l) => l.meal === m.key);
-    const mealKcal = mealLogs.reduce((sum, l) => sum + l.kcal, 0);
+    const mealTotals = mealLogs.reduce(
+      (acc, l) => ({
+        kcal: acc.kcal + l.kcal,
+        protein: acc.protein + l.protein,
+        carbs: acc.carbs + l.carbs,
+        fat: acc.fat + l.fat,
+      }),
+      { kcal: 0, protein: 0, carbs: 0, fat: 0 }
+    );
     return {
       key: m.key,
       label: m.label,
       budgetKcal: summary.targetIntake * m.share,
-      consumedKcal: mealKcal,
+      consumedKcal: mealTotals.kcal,
+      consumedProtein: mealTotals.protein,
+      consumedCarbs: mealTotals.carbs,
+      consumedFat: mealTotals.fat,
     };
   });
 
