@@ -3,23 +3,7 @@ import AddFoodToMeal from './AddFoodToMeal';
 import { findRecurringItems } from './MealPlanner';
 import { api } from '../api';
 import { useLanguage } from '../i18n/LanguageContext';
-
-function ProgressRow({ label, value, max, unit }) {
-  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
-  return (
-    <div className="nutrition-row">
-      <div className="res-line">
-        <span>{label}</span>
-        <b>
-          {Math.round(value)} / {Math.round(max)} {unit}
-        </b>
-      </div>
-      <div className="progress-track">
-        <div className="progress-fill" style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
+import Icon from './Icon';
 
 function EntryQuantityEditor({ entry, allowUnitToggle, onUpdateEntry, onSaved }) {
   const { t } = useLanguage();
@@ -200,134 +184,165 @@ export default function MealDetail({
         if (dx > 80 && Math.abs(dy) < 60) onBack();
       }}
     >
-      <div className="meal-header">
-        <button className="btn-ghost back-btn" onClick={onBack} aria-label={t('meal.back')}>
-          &lt;
+      <div className="meal-detail-header">
+        <button className="meal-detail-back-btn" onClick={onBack} aria-label={t('meal.back')}>
+          <Icon name="chevron-left" size={20} />
         </button>
-        <h1 className="meal-title">{t(`mealName.${mealKey}`)}</h1>
-      </div>
-
-      <div className="tile-grid">
-        <div className="tile">
-          <b style={{ fontSize: 16 }}>
-            {Math.round(consumed.kcal)} / {Math.round(budgetKcal)} kcal
-          </b>
-          <span>{t('meal.calories')}</span>
-        </div>
-        <div className="tile">
-          <b>{consumed.carbs.toFixed(1)} g</b>
-          <span>{t('nutrient.carbs')}</span>
-        </div>
-        <div className="tile">
-          <b>{consumed.protein.toFixed(1)} g</b>
-          <span>{t('nutrient.protein')}</span>
-        </div>
-        <div className="tile">
-          <b>{consumed.fat.toFixed(1)} g</b>
-          <span>{t('nutrient.fat')}</span>
+        <div className="meal-detail-heading">
+          <div className="meal-detail-title">{t(`mealName.${mealKey}`)}</div>
         </div>
       </div>
 
-      <h2>{t('meal.nutritionValues')}</h2>
-      <div className="card">
-        <ProgressRow label={t('meal.calories')} value={consumed.kcal} max={budgetKcal} unit="kcal" />
-        <ProgressRow label={t('nutrient.carbs')} value={consumed.carbs} max={macroTargets.carbs} unit="g" />
-        <ProgressRow label={t('nutrient.protein')} value={consumed.protein} max={macroTargets.protein} unit="g" />
-        <ProgressRow label={t('nutrient.fat')} value={consumed.fat} max={macroTargets.fat} unit="g" />
+      <div className="meal-summary-card">
+        <div className="meal-summary-top">
+          <div>
+            <div className="meal-summary-total-label">{t('meal.totalForMeal')}</div>
+            <div className="meal-summary-total-value">
+              {Math.round(consumed.kcal)} <span>/ {Math.round(budgetKcal)} kcal</span>
+            </div>
+          </div>
+          <div className="meal-summary-remaining">
+            <div className="meal-summary-remaining-label">{t('meal.remaining')}</div>
+            <div
+              className="meal-summary-remaining-value"
+              style={{ color: budgetKcal - consumed.kcal < 0 ? 'var(--danger)' : 'var(--success)' }}
+            >
+              {Math.round(Math.abs(budgetKcal - consumed.kcal))} kcal
+            </div>
+          </div>
+        </div>
+        <div className="meal-summary-bar">
+          <div className="progress-track">
+            <div
+              className="progress-fill"
+              style={{
+                width: `${budgetKcal > 0 ? Math.min(100, Math.round((consumed.kcal / budgetKcal) * 100)) : 0}%`,
+                background: 'var(--gradient-brand)',
+              }}
+            />
+          </div>
+        </div>
+        <div className="meal-summary-macros">
+          <div className="meal-summary-macro">
+            <b style={{ color: 'var(--macro-protein)' }}>{Math.round(consumed.protein)}g</b>
+            <span>{t('nutrient.protein')}</span>
+          </div>
+          <div className="meal-summary-macro">
+            <b style={{ color: 'var(--macro-carb)' }}>{Math.round(consumed.carbs)}g</b>
+            <span>{t('nutrient.carbs')}</span>
+          </div>
+          <div className="meal-summary-macro">
+            <b style={{ color: 'var(--macro-fat)' }}>{Math.round(consumed.fat)}g</b>
+            <span>{t('nutrient.fat')}</span>
+          </div>
+        </div>
       </div>
 
       {groups.length > 0 && (
-        <div className="card">
-          {groups.map((g) => {
-            if (g.kind === 'single') {
-              const e = g.entry;
-              return (
-                <div className="row" key={e.id}>
-                  <div className="name clickable" onClick={() => setViewingEntryId(e.id)}>
-                    <span>{e.label}</span>
-                    <span className="rate">
-                      {Math.round(e.quantity)} {e.source_type === 'recipe' ? 'portion(s)' : e.unit || 'g'}
-                    </span>
+        <>
+          <h2>
+            {t('meal.items')} · {groups.length}
+          </h2>
+          <div className="entry-list">
+            {groups.map((g) => {
+              if (g.kind === 'single') {
+                const e = g.entry;
+                return (
+                  <div className="entry-card" key={e.id}>
+                    <div className="entry-card-body" onClick={() => setViewingEntryId(e.id)}>
+                      <div className="entry-card-name-row">
+                        <span className="entry-card-name">{e.label}</span>
+                        {recurringKeys.has(`${e.source_type}-${e.source_id}`) && (
+                          <Icon name="repeat" size={14} color="var(--acc)" title={t('meal.recurringMeal')} />
+                        )}
+                      </div>
+                      <div className="entry-card-sub">
+                        {Math.round(e.quantity)} {e.source_type === 'recipe' ? 'portion(s)' : e.unit || 'g'} · {Math.round(e.kcal)} kcal
+                      </div>
+                      <div className="entry-card-macros">
+                        <span>
+                          <i style={{ background: 'var(--macro-protein)' }} />
+                          {Math.round(e.protein)}g
+                        </span>
+                        <span>
+                          <i style={{ background: 'var(--macro-carb)' }} />
+                          {Math.round(e.carbs)}g
+                        </span>
+                        <span>
+                          <i style={{ background: 'var(--macro-fat)' }} />
+                          {Math.round(e.fat)}g
+                        </span>
+                      </div>
+                    </div>
+                    <div className="entry-card-actions">
+                      <button
+                        type="button"
+                        className="entry-icon-btn entry-delete-btn"
+                        onClick={() => onDeleteEntry(e.id)}
+                        aria-label={t('meal.delete')}
+                      >
+                        <Icon name="trash-2" size={17} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="field">
-                    <b>{Math.round(e.kcal)} kcal</b>
-                    {recurringKeys.has(`${e.source_type}-${e.source_id}`) && (
-                      <span className="recurring-indicator" title={t('meal.recurringMeal')}>
-                        🔁
-                      </span>
-                    )}
-                    <button className="btn-ghost" onClick={() => setViewingEntryId(e.id)}>
-                      {t('meal.edit')}
-                    </button>
-                    <button className="btn-ghost" onClick={() => onDeleteEntry(e.id)}>
-                      🗑
-                    </button>
+                );
+              }
+
+              const recipe = recipes.find((r) => r.id === g.recipeId);
+              const groupKcal = g.entries.reduce((s, e) => s + e.kcal, 0);
+              const ids = g.entries.map((e) => e.id);
+
+              return (
+                <div className="entry-group-card" key={`recipe-${g.recipeId}`}>
+                  <div className="entry-group-header-row">
+                    <div className="entry-card-body" onClick={() => recipe && setViewingRecipeId(g.recipeId)}>
+                      <div className="entry-card-name-row">
+                        <span className="entry-card-name">{recipe ? recipe.title : t('meal.recipeDeleted')}</span>
+                        {recurringKeys.has(`recipe-${g.recipeId}`) && (
+                          <Icon name="repeat" size={14} color="var(--acc)" title={t('meal.recurringMeal')} />
+                        )}
+                      </div>
+                      <div className="entry-card-sub">
+                        {g.entries.length} {t('meal.ingredients')} · {Math.round(groupKcal)} kcal
+                      </div>
+                    </div>
+                    <div className="entry-card-actions">
+                      <button type="button" className="entry-icon-btn" onClick={() => openReplace(ids)} aria-label={t('meal.replace')}>
+                        <Icon name="repeat" size={16} />
+                      </button>
+                      {recipe && (
+                        <button type="button" className="entry-icon-btn" onClick={() => openEditGroup(g, recipe)} aria-label={t('meal.edit')}>
+                          <Icon name="pencil-line" size={16} />
+                        </button>
+                      )}
+                      <button type="button" className="entry-icon-btn entry-delete-btn" onClick={() => handleDeleteGroup(ids)}>
+                        <Icon name="trash-2" size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="entry-sub-list">
+                    {g.entries.map((e) => (
+                      <div className="entry-sub-row" key={e.id}>
+                        <span className="entry-card-name clickable" onClick={() => setViewingEntryId(e.id)}>
+                          {e.label}
+                        </span>
+                        <span className="entry-card-sub" style={{ margin: 0 }}>
+                          {Math.round(e.quantity)} g · {Math.round(e.kcal)} kcal
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               );
-            }
-
-            const recipe = recipes.find((r) => r.id === g.recipeId);
-            const groupKcal = g.entries.reduce((s, e) => s + e.kcal, 0);
-            const ids = g.entries.map((e) => e.id);
-
-            return (
-              <div className="recipe-group" key={`recipe-${g.recipeId}`}>
-                <div className="row recipe-group-header">
-                  <div className="name">
-                    <span
-                      className={recipe ? 'recipe-group-title clickable' : 'recipe-group-title'}
-                      onClick={() => recipe && setViewingRecipeId(g.recipeId)}
-                    >
-                      🍽️ {recipe ? recipe.title : t('meal.recipeDeleted')}
-                    </span>
-                    <span className="rate">{g.entries.length} {t('meal.ingredients')}</span>
-                  </div>
-                  <div className="field">
-                    <b>{Math.round(groupKcal)} kcal</b>
-                    {recurringKeys.has(`recipe-${g.recipeId}`) && (
-                      <span className="recurring-indicator" title={t('meal.recurringMeal')}>
-                        🔁
-                      </span>
-                    )}
-                    <button className="btn-ghost" onClick={() => openReplace(ids)}>
-                      {t('meal.replace')}
-                    </button>
-                    {recipe && (
-                      <button className="btn-ghost" onClick={() => openEditGroup(g, recipe)}>
-                        {t('meal.edit')}
-                      </button>
-                    )}
-                    <button className="btn-ghost" onClick={() => handleDeleteGroup(ids)}>
-                      🗑
-                    </button>
-                  </div>
-                </div>
-                {g.entries.map((e) => (
-                  <div className="row ingredient-sub-row" key={e.id}>
-                    <div className="name clickable" onClick={() => setViewingEntryId(e.id)}>
-                      <span>{e.label}</span>
-                      <span className="rate">{Math.round(e.quantity)} g</span>
-                    </div>
-                    <div className="field">
-                      <span className="rate">{Math.round(e.kcal)} kcal</span>
-                      <button className="btn-ghost" onClick={() => onDeleteEntry(e.id)}>
-                        🗑
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
+            })}
+          </div>
+        </>
       )}
 
-      <div className="card-actions" style={{ padding: 0 }}>
-        <button type="button" className="btn add-food-btn" onClick={() => setShowAdd(true)}>
-          {t('meal.add')}
-        </button>
-      </div>
+      <button type="button" className="meal-add-cta" onClick={() => setShowAdd(true)}>
+        <Icon name="plus" size={20} />
+        {t('meal.add')}
+      </button>
 
       {showAdd && (
         <div className="modal-overlay">

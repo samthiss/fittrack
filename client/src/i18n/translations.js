@@ -277,6 +277,10 @@ export const translations = {
     'meal.quantity': 'Quantité',
     'meal.ingredientsCount': 'Ingrédients ({count} portion(s))',
     'meal.steps': 'Étapes',
+    'meal.remaining': 'Restant',
+    'meal.items': 'Aliments',
+    'meal.totalForMeal': 'Total du repas',
+    'meal.delete': 'Supprimer',
 
     // Source list
     'sources.none': 'Aucune source identifiée.',
@@ -769,6 +773,10 @@ export const translations = {
     'meal.quantity': 'Quantity',
     'meal.ingredientsCount': 'Ingredients ({count} portion(s))',
     'meal.steps': 'Steps',
+    'meal.remaining': 'Remaining',
+    'meal.items': 'Foods',
+    'meal.totalForMeal': 'Meal total',
+    'meal.delete': 'Delete',
 
     // Source list
     'sources.none': 'No source identified.',
