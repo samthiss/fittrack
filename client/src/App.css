@@ -262,7 +262,8 @@
 .card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: var(--radius-lg, 13px);
+  box-shadow: var(--shadow-card, none);
   padding: 4px 16px;
   margin-bottom: 8px;
 }
@@ -483,18 +484,24 @@
 
 .btn {
   border: 0;
-  border-radius: 9px;
-  background: var(--acc);
-  color: #fff;
+  border-radius: var(--radius-md, 9px);
+  background: var(--gradient-brand, var(--acc));
+  color: var(--text-on-accent, #fff);
   font: inherit;
   font-size: 14px;
   font-weight: 600;
   padding: 10px 18px;
   cursor: pointer;
+  box-shadow: var(--glow-accent, none);
+  transition: box-shadow var(--dur-fast, 140ms) var(--ease-standard, ease), transform var(--dur-fast, 140ms) var(--ease-standard, ease);
 }
 
 .btn:hover {
-  opacity: 0.9;
+  box-shadow: var(--glow-accent-lg, none);
+}
+
+.btn:active {
+  transform: scale(0.97);
 }
 
 .btn-block {
