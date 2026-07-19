@@ -1,31 +1,39 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import SourceList from './SourceList';
+import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
+
+const STATUS_COLOR = {
+  success: 'var(--success)',
+  warning: 'var(--warning)',
+  danger: 'var(--danger)',
+};
 
 function GoalRow({ g, sources, expanded, onToggle, t }) {
   const pct = g.target > 0 ? Math.min(100, Math.max(0, (g.consumed / g.target) * 100)) : 0;
   // Floor nutrient (fiber, potassium...): the target is a minimum to reach, not a ceiling —
   // consuming more than the target is a good thing, so it's shown as met (green), never as "over".
   const goalMet = g.remaining <= 0;
+  const status = goalMet ? 'success' : pct >= 70 ? 'warning' : 'danger';
   const canExpand = Boolean(sources && sources.length > 0);
   return (
-    <div className="row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
-      <div className={canExpand ? 'name clickable' : 'name'} onClick={canExpand ? onToggle : undefined}>
-        <span>
+    <div className="report-row">
+      <div className="report-row-top">
+        <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? onToggle : undefined}>
           {g.label}
-          {canExpand && <span className="micro-source-toggle">{expanded ? ' ▾' : ' ▸'}</span>}
+          {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
         </span>
-        <span className="rate" style={goalMet ? { color: 'var(--ok-green)' } : undefined}>
+        <span className={`report-row-value status-${status}`}>
           {goalMet ? t('today.goalMet') : `${g.remaining.toFixed(0)} ${g.unit} ${t('today.remaining')}`}
         </span>
       </div>
-      <div className="progress-track">
-        <div className={goalMet ? 'progress-fill fill-ok' : 'progress-fill'} style={{ width: `${pct}%` }} />
+      <div className="report-row-bar">
+        <div className="report-row-bar-fill" style={{ width: `${pct}%`, background: STATUS_COLOR[status] }} />
       </div>
-      <span className="hint" style={{ margin: 0 }}>
+      <div className="report-row-sub">
         {g.consumed.toFixed(0)} / {g.target.toFixed(0)} {g.unit}
-      </span>
+      </div>
       {expanded && <SourceList sources={sources} unit={g.unit} />}
     </div>
   );
@@ -34,26 +42,27 @@ function GoalRow({ g, sources, expanded, onToggle, t }) {
 function LimitRow({ l, sources, expanded, onToggle, t }) {
   const pct = l.reference > 0 ? Math.min(100, Math.max(0, (l.consumed / l.reference) * 100)) : 0;
   const over = l.remaining < 0;
+  const status = over ? 'danger' : pct >= 90 ? 'warning' : 'success';
   const canExpand = Boolean(sources && sources.length > 0);
   return (
-    <div className="row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
-      <div className={canExpand ? 'name clickable' : 'name'} onClick={canExpand ? onToggle : undefined}>
-        <span>
+    <div className="report-row">
+      <div className="report-row-top">
+        <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? onToggle : undefined}>
           {l.label}
-          {canExpand && <span className="micro-source-toggle">{expanded ? ' ▾' : ' ▸'}</span>}
+          {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
         </span>
-        <span className="rate" style={over ? { color: 'var(--danger)' } : undefined}>
+        <span className={`report-row-value status-${status}`}>
           {over
             ? `+${Math.abs(l.remaining).toFixed(0)} ${l.unit} ${t('today.above')}`
             : t('today.remainingBeforeLimit').replace('{remaining}', l.remaining.toFixed(0)).replace('{unit}', l.unit)}
         </span>
       </div>
-      <div className="progress-track">
-        <div className={over ? 'progress-fill fill-low' : 'progress-fill'} style={{ width: `${pct}%` }} />
+      <div className="report-row-bar">
+        <div className="report-row-bar-fill" style={{ width: `${pct}%`, background: STATUS_COLOR[status] }} />
       </div>
-      <span className="hint" style={{ margin: 0 }}>
+      <div className="report-row-sub">
         {l.consumed.toFixed(0)} / {l.reference.toFixed(0)} {l.unit}
-      </span>
+      </div>
       {expanded && <SourceList sources={sources} unit={l.unit} />}
     </div>
   );
@@ -62,23 +71,16 @@ function LimitRow({ l, sources, expanded, onToggle, t }) {
 function NoGoalRow({ m, sources, expanded, onToggle }) {
   const canExpand = Boolean(sources && sources.length > 0);
   return (
-    <div className="row" style={{ flexDirection: canExpand ? 'column' : 'row', alignItems: 'stretch', gap: 4 }}>
-      <div className={canExpand ? 'name clickable' : 'name'} onClick={canExpand ? onToggle : undefined}>
-        <span>
+    <div className="report-row">
+      <div className="report-row-top" style={{ marginBottom: canExpand ? 6 : 0 }}>
+        <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? onToggle : undefined}>
           {m.label}
-          {canExpand && <span className="micro-source-toggle">{expanded ? ' ▾' : ' ▸'}</span>}
+          {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
         </span>
-        {!canExpand && (
-          <b>
-            {m.consumed.toFixed(1)} {m.unit}
-          </b>
-        )}
-      </div>
-      {canExpand && (
-        <span className="hint" style={{ margin: 0 }}>
+        <span className="report-row-value">
           {m.consumed.toFixed(1)} {m.unit}
         </span>
-      )}
+      </div>
       {expanded && <SourceList sources={sources} unit={m.unit} />}
     </div>
   );
@@ -112,7 +114,7 @@ export default function TodayReport({ date } = {}) {
     <div>
       {/* 1. Seuils à ne pas dépasser */}
       <h2>{t('today.limitsTitle')}</h2>
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="report-card">
         {limits.map((l) => (
           <LimitRow
             key={l.key}
@@ -127,7 +129,7 @@ export default function TodayReport({ date } = {}) {
 
       {/* 2. Objectifs du jour */}
       <h2>{t('today.goalsTitle')}</h2>
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="report-card">
         {dailyGoals.map((g) => (
           <GoalRow
             key={g.key}
@@ -143,7 +145,7 @@ export default function TodayReport({ date } = {}) {
       {/* 3. Autres nutriments — pas d'objectif journalier */}
       <h2>{t('today.otherNutrients')}</h2>
       <p className="hint" style={{ marginTop: -8 }}>{t('today.weeklyGoalHint')}</p>
-      <div className="card">
+      <div className="report-card">
         {noGoalMicros.map((m) => (
           <NoGoalRow
             key={m.key}
@@ -157,45 +159,48 @@ export default function TodayReport({ date } = {}) {
 
       {/* 4. Microbiote */}
       <h2>{t('today.microbiote')}</h2>
-      <div className="card">
-        <div
-          className={microbiote.fermentedFoods.length > 0 ? 'row clickable' : 'row'}
-          onClick={microbiote.fermentedFoods.length > 0 ? () => toggle('fermented') : undefined}
-        >
-          <div className="name">
-            <span>
+      <div className="report-card">
+        <div className="report-row">
+          <div className="report-row-top" style={{ marginBottom: 0 }}>
+            <span
+              className={microbiote.fermentedFoods.length > 0 ? 'report-row-label clickable' : 'report-row-label'}
+              onClick={microbiote.fermentedFoods.length > 0 ? () => toggle('fermented') : undefined}
+            >
               {t('today.fermentedToday')}
               {microbiote.fermentedFoods.length > 0 && (
-                <span className="micro-source-toggle">{expandedKey === 'fermented' ? ' ▾' : ' ▸'}</span>
+                <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expandedKey === 'fermented' ? 'rotate(90deg)' : 'none' }} />
               )}
             </span>
-            <span className="rate">{t('today.fermentedTarget')}</span>
+            <span className={microbiote.fermentedToday >= 1 ? 'report-row-value status-success' : 'report-row-value'}>
+              {microbiote.fermentedToday >= 1 && <Icon name="check" size={13} />}
+              {microbiote.fermentedToday}
+            </span>
           </div>
-          <b>{microbiote.fermentedToday}</b>
+          <div className="report-row-sub" style={{ marginTop: 2 }}>{t('today.fermentedTarget')}</div>
+          {expandedKey === 'fermented' && (
+            <div className="micro-source-list">
+              {microbiote.fermentedFoods.map((label, i) => (
+                <div className="micro-source-row" key={i}>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        {expandedKey === 'fermented' && (
-          <div className="micro-source-list">
-            {microbiote.fermentedFoods.map((label, i) => (
-              <div className="micro-source-row" key={i}>
-                <span>{label}</span>
-              </div>
-            ))}
-          </div>
-        )}
 
-        <div className="row">
-          <div className="name">
-            <span>{t('today.plantDiversity')}</span>
+        <div className="report-row">
+          <div className="report-row-top" style={{ marginBottom: 0 }}>
+            <span className="report-row-label">{t('today.plantDiversity')}</span>
+            <span className="report-row-value">
+              {microbiote.plantCount} / {microbiote.plantTarget}
+            </span>
           </div>
-          <b>
-            {microbiote.plantCount} / {microbiote.plantTarget}
-          </b>
+          {microbiote.plantSuggestionToday && (
+            <p className="hint micro-reco-line" style={{ marginTop: 7 }}>
+              👉 {t('today.notEatenYet')} : {microbiote.plantSuggestionToday}.
+            </p>
+          )}
         </div>
-        {microbiote.plantSuggestionToday && (
-          <p className="hint micro-reco-line" style={{ marginTop: 10 }}>
-            👉 {t('today.notEatenYet')} : {microbiote.plantSuggestionToday}.
-          </p>
-        )}
       </div>
     </div>
   );

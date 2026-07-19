@@ -355,14 +355,16 @@ function MainApp({ onLogout, account }) {
               onSetCategories={handleSetRecipeCategories}
             />
           )}
-          {view === 'rapport' && <Report />}
-          {view === 'activites' && (
-            <ActivityLog
-              activityTypes={activityTypes}
-              activities={activities}
-              onAdd={handleAddActivity}
-              onDelete={handleDeleteActivity}
-            />
+          {(view === 'rapport' || view === 'activites') && (
+            <>
+              <ActivityLog
+                activityTypes={activityTypes}
+                activities={activities}
+                onAdd={handleAddActivity}
+                onDelete={handleDeleteActivity}
+              />
+              <Report />
+            </>
           )}
           {view === 'poids' && (
             <>

@@ -214,33 +214,41 @@
 .view-picker-btn {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   width: 100%;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 12px 14px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 14px;
+  padding: 0 14px;
+  height: 46px;
   font: inherit;
-  font-size: 15px;
-  font-weight: 700;
-  color: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--txt);
   cursor: pointer;
+}
+
+.view-picker-label {
+  flex: 1;
+  text-align: left;
 }
 
 .view-picker-chevron {
   color: var(--dim);
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  flex: none;
 }
 
 .view-picker-list {
   position: absolute;
   z-index: 5;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
@@ -251,7 +259,7 @@
   text-align: left;
   background: none;
   border: 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border-subtle, var(--line));
   padding: 12px 14px;
   font: inherit;
   font-size: 14px;
@@ -262,6 +270,117 @@
 
 .view-picker-item:last-child {
   border-bottom: 0;
+}
+
+/* report cards (Seuils / Objectifs / threshold-style lists) */
+.report-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.report-row {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle, var(--line));
+}
+
+.report-row:last-child {
+  border-bottom: 0;
+}
+
+.report-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.report-row-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--txt);
+}
+
+.report-row-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted, var(--dim));
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  text-align: right;
+}
+
+.report-row-value.status-success {
+  color: var(--success);
+}
+
+.report-row-value.status-warning {
+  color: var(--warning);
+}
+
+.report-row-value.status-danger {
+  color: var(--danger);
+}
+
+.report-row-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--ink-700);
+  overflow: hidden;
+}
+
+.report-row-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--acc);
+}
+
+.report-row-sub {
+  font-size: 11.5px;
+  color: var(--text-muted, var(--dim));
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-stat-tile {
+  flex: 1;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 18px;
+  padding: 14px 15px;
+}
+
+.report-stat-tile-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted, var(--dim));
+}
+
+.report-stat-tile-value {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-stat-tile-value span {
+  font-size: 12px;
+  color: var(--text-muted, var(--dim));
+  font-family: var(--sans);
 }
 
 .chart-legend {

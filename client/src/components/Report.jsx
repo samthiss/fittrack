@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import TodayReport from './TodayReport';
 import WeekReport from './WeekReport';
+import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
 function yesterdayStr() {
@@ -35,8 +36,11 @@ export default function Report() {
       <h2>{t('report.title')}</h2>
       <div className="view-picker">
         <button type="button" className="view-picker-btn" onClick={() => setMenuOpen((o) => !o)}>
-          <span>{current.label}</span>
-          <span className="view-picker-chevron">{menuOpen ? '▴' : '▾'}</span>
+          <Icon name="calendar-days" size={19} color="var(--acc)" />
+          <span className="view-picker-label">{current.label}</span>
+          <span className="view-picker-chevron">
+            <Icon name={menuOpen ? 'chevron-up' : 'chevron-down'} size={18} color="var(--text-muted)" />
+          </span>
         </button>
         {menuOpen && (
           <div className="view-picker-list">
