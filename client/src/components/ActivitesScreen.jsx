@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
+import ActivityDetail from './ActivityDetail';
+import ActivitySession from './ActivitySession';
+import ExerciseSession from './ExerciseSession';
 import { useLanguage } from '../i18n/LanguageContext';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -52,6 +55,9 @@ export default function ActivitesScreen() {
   const [newDuration, setNewDuration] = useState(30);
   const [newRecurring, setNewRecurring] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [openActivity, setOpenActivity] = useState(null);
+  const [session, setSession] = useState(null);
+  const [sessionExercise, setSessionExercise] = useState(null);
 
   const weekDays = useMemo(() => {
     const monday = mondayOfWeek(date);
@@ -127,6 +133,51 @@ export default function ActivitesScreen() {
       ? { mon: 'M', tue: 'T', wed: 'W', thu: 'T', fri: 'F', sat: 'S', sun: 'S' }
       : { mon: 'L', tue: 'M', wed: 'M', thu: 'J', fri: 'V', sat: 'S', sun: 'D' };
 
+  if (sessionExercise) {
+    return (
+      <ExerciseSession
+        exercise={sessionExercise}
+        onBack={() => setSessionExercise(null)}
+        onComplete={(id) => {
+          setSession((s) => ({ ...s, doneIds: new Set([...s.doneIds, id]) }));
+          setSessionExercise(null);
+        }}
+      />
+    );
+  }
+
+  if (session) {
+    return (
+      <ActivitySession
+        activity={session.activity}
+        exercises={session.exercises}
+        doneExerciseIds={session.doneIds}
+        onOpenExercise={setSessionExercise}
+        onExit={() => {
+          setSession(null);
+          refresh();
+        }}
+      />
+    );
+  }
+
+  if (openActivity) {
+    return (
+      <ActivityDetail
+        activity={openActivity}
+        onBack={() => setOpenActivity(null)}
+        onStart={(exercises) => {
+          setSession({ activity: openActivity, exercises, doneIds: new Set() });
+          setOpenActivity(null);
+        }}
+        onDeleted={() => {
+          setOpenActivity(null);
+          refresh();
+        }}
+      />
+    );
+  }
+
   return (
     <div>
       <header className="app-header activites-header">
@@ -181,7 +232,11 @@ export default function ActivitesScreen() {
       <div className="meal-card-list">
         {activities.length === 0 && <p className="hint">{t('activityLog.none')}</p>}
         {activities.map((a) => (
-          <div className="activites-row" key={a.id}>
+          <div
+            className={a.type === 'force' ? 'activites-row clickable' : 'activites-row'}
+            key={a.id}
+            onClick={() => a.type === 'force' && setOpenActivity(a)}
+          >
             <span className="activites-row-icon">
               <Icon name={iconForType(a.type)} size={21} />
             </span>
@@ -195,7 +250,16 @@ export default function ActivitesScreen() {
               <div className="meal-card-kcal">{a.duration_minutes} min</div>
             </div>
             <b className="activites-row-kcal">{Math.round(a.kcal)} kcal</b>
-            <button type="button" className="activites-row-delete" onClick={() => handleDelete(a.id)} aria-label={t('activityLog.delete')}>
+            {a.type === 'force' && <Icon name="chevron-right" size={16} color="var(--text-muted)" />}
+            <button
+              type="button"
+              className="activites-row-delete"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(a.id);
+              }}
+              aria-label={t('activityLog.delete')}
+            >
               <Icon name="trash-2" size={17} />
             </button>
           </div>

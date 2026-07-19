@@ -49,6 +49,22 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- Strength-training breakdown for one activity_logs row (e.g. "Développé couché · 4 séries ·
+  -- 10 reps · 40kg"). Only meaningful for type='force' entries; cardio activities have none.
+  -- Brand-new table, so user_id ships directly in the CREATE (older tables added it later via
+  -- a backfill migration — see addUserIdColumn below — because they predate multi-tenancy).
+  CREATE TABLE IF NOT EXISTS activity_exercises (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 1,
+    activity_log_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    sets INTEGER NOT NULL DEFAULT 3,
+    reps INTEGER NOT NULL DEFAULT 10,
+    weight_kg REAL,
+    order_index INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS activity_settings (
     type TEXT PRIMARY KEY,
     label TEXT NOT NULL,

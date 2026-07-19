@@ -386,7 +386,56 @@ app.post('/api/activities', (req, res) => {
 });
 
 app.delete('/api/activities/:id', (req, res) => {
+  db.prepare('DELETE FROM activity_exercises WHERE activity_log_id = ? AND user_id = ?').run(req.params.id, req.userId);
   db.prepare('DELETE FROM activity_logs WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
+  res.status(204).end();
+});
+
+// --- Exercises within a strength-training activity_logs entry (type='force') ---
+app.get('/api/activities/:id/exercises', (req, res) => {
+  const rows = db
+    .prepare('SELECT * FROM activity_exercises WHERE activity_log_id = ? AND user_id = ? ORDER BY order_index, id')
+    .all(req.params.id, req.userId);
+  res.json(rows);
+});
+
+app.post('/api/activities/:id/exercises', (req, res) => {
+  const { name, sets, reps, weight_kg } = req.body;
+  if (!name) return res.status(400).json({ error: 'name requis' });
+  const activity = db.prepare('SELECT id FROM activity_logs WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
+  if (!activity) return res.status(404).json({ error: 'Activité introuvable' });
+
+  const { maxOrder } = db
+    .prepare('SELECT COALESCE(MAX(order_index), -1) AS maxOrder FROM activity_exercises WHERE activity_log_id = ? AND user_id = ?')
+    .get(req.params.id, req.userId);
+
+  const result = db
+    .prepare(
+      `INSERT INTO activity_exercises (user_id, activity_log_id, name, sets, reps, weight_kg, order_index)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(req.userId, req.params.id, name, Number(sets) || 3, Number(reps) || 10, weight_kg != null && weight_kg !== '' ? Number(weight_kg) : null, maxOrder + 1);
+
+  res.status(201).json(db.prepare('SELECT * FROM activity_exercises WHERE id = ?').get(result.lastInsertRowid));
+});
+
+app.put('/api/exercises/:id', (req, res) => {
+  const existing = db.prepare('SELECT * FROM activity_exercises WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
+  if (!existing) return res.status(404).json({ error: 'Exercice introuvable' });
+  const { name, sets, reps, weight_kg } = req.body;
+  db.prepare('UPDATE activity_exercises SET name = ?, sets = ?, reps = ?, weight_kg = ? WHERE id = ? AND user_id = ?').run(
+    name ?? existing.name,
+    sets != null ? Number(sets) : existing.sets,
+    reps != null ? Number(reps) : existing.reps,
+    weight_kg !== undefined ? (weight_kg !== '' && weight_kg !== null ? Number(weight_kg) : null) : existing.weight_kg,
+    req.params.id,
+    req.userId
+  );
+  res.json(db.prepare('SELECT * FROM activity_exercises WHERE id = ?').get(req.params.id));
+});
+
+app.delete('/api/exercises/:id', (req, res) => {
+  db.prepare('DELETE FROM activity_exercises WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
   res.status(204).end();
 });
 

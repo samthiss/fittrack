@@ -239,6 +239,181 @@
   padding: 0;
 }
 
+.activites-row.clickable {
+  cursor: pointer;
+}
+
+/* activity detail / session / exercise session */
+.activity-detail-hero {
+  position: relative;
+  height: 150px;
+  border-radius: 22px;
+  background: linear-gradient(150deg, rgba(139, 118, 249, 0.34), rgba(241, 155, 185, 0.16), rgba(99, 179, 246, 0.2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.activity-detail-hero-icon {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.activity-detail-hero-btn {
+  position: absolute;
+  top: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 0;
+  background: rgba(13, 12, 19, 0.55);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.activity-detail-hero-btn-back {
+  left: 12px;
+}
+
+.activity-detail-hero-btn-add {
+  right: 12px;
+}
+
+.activity-session-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--acc);
+  flex: none;
+}
+
+.activity-session-live i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--acc);
+  display: inline-block;
+}
+
+.activity-session-timer-card {
+  position: relative;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 24px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin: 18px 0;
+  box-shadow: var(--shadow-card, none);
+}
+
+.activity-session-timer-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  text-align: center;
+}
+
+.activity-session-timer-value {
+  font-family: var(--font-display);
+  font-size: 42px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.activity-session-timer-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.activity-session-exercise {
+  cursor: pointer;
+}
+
+.activity-session-exercise.current {
+  background: var(--surface-raised);
+  border-color: var(--acc);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.activity-session-exercise-check {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 10px;
+  background: var(--ink-800);
+  color: var(--dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.activity-session-exercise-check.done {
+  background: var(--success);
+  color: var(--ink-950);
+}
+
+.activity-session-current-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--acc);
+  flex: none;
+}
+
+.exercise-session-set-inputs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.exercise-session-input-group {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  background: var(--ink-900);
+  border: 1px solid var(--border-strong, var(--line));
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.exercise-session-input-group input {
+  width: 52px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--txt);
+}
+
+.exercise-session-input-group span {
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.exercise-session-x {
+  color: var(--dim);
+  font-size: 16px;
+}
+
 .day-nav-btn {
   background: var(--surface-card, none);
   border: 1px solid var(--border-strong, var(--line));
