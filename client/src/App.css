@@ -1124,6 +1124,26 @@ textarea.wide {
   font-variant-numeric: tabular-nums;
 }
 
+.resume-water-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.resume-water-btn {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong, var(--line));
+  background: transparent;
+  color: var(--text-secondary, var(--dim));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
 .meal-card-list {
   display: flex;
   flex-direction: column;
@@ -1221,10 +1241,6 @@ textarea.wide {
 .row-icon-box + .name {
   flex: 1;
   min-width: 0;
-}
-
-.water-icon-box {
-  background: linear-gradient(160deg, rgba(99, 179, 246, 0.18), rgba(99, 179, 246, 0.04));
 }
 
 .weight-icon-box {

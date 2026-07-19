@@ -6,7 +6,7 @@ export default function BottomTabBar({ view, onChange }) {
   const TABS = [
     { key: 'journal', label: t('nav.journal'), icon: 'notebook-pen' },
     { key: 'recettes', label: t('nav.recipes'), icon: 'salad' },
-    { key: 'rapport', label: t('nav.report'), icon: 'bar-chart-3' },
+    { key: 'activites', label: t('nav.activities'), icon: 'activity' },
     { key: 'planning', label: t('nav.planning'), icon: 'calendar-days' },
     { key: 'reglages', label: t('nav.settings'), icon: 'settings' },
   ];

@@ -9,6 +9,7 @@ import HomeDashboard from './components/HomeDashboard';
 import MealDetail from './components/MealDetail';
 import BottomTabBar from './components/BottomTabBar';
 import Report from './components/Report';
+import ActivityLog from './components/ActivityLog';
 import WeightTracker from './components/WeightTracker';
 import MealPlanner from './components/MealPlanner';
 import AccountSettings from './components/AccountSettings';
@@ -314,10 +315,6 @@ function MainApp({ onLogout, account }) {
               water={water}
               onAddWater={handleAddWater}
               onRemoveLastWater={handleRemoveLastWater}
-              activityTypes={activityTypes}
-              activities={activities}
-              onAddActivity={handleAddActivity}
-              onDeleteActivity={handleDeleteActivity}
               onOpenWeight={() => setView('poids')}
               onOpenReport={() => setView('rapport')}
             />
@@ -359,6 +356,14 @@ function MainApp({ onLogout, account }) {
             />
           )}
           {view === 'rapport' && <Report />}
+          {view === 'activites' && (
+            <ActivityLog
+              activityTypes={activityTypes}
+              activities={activities}
+              onAdd={handleAddActivity}
+              onDelete={handleDeleteActivity}
+            />
+          )}
           {view === 'poids' && (
             <>
               <button type="button" className="btn-ghost back-btn" onClick={() => setView('journal')} aria-label={t('common.back')}>

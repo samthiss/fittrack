@@ -8,6 +8,7 @@ export const translations = {
     'nav.journal': 'Journal',
     'nav.recipes': 'Recettes',
     'nav.report': 'Rapport',
+    'nav.activities': 'Activités',
     'nav.planning': 'Planning',
     'nav.settings': 'Réglages',
 
@@ -244,6 +245,8 @@ export const translations = {
     'home.close': 'Fermer',
     'home.weight': 'Poids',
     'home.viewReport': 'Voir le rapport',
+    'home.addWater': "Ajouter de l'eau",
+    'home.removeWater': "Retirer de l'eau",
 
     // Improvement insights
     'insights.nothing': 'Rien à signaler — pas de carence ni de dépassement sur la période.',
@@ -506,6 +509,7 @@ export const translations = {
     'nav.journal': 'Journal',
     'nav.recipes': 'Recipes',
     'nav.report': 'Report',
+    'nav.activities': 'Activities',
     'nav.planning': 'Planning',
     'nav.settings': 'Settings',
 
@@ -740,6 +744,8 @@ export const translations = {
     'home.close': 'Close',
     'home.weight': 'Weight',
     'home.viewReport': 'View report',
+    'home.addWater': 'Add water',
+    'home.removeWater': 'Remove water',
 
     // Improvement insights
     'insights.nothing': 'Nothing to report — no deficiency or excess over the period.',

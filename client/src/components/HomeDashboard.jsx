@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import CircularGauge from './CircularGauge';
-import ActivityLog from './ActivityLog';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -76,15 +75,10 @@ export default function HomeDashboard({
   water,
   onAddWater,
   onRemoveLastWater,
-  activityTypes,
-  activities,
-  onAddActivity,
-  onDeleteActivity,
   onOpenWeight,
   onOpenReport,
 }) {
   const { t, lang } = useLanguage();
-  const [showDrinkSources, setShowDrinkSources] = useState(false);
   const [improvementIndex, setImprovementIndex] = useState(0);
   const [latestWeight, setLatestWeight] = useState(null);
   const [weightSaving, setWeightSaving] = useState(false);
@@ -242,6 +236,16 @@ export default function HomeDashboard({
               />
             </div>
           </div>
+          <div className="resume-water-actions">
+            {water.manualMl > 0 && (
+              <button type="button" className="resume-water-btn" onClick={onRemoveLastWater} aria-label={t('home.removeWater')}>
+                <Icon name="minus" size={14} />
+              </button>
+            )}
+            <button type="button" className="resume-water-btn" onClick={onAddWater} aria-label={t('home.addWater')}>
+              <Icon name="plus" size={14} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -283,81 +287,6 @@ export default function HomeDashboard({
           </div>
         ))}
       </div>
-
-      <h2>{t('home.water')}</h2>
-      <div className="card">
-        <div className="row">
-          <span className="row-icon-box water-icon-box">
-            <Icon name="droplet" size={18} color="var(--macro-water)" />
-          </span>
-          <div className="name">
-            <span>{water.manualMl} ml</span>
-            <span className="rate">{Math.round(water.manualMl / 700)} × 700 ml</span>
-          </div>
-          <div className="field">
-            {water.manualMl > 0 && (
-              <button type="button" className="round-remove-btn" onClick={onRemoveLastWater}>
-                <Icon name="minus" size={15} />
-              </button>
-            )}
-            <button type="button" className="round-add-btn" onClick={onAddWater}>
-              <Icon name="plus" size={15} color="var(--text-on-accent)" />
-            </button>
-          </div>
-        </div>
-
-        <div
-          className={water.drinkSources?.length > 0 ? 'row clickable' : 'row'}
-          onClick={() => water.drinkSources?.length > 0 && setShowDrinkSources(true)}
-        >
-          <div className="name">
-            <span>{t('home.waterFromFood')}</span>
-            <span className="rate">{t('home.waterFromFoodHint')}</span>
-          </div>
-          <div className="field">
-            <b>{water.fromDrinksMl + water.fromCoffeeMl} ml</b>
-          </div>
-        </div>
-
-        <div className="row">
-          <div className="name">
-            <span>{t('home.total')}</span>
-          </div>
-          <div className="field">
-            <b>{water.totalMl} / {WATER_GOAL_ML} ml</b>
-          </div>
-        </div>
-        <div className="progress-track">
-          <div
-            className="progress-fill"
-            style={{ width: `${Math.min(100, Math.round((water.totalMl / WATER_GOAL_ML) * 100))}%` }}
-          />
-        </div>
-      </div>
-
-      {showDrinkSources && (
-        <div className="modal-overlay" onClick={() => setShowDrinkSources(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{t('home.waterFromFood')}</h2>
-            {(water.drinkSources || []).map((s, i) => (
-              <div className="micro-source-row" key={i}>
-                <span>{s.label}</span>
-                <span>{Math.round(s.value)} ml</span>
-              </div>
-            ))}
-            <button type="button" className="done-btn" onClick={() => setShowDrinkSources(false)}>
-              {t('home.close')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      <ActivityLog
-        activityTypes={activityTypes}
-        activities={activities}
-        onAdd={onAddActivity}
-        onDelete={onDeleteActivity}
-      />
 
       <div className="section-header">
         <span className="section-title">{t('home.weight')}</span>
