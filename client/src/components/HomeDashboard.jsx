@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import CircularGauge from './CircularGauge';
 import ActivityLog from './ActivityLog';
+import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
 function todayStr() {
@@ -110,11 +111,11 @@ export default function HomeDashboard({
     <div>
       <header className="app-header day-nav-header">
         <button type="button" className="day-nav-btn" onClick={onPrevDay} aria-label={t('home.prevDay')}>
-          ‹
+          <Icon name="chevron-left" size={15} />
         </button>
         <h1>{formatDateLabel(date, t)}</h1>
         <button type="button" className="day-nav-btn" onClick={onNextDay} aria-label={t('home.nextDay')}>
-          ›
+          <Icon name="chevron-right" size={15} />
         </button>
       </header>
 
@@ -123,23 +124,28 @@ export default function HomeDashboard({
           className={improvementItems.length > 1 ? 'insight-card clickable' : 'insight-card'}
           onClick={improvementItems.length > 1 ? nextImprovement : undefined}
         >
-          <h3 className="insight-card-title">{currentImprovement.label}</h3>
-          <p className="insight-card-body">{currentImprovement.detail}</p>
-          {improvementItems.length > 1 && (
-            <div className="insight-dots">
-              {improvementItems.map((item, i) => (
-                <span key={item.key} className={i === currentImprovementIndex ? 'insight-dot active' : 'insight-dot'} />
-              ))}
-            </div>
-          )}
+          <div className="insight-card-icon">
+            <Icon name="sparkles" size={20} color="var(--accent)" />
+          </div>
+          <div className="insight-card-content">
+            <h3 className="insight-card-title">{currentImprovement.label}</h3>
+            <p className="insight-card-body">{currentImprovement.detail}</p>
+            {improvementItems.length > 1 && (
+              <div className="insight-dots">
+                {improvementItems.map((item, i) => (
+                  <span key={item.key} className={i === currentImprovementIndex ? 'insight-dot active' : 'insight-dot'} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       <h2>{t('home.summary')}</h2>
-      <p className="hint" style={{ marginTop: -8 }}>
-        {t('home.goal')} : {Math.round(targetIntake)} {t('home.perDay')}
-      </p>
       <div className="card resume-card">
+        <p className="resume-goal">
+          {t('home.goal')} · <b>{Math.round(targetIntake)} {t('home.perDay')}</b>
+        </p>
         <div className="gauge-row">
           <div className="gauge-stat">
             <b>{Math.round(consumedKcal)}</b>
@@ -164,44 +170,60 @@ export default function HomeDashboard({
       </div>
 
       <h2>{t('home.food')}</h2>
-      <div className="card">
-        {meals.map((m) => (
-          <div className="row meal-row" key={m.key} onClick={() => onSelectMeal(m.key)}>
-            <div className="name">
-              <span>{t(`mealName.${m.key}`)} →</span>
-              <span className="rate">
-                {Math.round(m.consumedKcal)} / {Math.round(m.budgetKcal)} kcal
-              </span>
-            </div>
-            <button
-              type="button"
-              className="round-add-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectMeal(m.key);
-              }}
+      <div className="card" style={{ padding: 0 }}>
+        {meals.map((m, i) => {
+          const pct = m.budgetKcal > 0 ? Math.min(100, Math.round((m.consumedKcal / m.budgetKcal) * 100)) : 0;
+          return (
+            <div
+              className="row meal-row"
+              key={m.key}
+              onClick={() => onSelectMeal(m.key)}
+              style={{ borderBottom: i < meals.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
             >
-              +
-            </button>
-          </div>
-        ))}
+              <div className="name meal-row-name">
+                <span>
+                  {t(`mealName.${m.key}`)} <Icon name="chevron-right" size={14} color="var(--text-muted)" />
+                </span>
+                <span className="rate">
+                  {Math.round(m.consumedKcal)} / {Math.round(m.budgetKcal)} kcal
+                </span>
+                <div className="progress-track" style={{ marginTop: 7 }}>
+                  <div className="progress-fill" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+              <button
+                type="button"
+                className="round-add-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectMeal(m.key);
+                }}
+              >
+                <Icon name="plus" size={17} color="var(--text-on-accent)" />
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       <h2>{t('home.water')}</h2>
       <div className="card">
         <div className="row">
+          <span className="row-icon-box water-icon-box">
+            <Icon name="droplet" size={18} color="var(--macro-water)" />
+          </span>
           <div className="name">
-            <span>💧 {water.manualMl} ml</span>
+            <span>{water.manualMl} ml</span>
             <span className="rate">{Math.round(water.manualMl / 700)} × 700 ml</span>
           </div>
           <div className="field">
             {water.manualMl > 0 && (
               <button type="button" className="round-remove-btn" onClick={onRemoveLastWater}>
-                −
+                <Icon name="minus" size={15} />
               </button>
             )}
             <button type="button" className="round-add-btn" onClick={onAddWater}>
-              +
+              <Icon name="plus" size={15} color="var(--text-on-accent)" />
             </button>
           </div>
         </div>
@@ -262,8 +284,11 @@ export default function HomeDashboard({
       <h2>{t('home.weight')}</h2>
       <div className="card">
         <div className="row">
+          <span className="row-icon-box weight-icon-box">
+            <Icon name="scale" size={24} color="var(--purple-500)" />
+          </span>
           <div className="name clickable" onClick={onOpenWeight}>
-            <span className="weight-value">⚖️ {latestWeight != null ? `${latestWeight.toFixed(1)} kg` : '—'}</span>
+            <span className="weight-value">{latestWeight != null ? `${latestWeight.toFixed(1)} kg` : '—'}</span>
           </div>
           <div className="field">
             <button
@@ -272,7 +297,7 @@ export default function HomeDashboard({
               onClick={() => handleAdjustWeight(-0.1)}
               disabled={weightSaving}
             >
-              −
+              <Icon name="minus" size={15} />
             </button>
             <button
               type="button"
@@ -280,7 +305,7 @@ export default function HomeDashboard({
               onClick={() => handleAdjustWeight(0.1)}
               disabled={weightSaving}
             >
-              +
+              <Icon name="plus" size={15} color="var(--text-on-accent)" />
             </button>
           </div>
         </div>

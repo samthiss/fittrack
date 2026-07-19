@@ -51,14 +51,15 @@
 }
 
 .day-nav-btn {
-  background: none;
-  border: 1px solid var(--line);
+  background: var(--surface-card, none);
+  border: 1px solid var(--border-subtle, var(--line));
   color: var(--txt);
   border-radius: 50%;
   width: 34px;
   height: 34px;
-  font-size: 18px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 
@@ -77,8 +78,10 @@
      at the true bottom edge of .app's own box, no viewport-unit math involved. */
   flex-shrink: 0;
   display: flex;
-  background: var(--card);
-  border-top: 1px solid var(--line);
+  background: var(--surface-glass-strong, var(--card));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border-subtle, var(--line));
   padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px));
 }
 
@@ -117,15 +120,35 @@
 }
 
 .insight-card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 16px 18px;
+  display: flex;
+  gap: 13px;
+  background: var(--surface-glass, var(--card));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-glass, var(--line));
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-card, none);
+  padding: 15px 16px;
+}
+
+.insight-card-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+}
+
+.insight-card-content {
+  min-width: 0;
 }
 
 .insight-card-title {
   margin: 0;
-  font-size: 17px;
+  font-size: 15.5px;
   font-weight: 700;
 }
 
@@ -928,6 +951,17 @@ textarea.wide {
   cursor: pointer;
 }
 
+.resume-goal {
+  margin: 0 0 10px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+
+.resume-goal b {
+  color: var(--txt);
+}
+
 .gauge-row {
   display: flex;
   align-items: center;
@@ -957,9 +991,10 @@ textarea.wide {
 
 .gauge-value {
   font-size: 30px;
-  font-weight: 700;
+  font-weight: var(--weight-bold, 700);
   fill: var(--txt);
-  font-family: var(--sans);
+  font-family: var(--font-display, var(--sans));
+  letter-spacing: var(--tracking-tight, 0);
 }
 
 .gauge-label {
@@ -1008,6 +1043,38 @@ textarea.wide {
 
 .meal-row {
   cursor: pointer;
+  padding: 14px 16px;
+}
+
+.meal-row-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-icon-box {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.row-icon-box + .name {
+  flex: 1;
+  min-width: 0;
+}
+
+.water-icon-box {
+  background: linear-gradient(160deg, rgba(99, 179, 246, 0.18), rgba(99, 179, 246, 0.04));
+}
+
+.weight-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--surface-raised);
 }
 
 .round-add-btn {
@@ -1015,25 +1082,32 @@ textarea.wide {
   height: 30px;
   border-radius: 50%;
   border: 0;
-  background: var(--acc);
-  color: #fff;
+  background: var(--gradient-brand, var(--acc));
+  color: var(--text-on-accent, #fff);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--glow-accent, none);
 }
 
 .round-remove-btn {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  border: 1px solid var(--line);
-  background: none;
+  border: 1px solid var(--border-strong, var(--line));
+  background: var(--surface-raised, none);
   color: var(--dim);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .weight-value {
