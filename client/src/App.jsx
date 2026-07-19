@@ -9,7 +9,7 @@ import HomeDashboard from './components/HomeDashboard';
 import MealDetail from './components/MealDetail';
 import BottomTabBar from './components/BottomTabBar';
 import Report from './components/Report';
-import ActivityLog from './components/ActivityLog';
+import ActivitesScreen from './components/ActivitesScreen';
 import WeightTracker from './components/WeightTracker';
 import MealPlanner from './components/MealPlanner';
 import AccountSettings from './components/AccountSettings';
@@ -33,7 +33,6 @@ function MainApp({ onLogout, account }) {
   const [selectedMeal, setSelectedMeal] = useState(null);
   const [profile, setProfile] = useState(null);
   const [activityTypes, setActivityTypes] = useState([]);
-  const [activities, setActivities] = useState([]);
   const [water, setWater] = useState({ logs: [], totalMl: 0 });
   const [recipes, setRecipes] = useState([]);
   const [foods, setFoods] = useState([]);
@@ -56,16 +55,14 @@ function MainApp({ onLogout, account }) {
         // no plan yet, or nothing to add — fine either way
       }
     }
-    const [profileData, typesData, activitiesData, summaryData, waterData] = await Promise.all([
+    const [profileData, typesData, summaryData, waterData] = await Promise.all([
       api.getProfile(),
       api.getActivityTypes(),
-      api.getActivities(date),
       api.getSummary(date),
       api.getWater(date),
     ]);
     setProfile(profileData);
     setActivityTypes(typesData);
-    setActivities(activitiesData);
     setSummary(summaryData);
     setWater(waterData);
   }, [date]);
@@ -140,18 +137,6 @@ function MainApp({ onLogout, account }) {
   async function handleActivityTypeUpdate(type, kcalPerHour) {
     await api.updateActivityType(type, { kcal_per_hour: kcalPerHour });
     await refreshCore();
-  }
-
-  async function handleAddActivity(data) {
-    await api.addActivity({ ...data, date });
-    await refreshCore();
-    await refreshDashboard();
-  }
-
-  async function handleDeleteActivity(id) {
-    await api.deleteActivity(id);
-    await refreshCore();
-    await refreshDashboard();
   }
 
   async function handleAddWater() {
@@ -299,6 +284,9 @@ function MainApp({ onLogout, account }) {
     setSelectedMeal(null);
     setMealData(null);
     setMealFavorites([]);
+    // Activities logged from the Activités tab can target any day, not just the Journal's
+    // currently-selected date — refresh on return so burned-kcal reflects those edits.
+    if (next === 'journal') refreshDashboard();
   }
 
   return (
@@ -355,17 +343,8 @@ function MainApp({ onLogout, account }) {
               onSetCategories={handleSetRecipeCategories}
             />
           )}
-          {(view === 'rapport' || view === 'activites') && (
-            <>
-              <ActivityLog
-                activityTypes={activityTypes}
-                activities={activities}
-                onAdd={handleAddActivity}
-                onDelete={handleDeleteActivity}
-              />
-              <Report />
-            </>
-          )}
+          {view === 'rapport' && <Report />}
+          {view === 'activites' && <ActivitesScreen />}
           {view === 'poids' && (
             <>
               <button type="button" className="btn-ghost back-btn" onClick={() => setView('journal')} aria-label={t('common.back')}>

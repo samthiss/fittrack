@@ -124,6 +124,10 @@ export const translations = {
     'activityLog.all': 'Tous',
     'activityLog.saving': 'Enregistrement…',
     'activityLog.close': 'Fermer',
+    'activityLog.kcalBurned': 'kcal brûlées',
+    'activityLog.summaryLine': "{count} activités · {min} min aujourd'hui",
+    'activityLog.today': "Aujourd'hui",
+    'activityLog.addActivity': 'Ajouter une activité',
 
     // Add food to meal
     'addFood.title': 'Ajouter un aliment',
@@ -623,6 +627,10 @@ export const translations = {
     'activityLog.all': 'All',
     'activityLog.saving': 'Saving…',
     'activityLog.close': 'Close',
+    'activityLog.kcalBurned': 'kcal burned',
+    'activityLog.summaryLine': '{count} activities · {min} min today',
+    'activityLog.today': 'Today',
+    'activityLog.addActivity': 'Add an activity',
 
     // Add food to meal
     'addFood.title': 'Add a food',
