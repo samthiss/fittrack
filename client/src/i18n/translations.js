@@ -469,6 +469,11 @@ export const translations = {
     'week.prebioticsEaten': 'Prébiotiques consommés',
     'week.polyphenolSources': 'Sources de polyphénols',
     'week.improvements': 'Améliorations',
+    'week.avgDeficit': 'Déficit moyen',
+    'week.caloriesVsGoal': 'Calories vs objectif',
+    'week.underGoal': "Sous l'objectif",
+    'week.overGoal': 'Au-dessus',
+    'week.goalShort': 'Objectif',
 
     // Weight tracker
     'weight.range7': '7 jours',
@@ -971,6 +976,11 @@ export const translations = {
     'week.prebioticsEaten': 'Prebiotics eaten',
     'week.polyphenolSources': 'Polyphenol sources',
     'week.improvements': 'Improvements',
+    'week.avgDeficit': 'Average deficit',
+    'week.caloriesVsGoal': 'Calories vs goal',
+    'week.underGoal': 'Under goal',
+    'week.overGoal': 'Over',
+    'week.goalShort': 'Goal',
 
     // Weight tracker
     'weight.range7': '7 days',

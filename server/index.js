@@ -1970,6 +1970,13 @@ app.get('/api/week-report', (req, res) => {
   // page can show "d'où ça vient" on click.
   const microSources = buildMicroSources(allLogs, n);
 
+  // Average calorie deficit/surplus across logged days, and the weight change over the period
+  // (first vs last day, falling back to the profile's weight if nothing was logged that day) —
+  // the two headline tiles at the top of the week/month report.
+  const avgDeficitKcal = dayResults.reduce((s, d) => s + (d.target - d.consumed.kcal), 0) / n;
+  const weightStartKg = weightAsOf(req.userId, dates[0]);
+  const weightEndKg = weightAsOf(req.userId, referenceDate);
+
   // Only meaningful once the period is over — the frontend only renders this for period=past
   // and period=month — but cheap enough to always compute rather than branch the route.
   const combinedMicros = [
@@ -1990,6 +1997,12 @@ app.get('/api/week-report', (req, res) => {
         ? `Seulement ${n} jour(s) sur ${daysInRange} renseigné(s).`
         : null,
     referenceWeightKg,
+    avgDeficitKcal,
+    weightStartKg,
+    weightEndKg,
+    weightDeltaKg: weightEndKg - weightStartKg,
+    // Only sent when short enough to draw as a daily bar chart (a week, not a month/quarter).
+    dayResults: daysInRange <= 7 ? dayResults.map((d) => ({ date: d.date, consumedKcal: d.consumed.kcal, targetKcal: d.target })) : null,
     dailyAverageMicros,
     limitAverages,
     weeklyObjectives,
