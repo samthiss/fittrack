@@ -1639,13 +1639,45 @@ textarea.wide {
 }
 
 /* add food to meal */
-.search-input {
+.search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 14px;
+  padding: 0 14px;
+  height: 46px;
   margin-top: 13px;
+}
+
+.search-input {
+  flex: 1;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font-size: 14.5px;
+}
+
+.search-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.search-scan-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex: none;
 }
 
 .tool-menu-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   padding-bottom: 4px;
 }
 
@@ -1656,44 +1688,136 @@ textarea.wide {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 68px;
-  padding: 10px 4px;
-  border-radius: 16px;
-  border: 2px solid var(--line);
-  background: var(--soft);
-  color: var(--txt);
+  min-height: 62px;
+  padding: 12px 4px;
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle, var(--line));
+  background: var(--surface-card);
+  color: var(--text-secondary, var(--dim));
   cursor: pointer;
 }
 
 .tool-tile.active {
   border-color: var(--acc);
-  color: var(--acc);
-}
-
-.tool-tile-icon {
-  font-size: 22px;
-  line-height: 1;
+  background: var(--surface-raised);
+  color: var(--txt);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .tool-tile-label {
-  font-size: 11.5px;
+  font-size: 12px;
+  font-weight: 600;
   text-align: center;
+}
+
+.tool-tile.active .tool-tile-label {
+  font-weight: 700;
 }
 
 .type-list-row {
   display: flex;
-  gap: 10px;
-  margin: 14px 0 6px;
+  gap: 6px;
+  margin: 14px 0 10px;
+  background: var(--ink-800, var(--soft));
+  border-radius: 12px;
+  padding: 4px;
 }
 
-.pill-select {
+.type-pill {
   flex: 1;
-  padding: 12px 14px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 4px;
+  border-radius: 9px;
+  border: 0;
+  background: none;
+  color: var(--text-secondary, var(--dim));
+  cursor: pointer;
+  font: inherit;
+}
+
+.type-pill.active {
+  font-weight: 700;
+  background: var(--gradient-brand, var(--acc));
+  color: var(--text-on-accent, #fff);
+}
+
+.filter-pill-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+}
+
+.filter-pill {
+  flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 15px;
   border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--soft);
-  color: var(--txt);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  color: var(--text-secondary, var(--dim));
+  cursor: pointer;
+  font: inherit;
+}
+
+.filter-pill.active {
+  font-weight: 700;
+  background: var(--gradient-brand, var(--acc));
+  color: var(--text-on-accent, #fff);
+  border-color: transparent;
+}
+
+.result-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+
+.result-row-body {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.result-row-name {
   font-size: 15px;
+  font-weight: 600;
+  color: var(--txt);
+}
+
+.result-row-sub {
+  font-size: 11.5px;
+  color: var(--text-secondary, var(--dim));
+  margin-top: 2px;
+}
+
+.result-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.result-add-btn {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 11px;
+  border: 0;
+  background: var(--gradient-brand, var(--acc));
+  color: var(--text-on-accent, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
 .scan-result {
@@ -1809,16 +1933,22 @@ textarea.wide {
 }
 
 .star-btn {
-  background: none;
-  border: 0;
-  color: var(--dim);
-  font-size: 18px;
-  line-height: 1;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong, var(--line));
+  background: transparent;
+  color: var(--text-secondary, var(--dim));
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   padding: 0;
 }
 
 .star-btn.active {
+  border-color: var(--warn);
   color: var(--warn);
 }
 

@@ -3,6 +3,7 @@ import BarcodeScanner from './BarcodeScanner';
 import { api } from '../api';
 import { findRecurringItems } from './MealPlanner';
 import { useLanguage } from '../i18n/LanguageContext';
+import Icon from './Icon';
 
 function recipeMacrosPerPortion(recipe) {
   const totals = recipe.ingredients.reduce(
@@ -76,10 +77,10 @@ export default function AddFoodToMeal({
 }) {
   const { t } = useLanguage();
   const TOOLS = [
-    { key: 'search', icon: '🔍', label: t('addFood.toolSearch') },
-    { key: 'barcode', icon: '▦', label: t('addFood.toolBarcode') },
-    { key: 'write', icon: '✎', label: t('addFood.toolWrite') },
-    { key: 'manual', icon: '+', label: t('addFood.toolManual') },
+    { key: 'search', icon: 'search', label: t('addFood.toolSearch') },
+    { key: 'barcode', icon: 'scan-barcode', label: t('addFood.toolBarcode') },
+    { key: 'write', icon: 'sparkles', label: t('addFood.toolWrite') },
+    { key: 'manual', icon: 'pencil-line', label: t('addFood.toolManual') },
   ];
   const [activeTool, setActiveTool] = useState('search');
   const [search, setSearch] = useState('');
@@ -441,37 +442,40 @@ export default function AddFoodToMeal({
   function renderItemRow(item) {
     const isFavorite = favoriteKeySet.has(`${item.type}-${item.id}`);
     return (
-      <div className="row" key={`${item.type}-${item.id}`}>
-        <div className="name clickable" onClick={() => openItemDetail(item)}>
-          <span>{item.name}</span>
-          <span className="rate">{item.subtitle}</span>
+      <div className="result-row" key={`${item.type}-${item.id}`}>
+        <div className="result-row-body" onClick={() => openItemDetail(item)}>
+          <div className="result-row-name">{item.name}</div>
+          <div className="result-row-sub">{item.subtitle}</div>
         </div>
-        <div className="field">
+        <div className="result-row-actions">
           <button
             type="button"
             className={isFavorite ? 'star-btn active' : 'star-btn'}
             title={t('addFood.addToFavorites')}
             onClick={() => handleToggleFavorite(item)}
           >
-            {isFavorite ? '★' : '☆'}
+            <Icon name="star" size={16} />
           </button>
           {item.type === 'food' && (
             <button
               type="button"
-              className="btn-ghost"
+              className="star-btn"
               title={t('addFood.editNutrition')}
               onClick={() => openEditFood(item)}
             >
-              ✎
+              <Icon name="pencil-line" size={16} />
             </button>
           )}
           <button
             type="button"
-            className="btn-ghost"
+            className="star-btn"
             title={item.type === 'food' ? t('addFood.deleteFood') : t('addFood.deleteRecipe')}
             onClick={() => (item.type === 'food' ? onDeleteFood(item.id) : onDeleteRecipe(item.id))}
           >
-            🗑
+            <Icon name="trash-2" size={16} />
+          </button>
+          <button type="button" className="result-add-btn" onClick={() => openItemDetail(item)}>
+            <Icon name="plus" size={19} />
           </button>
         </div>
       </div>
@@ -492,7 +496,7 @@ export default function AddFoodToMeal({
               className={tool.key === activeTool ? 'tool-tile active' : 'tool-tile'}
               onClick={() => setActiveTool(tool.key)}
             >
-              <span className="tool-tile-icon">{tool.icon}</span>
+              <Icon name={tool.icon} size={20} />
               <span className="tool-tile-label">{tool.label}</span>
             </button>
           ))}
@@ -587,17 +591,28 @@ export default function AddFoodToMeal({
 
         {activeTool === 'search' && (
           <>
-            <input
-              type="text"
-              className="wide search-input"
-              placeholder={t('addFood.searchPlaceholder')}
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setOnlineResults(null);
-                setOnlineError(null);
-              }}
-            />
+            <div className="search-input-row">
+              <Icon name="search" size={18} color="var(--text-muted)" />
+              <input
+                type="text"
+                className="search-input"
+                placeholder={t('addFood.searchPlaceholder')}
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setOnlineResults(null);
+                  setOnlineError(null);
+                }}
+              />
+              <button
+                type="button"
+                className="search-scan-btn"
+                onClick={() => setActiveTool('barcode')}
+                aria-label={t('addFood.toolBarcode')}
+              >
+                <Icon name="scan-barcode" size={19} color="var(--acc)" />
+              </button>
+            </div>
 
             {showingSearch ? (
               results.length === 0 ? (
@@ -638,16 +653,37 @@ export default function AddFoodToMeal({
             ) : (
               <>
                 <div className="type-list-row">
-                  <select className="pill-select" value={itemKind} onChange={(e) => setItemKind(e.target.value)}>
-                    <option value="food">{t('addFood.kindFood')}</option>
-                    <option value="recipe">{t('addFood.kindRecipe')}</option>
-                  </select>
-                  <select className="pill-select" value={listMode} onChange={(e) => setListMode(e.target.value)}>
-                    <option value="frequent">{t('addFood.modeFrequent')}</option>
-                    <option value="recent">{t('addFood.modeRecent')}</option>
-                    <option value="favorite">{t('addFood.modeFavorite')}</option>
-                    <option value="all">{t('addFood.modeAll')}</option>
-                  </select>
+                  <button
+                    type="button"
+                    className={itemKind === 'food' ? 'type-pill active' : 'type-pill'}
+                    onClick={() => setItemKind('food')}
+                  >
+                    {t('addFood.kindFood')}
+                  </button>
+                  <button
+                    type="button"
+                    className={itemKind === 'recipe' ? 'type-pill active' : 'type-pill'}
+                    onClick={() => setItemKind('recipe')}
+                  >
+                    {t('addFood.kindRecipe')}
+                  </button>
+                </div>
+                <div className="filter-pill-row">
+                  {[
+                    ['frequent', t('addFood.modeFrequent')],
+                    ['recent', t('addFood.modeRecent')],
+                    ['favorite', t('addFood.modeFavorite')],
+                    ['all', t('addFood.modeAll')],
+                  ].map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={listMode === key ? 'filter-pill active' : 'filter-pill'}
+                      onClick={() => setListMode(key)}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
 
                 {browseListItems.length === 0 ? (
