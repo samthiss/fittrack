@@ -11,6 +11,7 @@ import BottomTabBar from './components/BottomTabBar';
 import Report from './components/Report';
 import ActivitesScreen from './components/ActivitesScreen';
 import WeightTracker from './components/WeightTracker';
+import WeightReport from './components/WeightReport';
 import MealPlanner from './components/MealPlanner';
 import AccountSettings from './components/AccountSettings';
 import AuthScreen from './components/AuthScreen';
@@ -305,6 +306,7 @@ function MainApp({ onLogout, account }) {
               onRemoveLastWater={handleRemoveLastWater}
               onOpenWeight={() => setView('poids')}
               onOpenReport={() => setView('rapport')}
+              onOpenWeightReport={() => setView('poids-rapport')}
             />
           )}
           {view === 'journal' && selectedMeal && (
@@ -353,6 +355,7 @@ function MainApp({ onLogout, account }) {
               <WeightTracker />
             </>
           )}
+          {view === 'poids-rapport' && <WeightReport onBack={() => setView('journal')} />}
           {view === 'planning' && <MealPlanner recipes={recipes} foods={foods} />}
           {view === 'reglages' && (
             <>

@@ -77,6 +77,7 @@ export default function HomeDashboard({
   onRemoveLastWater,
   onOpenWeight,
   onOpenReport,
+  onOpenWeightReport,
 }) {
   const { t, lang } = useLanguage();
   const [improvementIndex, setImprovementIndex] = useState(0);
@@ -290,7 +291,7 @@ export default function HomeDashboard({
 
       <div className="section-header">
         <span className="section-title">{t('home.weight')}</span>
-        <button type="button" className="report-link" onClick={onOpenReport}>
+        <button type="button" className="report-link" onClick={onOpenWeightReport}>
           {t('home.viewReport')}
           <Icon name="chevron-right" size={14} />
         </button>

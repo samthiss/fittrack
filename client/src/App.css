@@ -619,6 +619,131 @@
   display: inline-block;
 }
 
+.weight-report-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: var(--shadow-card, none);
+  margin-bottom: 16px;
+}
+
+.weight-report-hero::before {
+  content: '';
+  position: absolute;
+  top: -60%;
+  right: -10%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(139, 118, 249, 0.18), transparent 62%);
+  pointer-events: none;
+}
+
+.weight-report-hero-value {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  position: relative;
+}
+
+.weight-report-hero-value span {
+  font-size: 15px;
+  color: var(--dim);
+  font-family: var(--sans);
+}
+
+.weight-report-hero-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  position: relative;
+}
+
+.weight-report-chart-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.weight-report-loss-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.weight-report-loss-tile {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 18px;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+}
+
+.weight-report-loss-tile.total {
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+
+.weight-report-loss-label {
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.weight-report-loss-value {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  color: var(--txt);
+}
+
+.weight-report-loss-value.good {
+  color: var(--success);
+}
+
+.weight-report-loss-value.accent {
+  color: var(--acc);
+}
+
+.weight-report-loss-unit {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.weight-report-mini-tile {
+  flex: 1;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 16px;
+  padding: 13px 14px;
+}
+
+.weight-report-mini-value {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
 .report-stat-tile-label {
   display: flex;
   align-items: center;

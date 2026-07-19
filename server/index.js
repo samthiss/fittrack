@@ -2104,8 +2104,35 @@ app.get('/api/weight-report', (req, res) => {
     .all(req.userId, ...dates);
 
   const weight = metricStats(rows, 'weight_kg');
+
+  // "Poids perdu" grid on the dedicated weight-report screen shows every fixed window
+  // (7/14/30/60/90 days) side by side, not just whichever one is currently selected for the
+  // chart above — computed here from one all-time fetch instead of five separate requests.
+  const allRows = db.prepare('SELECT date, weight_kg FROM weight_logs WHERE user_id = ? ORDER BY date').all(req.userId);
+  const statsForWindow = (days) => {
+    const windowDates = new Set(rangeDates(String(days)));
+    return metricStats(allRows.filter((r) => windowDates.has(r.date)), 'weight_kg');
+  };
+  const allTime = metricStats(allRows, 'weight_kg');
+  const weightLoss = {
+    d7: statsForWindow(7)?.delta ?? null,
+    d14: statsForWindow(14)?.delta ?? null,
+    d30: statsForWindow(30)?.delta ?? null,
+    d60: statsForWindow(60)?.delta ?? null,
+    d90: statsForWindow(90)?.delta ?? null,
+    total: allTime?.delta ?? null,
+  };
+
   if (!weight) {
-    return res.json({ range, insufficientData: true, daysLogged: rows.length, daysInRange: dates.length });
+    return res.json({
+      range,
+      insufficientData: true,
+      daysLogged: rows.length,
+      daysInRange: dates.length,
+      weightLoss,
+      weightStart: allTime?.first ?? null,
+      weightCurrent: allTime?.last ?? null,
+    });
   }
 
   res.json({
@@ -2116,6 +2143,9 @@ app.get('/api/weight-report', (req, res) => {
     weight,
     bodyFat: metricStats(rows, 'body_fat_pct'),
     waist: metricStats(rows, 'waist_cm'),
+    weightLoss,
+    weightStart: allTime?.first ?? null,
+    weightCurrent: allTime?.last ?? null,
   });
 });
 
