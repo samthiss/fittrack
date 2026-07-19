@@ -4,6 +4,7 @@ import Icon from './Icon';
 import ActivityDetail from './ActivityDetail';
 import ActivitySession from './ActivitySession';
 import ExerciseSession from './ExerciseSession';
+import AddActivityModal from './AddActivityModal';
 import { useLanguage } from '../i18n/LanguageContext';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -51,10 +52,6 @@ export default function ActivitesScreen() {
   const [weekPresence, setWeekPresence] = useState({});
   const [recurringKeys, setRecurringKeys] = useState(new Set());
   const [showAdd, setShowAdd] = useState(false);
-  const [newType, setNewType] = useState('');
-  const [newDuration, setNewDuration] = useState(30);
-  const [newRecurring, setNewRecurring] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [openActivity, setOpenActivity] = useState(null);
   const [session, setSession] = useState(null);
   const [sessionExercise, setSessionExercise] = useState(null);
@@ -68,7 +65,6 @@ export default function ActivitesScreen() {
     const [types, logs, plan] = await Promise.all([api.getActivityTypes(), api.getActivities(date), api.getActivityPlan()]);
     setActivityTypes(types);
     setActivities(logs);
-    if (!newType && types.length > 0) setNewType(types[0].type);
     const dayKey = isoDayKey(date);
     setRecurringKeys(
       new Set(
@@ -77,7 +73,7 @@ export default function ActivitesScreen() {
           .map((e) => `${e.type}-${e.duration_minutes}`)
       )
     );
-  }, [date]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [date]);
 
   useEffect(() => {
     refresh();
@@ -98,23 +94,6 @@ export default function ActivitesScreen() {
 
   const totalKcal = activities.reduce((s, a) => s + a.kcal, 0);
   const totalMin = activities.reduce((s, a) => s + a.duration_minutes, 0);
-
-  async function handleAdd() {
-    if (!newType || !newDuration || saving) return;
-    setSaving(true);
-    try {
-      await api.addActivity({ date, type: newType, duration_minutes: Number(newDuration) });
-      if (newRecurring) {
-        await api.addActivityPlan({ days: [isoDayKey(date)], type: newType, duration_minutes: Number(newDuration) });
-      }
-      setShowAdd(false);
-      setNewDuration(30);
-      setNewRecurring(false);
-      await refresh();
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function handleDelete(id) {
     await api.deleteActivity(id);
@@ -272,49 +251,16 @@ export default function ActivitesScreen() {
       </button>
 
       {showAdd && (
-        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{t('activityLog.addActivity')}</h2>
-            <h4 className="section-label">{t('activityLog.activity')}</h4>
-            <div className="type-list-row" style={{ flexWrap: 'wrap' }}>
-              {activityTypes.map((at) => (
-                <button
-                  key={at.type}
-                  type="button"
-                  className={newType === at.type ? 'type-pill active' : 'type-pill'}
-                  onClick={() => setNewType(at.type)}
-                >
-                  {t(`activityType.${at.type}`)}
-                </button>
-              ))}
-            </div>
-
-            <h4 className="section-label">{t('activityLog.duration')}</h4>
-            <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
-              <button type="button" className="weight-minus-btn" onClick={() => setNewDuration((d) => Math.max(5, d - 5))}>
-                <Icon name="minus" size={18} />
-              </button>
-              <div style={{ textAlign: 'center', minWidth: 70 }}>
-                <span className="weight-value">{newDuration}</span> <span className="rate">min</span>
-              </div>
-              <button type="button" className="weight-plus-btn" onClick={() => setNewDuration((d) => d + 5)}>
-                <Icon name="plus" size={18} />
-              </button>
-            </div>
-
-            <label className="recurring-toggle-row">
-              <input type="checkbox" checked={newRecurring} onChange={(e) => setNewRecurring(e.target.checked)} />
-              <span>{t('addFood.recurringMeal')}</span>
-            </label>
-
-            <button type="button" className="btn btn-block" onClick={handleAdd} disabled={saving}>
-              {saving ? t('activityLog.saving') : t('activityLog.add')}
-            </button>
-          </div>
-          <button type="button" className="done-btn" onClick={() => setShowAdd(false)}>
-            {t('activityLog.close')}
-          </button>
-        </div>
+        <AddActivityModal
+          activityTypes={activityTypes}
+          date={date}
+          todayDayKey={isoDayKey(date)}
+          onClose={() => setShowAdd(false)}
+          onAdded={() => {
+            setShowAdd(false);
+            refresh();
+          }}
+        />
       )}
     </div>
   );
