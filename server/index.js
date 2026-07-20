@@ -475,6 +475,20 @@ app.post('/api/activity-plan', (req, res) => {
     const result = insert.run(req.userId, d, type, Number(duration_minutes), finalLabel);
     return db.prepare('SELECT * FROM activity_plan WHERE id = ?').get(result.lastInsertRowid);
   });
+
+  // The "Ajouter une activité" flow always logs today's occurrence directly (a separate
+  // activity_logs row) in the same request cycle as creating the recurring template. If the
+  // template also covers today's weekday, mark it pre-applied so the next apply-to-log call
+  // doesn't materialize a second, duplicate entry for today.
+  const today = todayStr();
+  const todayPlanDay = WEEKDAY_TO_PLAN_DAY[new Date(`${today}T00:00:00Z`).getUTCDay()];
+  const markApplied = db.prepare(
+    'INSERT OR IGNORE INTO activity_plan_applied (user_id, date, activity_plan_id) VALUES (?, ?, ?)'
+  );
+  for (const row of rows) {
+    if (row.day === todayPlanDay) markApplied.run(req.userId, today, row.id);
+  }
+
   res.status(201).json(rows);
 });
 

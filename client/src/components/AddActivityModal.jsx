@@ -129,21 +129,17 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
           })}
         </div>
 
-        {selected && (
-          <>
-            <h4 className="section-label">{t('activityLog.workoutName')}</h4>
-            <div className="search-input-row">
-              <Icon name="pencil" size={18} color="var(--text-muted)" />
-              <input
-                type="text"
-                className="search-input"
-                placeholder={t('activityLog.workoutNamePlaceholder')}
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-              />
-            </div>
-          </>
-        )}
+        <h4 className="section-label">{t('activityLog.workoutName')}</h4>
+        <div className="search-input-row">
+          <Icon name="pencil" size={18} color="var(--text-muted)" />
+          <input
+            type="text"
+            className="search-input"
+            placeholder={t('activityLog.workoutNamePlaceholder')}
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+          />
+        </div>
 
         <h4 className="section-label">{t('activityLog.duration')}</h4>
         <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
