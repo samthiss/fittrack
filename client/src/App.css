@@ -2722,6 +2722,11 @@ textarea.wide {
   cursor: pointer;
 }
 
+.done-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .drink-type-row {
   display: flex;
   flex-wrap: wrap;

@@ -200,12 +200,9 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
           </div>
         )}
 
-        <button type="button" className="btn btn-block" onClick={handleSubmit} disabled={!selectedType || saving} style={{ marginTop: 14 }}>
-          {saving ? t('activityLog.saving') : t('activityLog.addToJournal')}
-        </button>
       </div>
-      <button type="button" className="done-btn" onClick={onClose}>
-        {t('activityLog.close')}
+      <button type="button" className="done-btn" onClick={handleSubmit} disabled={!selectedType || saving}>
+        {saving ? t('activityLog.saving') : t('activityLog.addToJournal')}
       </button>
     </div>
   );
