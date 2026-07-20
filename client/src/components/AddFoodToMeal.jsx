@@ -70,6 +70,7 @@ export default function AddFoodToMeal({
   onCreateFood,
   onParseText,
   onParsePhoto,
+  onDeleteEntry,
   onAddedRecipe,
 }) {
   const { t } = useLanguage();
@@ -87,6 +88,7 @@ export default function AddFoodToMeal({
   const [modalQty, setModalQty] = useState('100');
   const [modalUnit, setModalUnit] = useState('g');
   const [modalRecurring, setModalRecurring] = useState(false);
+  const [excludedIngredients, setExcludedIngredients] = useState(new Set());
   const [savingModal, setSavingModal] = useState(false);
   const [recurringKeys, setRecurringKeys] = useState(new Set());
   const swipeRef = useRef(null);
@@ -219,6 +221,7 @@ export default function AddFoodToMeal({
     // Always starts unchecked — it's a one-shot "mark this as recurring right now" action, not
     // a reflection of whatever the current status happens to be.
     setModalRecurring(false);
+    setExcludedIngredients(new Set());
     setSavingModal(false);
     // Default quantity is more useful as whatever amount was last logged for this same meal
     // (e.g. Flexpresso is always 30g at breakfast, a recipe is always 2 portions at dinner) —
@@ -241,7 +244,15 @@ export default function AddFoodToMeal({
     if (!qty) return;
     setSavingModal(true);
     try {
-      await onAddEntry(viewingItem.type, viewingItem.id, qty, viewingItem.type === 'food' ? modalUnit : 'g');
+      const createdRows = await onAddEntry(viewingItem.type, viewingItem.id, qty, viewingItem.type === 'food' ? modalUnit : 'g');
+      // Ingredients unchecked in the preview list were only ever meant to skip logging — the
+      // server always logs every ingredient, so the ones the user excluded are deleted right
+      // back out before anything is shown as "added".
+      if (viewingItem.type === 'recipe' && excludedIngredients.size > 0 && Array.isArray(createdRows) && onDeleteEntry) {
+        for (const row of createdRows) {
+          if (excludedIngredients.has(row.label)) await onDeleteEntry(row.id);
+        }
+      }
       await syncRecurring(viewingItem.type, viewingItem.id, qty, modalRecurring);
       setViewingItem(null);
       // Straight into the ingredient list so a specific ingredient can be trimmed/adjusted
@@ -769,6 +780,43 @@ export default function AddFoodToMeal({
                 </div>
               </>
             )}
+
+            {viewingItem.type === 'recipe' && (() => {
+              const recipe = recipes.find((r) => r.id === viewingItem.id);
+              if (!recipe) return null;
+              const scale = (Number(modalQty) || 0) / (recipe.portions || 1);
+              return (
+                <>
+                  <h4 className="section-label">
+                    {t('meal.ingredients')} · {recipe.ingredients.length - excludedIngredients.size}
+                  </h4>
+                  <div className="entry-list">
+                    {recipe.ingredients
+                      .filter((ing) => !excludedIngredients.has(ing.nom))
+                      .map((ing, i) => (
+                        <div className="entry-card" key={i}>
+                          <div className="entry-card-body" style={{ cursor: 'default' }}>
+                            <div className="entry-card-name">{ing.nom}</div>
+                            <div className="entry-card-sub">
+                              {Math.round((Number(ing.qte) || 0) * scale)} {ing.unite || 'g'} · {Math.round((Number(ing.kcal) || 0) * scale)} kcal
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="entry-icon-btn entry-delete-btn"
+                            onClick={() =>
+                              setExcludedIngredients((prev) => new Set(prev).add(ing.nom))
+                            }
+                            aria-label={t('meal.delete')}
+                          >
+                            <Icon name="trash-2" size={15} />
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </>
+              );
+            })()}
 
             {mealKey && (
               <>

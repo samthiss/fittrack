@@ -206,7 +206,7 @@ function MainApp({ onLogout, account }) {
   }
 
   async function handleAddEntry(sourceType, sourceId, quantity, unit = 'g') {
-    await api.addFoodLogEntry({
+    const rows = await api.addFoodLogEntry({
       date,
       meal: selectedMeal,
       source_type: sourceType,
@@ -219,6 +219,7 @@ function MainApp({ onLogout, account }) {
     await refreshFrequentFoods();
     // A food logged in ml (e.g. milk, coffee) also counts toward the water total.
     setWater(await api.getWater(date));
+    return rows;
   }
 
   async function handleDeleteEntry(id) {
