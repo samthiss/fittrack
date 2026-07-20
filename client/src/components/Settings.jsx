@@ -15,6 +15,21 @@ function iconForActivity(type) {
   return 'activity';
 }
 
+// A small "Réglages" back-header, identical across every sub-screen.
+function SubHeader({ title, onBack, t }) {
+  return (
+    <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+      <button type="button" className="meal-detail-back-btn" onClick={onBack} aria-label={t('meal.back')}>
+        <Icon name="chevron-left" size={20} />
+      </button>
+      <div className="meal-detail-heading">
+        <div className="day-nav-subtitle">{t('nav.settings')}</div>
+        <div className="meal-detail-title" style={{ fontSize: 21 }}>{title}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function Settings({
   profile,
   summary,
@@ -28,7 +43,7 @@ export default function Settings({
   const { t, lang, setLang } = useLanguage();
   const [screen, setScreen] = useState('home');
 
-  // --- Profile (BMR/movement/digestion + personal info) screen state ---
+  // --- Shared profile-field state (sourced once from `profile`, saved piecemeal per screen) ---
   const [bmr, setBmr] = useState('');
   const [movement, setMovement] = useState('');
   const [digestion, setDigestion] = useState('');
@@ -36,8 +51,9 @@ export default function Settings({
   const [birthdate, setBirthdate] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
+  const [targetWeightKg, setTargetWeightKg] = useState('');
   const [bodyFatPct, setBodyFatPct] = useState('');
-  const [savingProfile, setSavingProfile] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -48,27 +64,50 @@ export default function Settings({
       setBirthdate(profile.birthdate || '');
       setHeightCm(profile.height_cm ?? '');
       setWeightKg(profile.weight_kg ?? '');
+      setTargetWeightKg(profile.target_weight_kg ?? '');
       setBodyFatPct(profile.body_fat_pct ?? '');
     }
   }, [profile]);
 
-  async function handleSaveProfileScreen() {
-    if (savingProfile) return;
-    setSavingProfile(true);
+  async function handleSaveInfo() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onSaveProfile({ sex: sex || null, birthdate: birthdate || null });
+      setScreen('home');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSaveMeasurements() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onSaveProfile({
+        height_cm: heightCm !== '' ? Number(heightCm) : null,
+        weight_kg: weightKg !== '' ? Number(weightKg) : undefined,
+        target_weight_kg: targetWeightKg !== '' ? Number(targetWeightKg) : null,
+        body_fat_pct: bodyFatPct !== '' ? Number(bodyFatPct) : null,
+      });
+      setScreen('home');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSaveMetabolism() {
+    if (saving) return;
+    setSaving(true);
     try {
       await onSaveProfile({
         bmr: Number(bmr),
         daily_movement_kcal: Number(movement),
         digestion_kcal: Number(digestion),
-        sex: sex || null,
-        birthdate: birthdate || null,
-        height_cm: heightCm !== '' ? Number(heightCm) : null,
-        weight_kg: weightKg !== '' ? Number(weightKg) : undefined,
-        body_fat_pct: bodyFatPct !== '' ? Number(bodyFatPct) : null,
       });
       setScreen('home');
     } finally {
-      setSavingProfile(false);
+      setSaving(false);
     }
   }
 
@@ -119,7 +158,7 @@ export default function Settings({
     if (value >= 0 && value !== original) onUpdateActivityType(type, value);
   }
 
-  // --- Account/password screen ---
+  // --- Password screen ---
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [pwStatus, setPwStatus] = useState(null);
@@ -149,26 +188,98 @@ export default function Settings({
   const initials = (email || '?').slice(0, 2).toUpperCase();
   const targetIntake = summary?.targetIntake;
 
-  // --- Profile edit screen ---
-  if (screen === 'profile') {
+  // --- Informations screen (sex + birthdate) ---
+  if (screen === 'info') {
     return (
       <div>
-        <div className="meal-detail-header" style={{ marginBottom: 4 }}>
-          <button type="button" className="meal-detail-back-btn" onClick={() => setScreen('home')} aria-label={t('meal.back')}>
-            <Icon name="chevron-left" size={20} />
-          </button>
-          <div className="meal-detail-heading">
-            <div className="day-nav-subtitle">{t('nav.settings')}</div>
-            <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('settings.editProfile')}</div>
+        <SubHeader title={t('settings.info')} onBack={() => setScreen('home')} t={t} />
+
+        <h4 className="section-label" style={{ marginTop: 0 }}>{t('profile.sex')}</h4>
+        <div className="type-list-row" style={{ marginTop: 0 }}>
+          {SEX_KEYS.map((s) => (
+            <button key={s} type="button" className={sex === s ? 'type-pill active' : 'type-pill'} onClick={() => setSex(s)}>
+              {t(`profile.sex.${s}`)}
+            </button>
+          ))}
+        </div>
+
+        <h4 className="section-label">{t('profile.birthdate')}</h4>
+        <div className="search-input-row">
+          <input type="date" className="search-input" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} />
+        </div>
+
+        <button
+          type="button"
+          className="meal-add-cta"
+          style={{ marginTop: 20, marginBottom: 20 }}
+          onClick={handleSaveInfo}
+          disabled={saving}
+        >
+          <Icon name="check" size={20} />
+          {saving ? t('addFood.saving') : t('meal.save')}
+        </button>
+      </div>
+    );
+  }
+
+  // --- Poids & Mensurations screen ---
+  if (screen === 'measurements') {
+    return (
+      <div>
+        <SubHeader title={t('settings.measurements')} onBack={() => setScreen('home')} t={t} />
+
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <h4 className="section-label" style={{ marginTop: 0 }}>{t('profile.height')}</h4>
+            <div className="search-input-row">
+              <input type="number" min="0" step="any" className="search-input" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} />
+              <span className="unit">cm</span>
+            </div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <h4 className="section-label" style={{ marginTop: 0 }}>{t('profile.weight')}</h4>
+            <div className="search-input-row">
+              <input type="number" min="0" step="any" className="search-input" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} />
+              <span className="unit">kg</span>
+            </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, margin: '10px 0 18px' }}>
-          <span className="settings-avatar settings-avatar-lg">{initials}</span>
-          <div className="settings-profile-email">{email}</div>
+        <h4 className="section-label">{t('onboarding.targetWeight')}</h4>
+        <div className="search-input-row">
+          <input type="number" min="0" step="any" className="search-input" value={targetWeightKg} onChange={(e) => setTargetWeightKg(e.target.value)} />
+          <span className="unit">kg</span>
         </div>
 
-        <h4 className="section-label">{t('profile.bmr')}</h4>
+        <h4 className="section-label">
+          {t('profile.bodyFat')} <span style={{ textTransform: 'none', fontWeight: 400 }}>({t('profile.optional')})</span>
+        </h4>
+        <div className="search-input-row">
+          <input type="number" min="0" max="100" step="any" className="search-input" value={bodyFatPct} onChange={(e) => setBodyFatPct(e.target.value)} />
+          <span className="unit">%</span>
+        </div>
+
+        <button
+          type="button"
+          className="meal-add-cta"
+          style={{ marginTop: 20, marginBottom: 20 }}
+          onClick={handleSaveMeasurements}
+          disabled={saving}
+        >
+          <Icon name="check" size={20} />
+          {saving ? t('addFood.saving') : t('meal.save')}
+        </button>
+      </div>
+    );
+  }
+
+  // --- Métabolisme screen ---
+  if (screen === 'metabolism') {
+    return (
+      <div>
+        <SubHeader title={t('settings.metabolism')} onBack={() => setScreen('home')} t={t} />
+
+        <h4 className="section-label" style={{ marginTop: 0 }}>{t('profile.bmr')}</h4>
         <div className="search-input-row">
           <input type="number" min="0" step="any" className="search-input" value={bmr} onChange={(e) => setBmr(e.target.value)} />
           <span className="unit">kcal</span>
@@ -186,56 +297,15 @@ export default function Settings({
           <span className="unit">kcal</span>
         </div>
 
-        <h4 className="section-label" style={{ marginTop: 22 }}>{t('profile.infoSection')}</h4>
-
-        <div className="hint" style={{ padding: '0 0 6px' }}>{t('profile.sex')}</div>
-        <div className="type-list-row" style={{ marginTop: 0 }}>
-          {SEX_KEYS.map((s) => (
-            <button key={s} type="button" className={sex === s ? 'type-pill active' : 'type-pill'} onClick={() => setSex(s)}>
-              {t(`profile.sex.${s}`)}
-            </button>
-          ))}
-        </div>
-
-        <h4 className="section-label">{t('profile.birthdate')}</h4>
-        <div className="search-input-row">
-          <input type="date" className="search-input" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} />
-        </div>
-
-        <div style={{ display: 'flex', gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <h4 className="section-label">{t('profile.height')}</h4>
-            <div className="search-input-row">
-              <input type="number" min="0" step="any" className="search-input" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} />
-              <span className="unit">cm</span>
-            </div>
-          </div>
-          <div style={{ flex: 1 }}>
-            <h4 className="section-label">{t('profile.weight')}</h4>
-            <div className="search-input-row">
-              <input type="number" min="0" step="any" className="search-input" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} />
-              <span className="unit">kg</span>
-            </div>
-          </div>
-        </div>
-
-        <h4 className="section-label">
-          {t('profile.bodyFat')} <span style={{ textTransform: 'none', fontWeight: 400 }}>({t('profile.optional')})</span>
-        </h4>
-        <div className="search-input-row">
-          <input type="number" min="0" max="100" step="any" className="search-input" value={bodyFatPct} onChange={(e) => setBodyFatPct(e.target.value)} />
-          <span className="unit">%</span>
-        </div>
-
         <button
           type="button"
           className="meal-add-cta"
           style={{ marginTop: 20, marginBottom: 20 }}
-          onClick={handleSaveProfileScreen}
-          disabled={savingProfile}
+          onClick={handleSaveMetabolism}
+          disabled={saving}
         >
           <Icon name="check" size={20} />
-          {savingProfile ? t('addFood.saving') : t('meal.save')}
+          {saving ? t('addFood.saving') : t('meal.save')}
         </button>
       </div>
     );
@@ -245,17 +315,9 @@ export default function Settings({
   if (screen === 'goal') {
     return (
       <div>
-        <div className="meal-detail-header" style={{ marginBottom: 4 }}>
-          <button type="button" className="meal-detail-back-btn" onClick={() => setScreen('home')} aria-label={t('meal.back')}>
-            <Icon name="chevron-left" size={20} />
-          </button>
-          <div className="meal-detail-heading">
-            <div className="day-nav-subtitle">{t('nav.settings')}</div>
-            <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('settings.goal')}</div>
-          </div>
-        </div>
+        <SubHeader title={t('settings.goal')} onBack={() => setScreen('home')} t={t} />
 
-        <h4 className="section-label">{t('settings.goalType')}</h4>
+        <h4 className="section-label" style={{ marginTop: 0 }}>{t('settings.goalType')}</h4>
         <div className="type-list-row">
           {GOAL_KEYS.map((g) => (
             <button key={g} type="button" className={goalType === g ? 'type-pill active' : 'type-pill'} onClick={() => setGoalType(g)}>
@@ -347,15 +409,7 @@ export default function Settings({
     );
     return (
       <div>
-        <div className="meal-detail-header" style={{ marginBottom: 4 }}>
-          <button type="button" className="meal-detail-back-btn" onClick={() => setScreen('home')} aria-label={t('meal.back')}>
-            <Icon name="chevron-left" size={20} />
-          </button>
-          <div className="meal-detail-heading">
-            <div className="day-nav-subtitle">{t('nav.settings')}</div>
-            <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('activitySettings.title')}</div>
-          </div>
-        </div>
+        <SubHeader title={t('activitySettings.title')} onBack={() => setScreen('home')} t={t} />
 
         <p className="hint">{t('activitySettings.hint')}</p>
 
@@ -397,76 +451,63 @@ export default function Settings({
     );
   }
 
+  // --- Password screen ---
+  if (screen === 'password') {
+    return (
+      <div>
+        <SubHeader title={t('account.changePassword')} onBack={() => setScreen('home')} t={t} />
+
+        {mustChangePassword && <p className="hint error">{t('account.mustChangePassword')}</p>}
+
+        <h4 className="section-label" style={{ marginTop: 0 }}>{t('account.currentPassword')}</h4>
+        <input type="password" className="wide" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" />
+        <h4 className="section-label">{t('account.newPassword')}</h4>
+        <input type="password" className="wide" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
+
+        <button type="button" className="meal-add-cta" style={{ marginTop: 20, marginBottom: 12 }} onClick={handleChangePassword} disabled={pwLoading}>
+          <Icon name="check" size={20} />
+          {pwLoading ? t('common.saving') : t('account.changePassword')}
+        </button>
+        {pwStatus && <p className={pwStatus.error ? 'hint error' : 'hint success'}>{pwStatus.text}</p>}
+      </div>
+    );
+  }
+
   // --- Home screen ---
   return (
     <div>
       <h1>{t('nav.settings')}</h1>
 
-      <div className="settings-profile-card">
-        <span className="settings-avatar">{initials}</span>
-        <div className="settings-profile-body">
-          <div className="settings-profile-name">{email.split('@')[0]}</div>
-          <div className="settings-profile-email">{email}</div>
-        </div>
-        <button type="button" className="entry-icon-btn" onClick={() => setScreen('profile')} aria-label={t('recipeList.edit')}>
-          <Icon name="pencil" size={19} />
+      <h4 className="section-label" style={{ marginTop: 4 }}>{t('settings.profileGroupLabel')}</h4>
+      <div className="settings-list-card">
+        <button type="button" className="settings-list-row" onClick={() => setScreen('info')}>
+          <span className="settings-list-icon">
+            <Icon name="user" size={19} />
+          </span>
+          <span className="settings-list-label">{t('settings.info')}</span>
+          <Icon name="chevron-right" size={18} color="var(--text-muted)" />
         </button>
-      </div>
-
-      <h4 className="section-label" style={{ marginTop: 18, marginBottom: 0 }}>{t('settings.profileGroupLabel')}</h4>
-      <div className="section-header" style={{ marginTop: 10 }}>
-        <span className="section-title">{t('settings.metabolism')}</span>
-        <button type="button" className="report-link" onClick={() => setScreen('profile')}>
-          <Icon name="pencil" size={14} />
-          {t('recipeList.edit')}
+        <button type="button" className="settings-list-row" onClick={() => setScreen('measurements')}>
+          <span className="settings-list-icon">
+            <Icon name="scale" size={19} />
+          </span>
+          <span className="settings-list-label">{t('settings.measurements')}</span>
+          <Icon name="chevron-right" size={18} color="var(--text-muted)" />
         </button>
-      </div>
-      <div className="portion-tile-row">
-        <div className="portion-tile">
-          <b>{Math.round(profile.bmr || 0)}</b>
-          <span>{t('profile.bmr')}</span>
-        </div>
-        <div className="portion-tile">
-          <b>{Math.round(profile.daily_movement_kcal || 0)}</b>
-          <span>{t('profile.movement')}</span>
-        </div>
-        <div className="portion-tile">
-          <b>{Math.round(profile.digestion_kcal || 0)}</b>
-          <span>{t('profile.digestion')}</span>
-        </div>
-      </div>
-
-      <div className="section-header" style={{ marginTop: 18 }}>
-        <span className="section-title">{t('settings.goal')}</span>
-        <button type="button" className="report-link" onClick={() => setScreen('goal')}>
-          <Icon name="pencil" size={14} />
-          {t('recipeList.edit')}
+        <button type="button" className="settings-list-row" onClick={() => setScreen('goal')}>
+          <span className="settings-list-icon">
+            <Icon name="target" size={19} />
+          </span>
+          <span className="settings-list-label">{t('settings.goal')}</span>
+          <Icon name="chevron-right" size={18} color="var(--text-muted)" />
         </button>
-      </div>
-      <div className="settings-goal-card">
-        <div className="type-list-row" style={{ marginBottom: 14 }}>
-          {GOAL_KEYS.map((g) => (
-            <span key={g} className={g === profile.goal ? 'type-pill active' : 'type-pill'} style={{ cursor: 'default' }}>
-              {t(`settings.goalType.${g}`)}
-            </span>
-          ))}
-        </div>
-        <div className="settings-goal-row">
-          <div>
-            <div className="hint" style={{ margin: 0 }}>{t('settings.dailyTarget')}</div>
-            <div className="weight-value" style={{ fontSize: 24 }}>
-              {targetIntake != null ? Math.round(targetIntake) : '—'} <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 400 }}>kcal</span>
-            </div>
-          </div>
-          {profile.goal !== 'maintain' && (
-            <div style={{ textAlign: 'right' }}>
-              <div className="hint" style={{ margin: 0 }}>{t('settings.pace')}</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>
-                −{(profile.goal_kcal / 1000).toFixed(2).replace(/\.?0+$/, '')} kg / {t('settings.perWeekShort')}
-              </div>
-            </div>
-          )}
-        </div>
+        <button type="button" className="settings-list-row" onClick={() => setScreen('metabolism')}>
+          <span className="settings-list-icon">
+            <Icon name="flame" size={19} />
+          </span>
+          <span className="settings-list-label">{t('settings.metabolism')}</span>
+          <Icon name="chevron-right" size={18} color="var(--text-muted)" />
+        </button>
       </div>
 
       <h4 className="section-label" style={{ marginTop: 18 }}>{t('settings.preferences')}</h4>
@@ -480,6 +521,13 @@ export default function Settings({
             <option value="fr">Français</option>
             <option value="en">English</option>
           </select>
+        </div>
+        <div className="settings-list-row" style={{ cursor: 'default' }}>
+          <span className="settings-list-icon">
+            <Icon name="ruler" size={19} />
+          </span>
+          <span className="settings-list-label">{t('settings.units')}</span>
+          <span className="settings-list-value">{t('settings.unitsValue')}</span>
         </div>
       </div>
 
@@ -497,19 +545,27 @@ export default function Settings({
         <Icon name="chevron-right" size={18} color="var(--text-muted)" />
       </button>
 
+      <div className="settings-profile-card" style={{ marginTop: 14 }}>
+        <span className="settings-avatar">{initials}</span>
+        <div className="settings-profile-body">
+          <div className="settings-profile-name">{email.split('@')[0]}</div>
+          <div className="settings-profile-email">{email}</div>
+        </div>
+        <button type="button" className="entry-icon-btn" onClick={() => setScreen('info')} aria-label={t('recipeList.edit')}>
+          <Icon name="pencil" size={19} />
+        </button>
+      </div>
+
       <h4 className="section-label" style={{ marginTop: 18 }}>{t('account.title')}</h4>
       <div className="settings-list-card">
-        {mustChangePassword && <p className="hint error" style={{ margin: '10px 14px 0' }}>{t('account.mustChangePassword')}</p>}
-        <div style={{ padding: '14px 16px' }}>
-          <h4 className="section-label" style={{ marginTop: 0 }}>{t('account.currentPassword')}</h4>
-          <input type="password" className="wide" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" />
-          <h4 className="section-label">{t('account.newPassword')}</h4>
-          <input type="password" className="wide" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
-          <button type="button" className="btn btn-block" style={{ marginTop: 12 }} onClick={handleChangePassword} disabled={pwLoading}>
-            {pwLoading ? t('common.saving') : t('account.changePassword')}
-          </button>
-          {pwStatus && <p className={pwStatus.error ? 'hint error' : 'hint success'}>{pwStatus.text}</p>}
-        </div>
+        <button type="button" className="settings-list-row" onClick={() => setScreen('password')}>
+          <span className="settings-list-icon">
+            <Icon name="key" size={19} />
+          </span>
+          <span className="settings-list-label">{t('account.changePassword')}</span>
+          {mustChangePassword && <span className="settings-list-value" style={{ color: 'var(--danger)' }}>!</span>}
+          <Icon name="chevron-right" size={18} color="var(--text-muted)" />
+        </button>
       </div>
 
       <button type="button" className="settings-logout-btn" style={{ marginTop: 18, marginBottom: 20 }} onClick={onLogout}>
