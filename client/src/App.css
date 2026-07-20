@@ -2727,6 +2727,12 @@ textarea.wide {
   cursor: not-allowed;
 }
 
+.done-btn-primary {
+  background: var(--gradient-brand, var(--acc));
+  color: var(--text-on-accent, #fff);
+  box-shadow: var(--glow-accent, none);
+}
+
 .drink-type-row {
   display: flex;
   flex-wrap: wrap;
