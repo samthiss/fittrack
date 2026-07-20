@@ -603,7 +603,7 @@ export default function AddFoodToMeal({
 
             {showingSearch ? (
               results.length === 0 ? (
-                <>
+                <div style={{ marginTop: 14 }}>
                   <p className="hint">{t('addFood.noLibraryResults')}</p>
                   {onSearchOnline && (
                     <>
@@ -633,9 +633,9 @@ export default function AddFoodToMeal({
                     </>
                   )}
                   {!onSearchOnline && <p className="hint">{t('addFood.tryOtherTools')}</p>}
-                </>
+                </div>
               ) : (
-                results.map(renderItemRow)
+                <div style={{ marginTop: 14 }}>{results.map(renderItemRow)}</div>
               )
             ) : (
               <>

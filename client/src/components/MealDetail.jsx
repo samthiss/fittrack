@@ -47,8 +47,8 @@ function EditEntrySheet({
         }}
       >
         <div className="meal-detail-header" style={{ marginBottom: 4 }}>
-          <button type="button" className="meal-detail-back-btn" onClick={onClose} aria-label={t('meal.close')}>
-            <Icon name="x" size={20} />
+          <button type="button" className="meal-detail-back-btn" onClick={onClose} aria-label={t('meal.back')}>
+            <Icon name="chevron-left" size={20} />
           </button>
           <div className="meal-detail-heading">
             {headerLabel && <div className="day-nav-subtitle">{headerLabel}</div>}
