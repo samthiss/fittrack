@@ -3010,6 +3010,348 @@ textarea.wide {
   object-fit: cover;
 }
 
+/* Recettes redesign */
+.recipe-category-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.recipe-category-tile {
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.recipe-category-thumb {
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recipe-category-body {
+  padding: 11px 13px;
+}
+
+.recipe-category-title {
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.recipe-category-count {
+  font-size: 12px;
+  color: var(--text-muted, var(--dim));
+  margin-top: 1px;
+}
+
+.recipe-row-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 18px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.recipe-row-thumb {
+  width: 58px;
+  height: 58px;
+  flex: none;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.recipe-row-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recipe-row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.recipe-row-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.recipe-row-stats {
+  display: flex;
+  gap: 10px;
+  margin-top: 5px;
+  font-size: 11.5px;
+  color: var(--text-secondary, var(--dim));
+  font-variant-numeric: tabular-nums;
+}
+
+.recipe-row-stats b {
+  color: var(--text-primary, var(--txt));
+}
+
+.recipe-row-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.recipe-row-stats i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.recipe-row-star {
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--text-muted, var(--dim));
+  cursor: pointer;
+  display: flex;
+}
+
+.recipe-row-star.active {
+  color: var(--warning);
+}
+
+.recipe-hero {
+  position: relative;
+  height: 180px;
+  border-radius: 22px;
+  background: linear-gradient(150deg, rgba(126, 224, 184, 0.32), rgba(99, 179, 246, 0.18), rgba(139, 118, 249, 0.22));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.recipe-hero img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recipe-hero-icon {
+  color: rgba(255, 255, 255, 0.55);
+  position: relative;
+}
+
+.recipe-hero-back {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 0;
+  background: rgba(13, 12, 19, 0.55);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.recipe-hero-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 10px;
+}
+
+.recipe-hero-edit-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 0;
+  background: rgba(13, 12, 19, 0.55);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.recipe-hero-fav-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 0;
+  background: rgba(13, 12, 19, 0.55);
+  backdrop-filter: blur(8px);
+  color: var(--warning);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.recipe-meta-row {
+  display: flex;
+  gap: 16px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--text-secondary, var(--dim));
+}
+
+.recipe-meta-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.recipe-ingredient-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.recipe-ingredient-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--acc);
+}
+
+.recipe-ingredient-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.recipe-ingredient-name {
+  font-size: 14.5px;
+}
+
+.recipe-ingredient-macros {
+  display: flex;
+  gap: 9px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-secondary, var(--dim));
+  font-variant-numeric: tabular-nums;
+}
+
+.recipe-ingredient-macros span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.recipe-ingredient-macros i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.recipe-ingredient-qty {
+  font-size: 13px;
+  color: var(--text-muted, var(--dim));
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.recipe-detail-footer {
+  display: flex;
+  gap: 10px;
+}
+
+.recipe-photo-drop {
+  height: 130px;
+  border-radius: 18px;
+  border: 1px dashed var(--border-strong, var(--line));
+  background: var(--surface-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted, var(--dim));
+  cursor: pointer;
+  width: 100%;
+  font: inherit;
+}
+
+.recipe-form-ingredient-list {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.recipe-form-ingredient-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle, var(--line));
+}
+
+.recipe-form-ingredient-row:last-child {
+  border-bottom: 0;
+}
+
+.recipe-form-ingredient-name {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.recipe-form-ingredient-qty {
+  font-size: 12px;
+  color: var(--text-muted, var(--dim));
+  margin-top: 1px;
+}
+
+.recipe-form-ingredient-remove {
+  border: 0;
+  background: none;
+  color: var(--text-muted, var(--dim));
+  cursor: pointer;
+  display: flex;
+  flex: none;
+}
+
+.recipe-add-ingredient-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid var(--border-strong, var(--line));
+  background: transparent;
+  color: var(--acc);
+  border-radius: 13px;
+  padding: 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .photo-tile-footer {
   display: flex;
   align-items: center;

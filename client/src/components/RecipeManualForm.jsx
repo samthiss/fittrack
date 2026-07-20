@@ -1,13 +1,8 @@
 import { useState } from 'react';
+import Icon from './Icon';
+import RecipeImport from './RecipeImport';
 import { useLanguage } from '../i18n/LanguageContext';
 
-const EMPTY_INGREDIENT = { nom: '', qte: '', unite: 'g', kcal: '', proteines: '', glucides: '', lipides: '' };
-const EMPTY_RECIPE = { title: '', description: '', image: '', portions: '1' };
-
-// Recipe ingredients store micronutrients under French keys (see server INGREDIENT_NUTRIENT_FIELDS)
-// while foods store them as English `${key}_per_100g` columns — this maps one to the other so
-// picking an existing food as an ingredient carries its full nutrition profile over, not just
-// the 4 macros.
 const INGREDIENT_MICRO_FIELDS = [
   { food: 'fiber_per_100g', ing: 'fibres' },
   { food: 'sodium_per_100g', ing: 'sodium' },
@@ -43,309 +38,437 @@ function per100FromFood(food) {
   return per100;
 }
 
-// Always rendered from within a chosen recipe category (RecipeList) — presetCategory says which
-// meals/tag to apply automatically, so there's no separate category picker in this form anymore.
-export default function RecipeManualForm({ onCreate, onUpdate, onSetCategories, foods = [], presetCategory }) {
-  const { t } = useLanguage();
-  const [open, setOpen] = useState(false);
-  const [recipe, setRecipe] = useState(EMPTY_RECIPE);
-  const [ingredients, setIngredients] = useState([{ ...EMPTY_INGREDIENT }]);
-  const [steps, setSteps] = useState(['']);
-  const [status, setStatus] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [showIngredientPicker, setShowIngredientPicker] = useState(false);
-  const [ingredientSearch, setIngredientSearch] = useState('');
+function ingredientFromFood(food, qty = 100) {
+  const per100 = per100FromFood(food);
+  const factor = qty / 100;
+  const ingredient = {
+    nom: food.name,
+    qte: qty,
+    unite: 'g',
+    kcal: per100.kcal * factor,
+    proteines: per100.proteines * factor,
+    glucides: per100.glucides * factor,
+    lipides: per100.lipides * factor,
+    per100,
+  };
+  for (const { ing: ingKey } of INGREDIENT_MICRO_FIELDS) {
+    if (per100[ingKey] !== undefined) ingredient[ingKey] = per100[ingKey] * factor;
+  }
+  return ingredient;
+}
 
-  function addIngredientFromFood(food) {
-    // per100 is kept so the quantity can be edited later and have kcal/macros/micronutrients
-    // rescale with it, instead of staying frozen at whatever they were when first added.
-    const per100 = per100FromFood(food);
-    const ingredient = {
-      nom: food.name,
-      qte: '100',
-      unite: 'g',
-      kcal: per100.kcal,
-      proteines: per100.proteines,
-      glucides: per100.glucides,
-      lipides: per100.lipides,
-      per100,
+function rescaleIngredient(ing, newQty) {
+  if (ing.per100) {
+    const factor = newQty / 100;
+    const next = {
+      ...ing,
+      qte: newQty,
+      kcal: ing.per100.kcal * factor,
+      proteines: ing.per100.proteines * factor,
+      glucides: ing.per100.glucides * factor,
+      lipides: ing.per100.lipides * factor,
     };
     for (const { ing: ingKey } of INGREDIENT_MICRO_FIELDS) {
-      if (per100[ingKey] !== undefined) ingredient[ingKey] = per100[ingKey];
+      if (ing.per100[ingKey] !== undefined) next[ingKey] = ing.per100[ingKey] * factor;
     }
-    setIngredients((prev) => [...prev, ingredient]);
+    return next;
+  }
+  const oldQty = Number(ing.qte) || 0;
+  if (oldQty <= 0) return { ...ing, qte: newQty };
+  const factor = newQty / oldQty;
+  const next = { ...ing, qte: newQty, kcal: ing.kcal * factor, proteines: ing.proteines * factor, glucides: ing.glucides * factor, lipides: ing.lipides * factor };
+  for (const { ing: ingKey } of INGREDIENT_MICRO_FIELDS) {
+    if (ing[ingKey] !== undefined) next[ingKey] = ing[ingKey] * factor;
+  }
+  return next;
+}
+
+const EMPTY_CUSTOM = { nom: '', qte: '100', kcal: '', proteines: '', glucides: '', lipides: '' };
+
+// Full-screen "Créer/Modifier une recette" form. mode='create' posts via onCreate (optionally
+// auto-categorizing via presetCategory); mode='edit' patches the existing recipe via onUpdate.
+export default function RecipeManualForm({ mode = 'create', initialRecipe, onCreate, onUpdate, onSetCategories, onImportRecipe, foods = [], presetCategory, onBack, onSaved }) {
+  const { t } = useLanguage();
+  const [entryMode, setEntryMode] = useState('manual');
+  const [title, setTitle] = useState(initialRecipe?.title || '');
+  const [description, setDescription] = useState(initialRecipe?.description || '');
+  const [image, setImage] = useState(initialRecipe?.image || '');
+  const [portions, setPortions] = useState(initialRecipe?.portions || 4);
+  const [ingredients, setIngredients] = useState(initialRecipe?.ingredients || []);
+  const [steps, setSteps] = useState(initialRecipe?.steps?.length ? initialRecipe.steps : ['']);
+  const [status, setStatus] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [showCustom, setShowCustom] = useState(false);
+  const [customForm, setCustomForm] = useState(EMPTY_CUSTOM);
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [editingQty, setEditingQty] = useState(0);
+
+  const totals = ingredients.reduce(
+    (acc, i) => {
+      acc.kcal += Number(i.kcal) || 0;
+      acc.protein += Number(i.proteines) || 0;
+      acc.carbs += Number(i.glucides) || 0;
+      acc.fat += Number(i.lipides) || 0;
+      return acc;
+    },
+    { kcal: 0, protein: 0, carbs: 0, fat: 0 }
+  );
+  const p = Number(portions) || 1;
+
+  function addFromFood(food) {
+    setIngredients((prev) => [...prev, ingredientFromFood(food)]);
+    setShowPicker(false);
+    setPickerSearch('');
   }
 
-  // Picking an ingredient name that matches a food already in the library auto-fills its
-  // full nutrition profile (scaled to the entered quantity) instead of typing it in by hand.
-  function handleIngredientNomBlur(index, value) {
-    const match = foods.find((f) => f.name.toLowerCase() === value.trim().toLowerCase());
-    if (!match) return;
-    const per100 = per100FromFood(match);
-    setIngredients((prev) =>
-      prev.map((ing, i) => {
-        if (i !== index) return ing;
-        const qty = Number(ing.qte) || 100;
-        const factor = qty / 100;
-        const next = {
-          ...ing,
-          nom: match.name,
-          qte: ing.qte || '100',
-          unite: 'g',
-          kcal: Math.round(per100.kcal * factor * 10) / 10,
-          proteines: Math.round(per100.proteines * factor * 10) / 10,
-          glucides: Math.round(per100.glucides * factor * 10) / 10,
-          lipides: Math.round(per100.lipides * factor * 10) / 10,
-          per100,
-        };
-        for (const { ing: ingKey } of INGREDIENT_MICRO_FIELDS) {
-          if (per100[ingKey] !== undefined) next[ingKey] = Math.round(per100[ingKey] * factor * 100) / 100;
-        }
-        return next;
-      })
-    );
-  }
-
-  function handleRecipeChange(e) {
-    setRecipe({ ...recipe, [e.target.name]: e.target.value });
-  }
-
-  function handleIngredientChange(index, field, value) {
-    setIngredients(
-      ingredients.map((ing, i) => {
-        if (i !== index) return { ...ing };
-        if (field !== 'qte' || !ing.per100) return { ...ing, [field]: value };
-        // Quantity changed on a food-sourced ingredient — rescale its macros/micronutrients from
-        // the food's per-100g reference instead of leaving them frozen at the previous quantity.
-        const factor = (Number(value) || 0) / 100;
-        const next = {
-          ...ing,
-          qte: value,
-          kcal: Math.round(ing.per100.kcal * factor * 10) / 10,
-          proteines: Math.round(ing.per100.proteines * factor * 10) / 10,
-          glucides: Math.round(ing.per100.glucides * factor * 10) / 10,
-          lipides: Math.round(ing.per100.lipides * factor * 10) / 10,
-        };
-        for (const { ing: ingKey } of INGREDIENT_MICRO_FIELDS) {
-          if (ing.per100[ingKey] !== undefined) next[ingKey] = Math.round(ing.per100[ingKey] * factor * 100) / 100;
-        }
-        return next;
-      })
-    );
-  }
-
-  function addIngredient() {
-    setIngredients([...ingredients, { ...EMPTY_INGREDIENT }]);
+  function addCustom() {
+    if (!customForm.nom.trim()) return;
+    setIngredients((prev) => [
+      ...prev,
+      {
+        nom: customForm.nom.trim(),
+        qte: Number(customForm.qte) || 0,
+        unite: 'g',
+        kcal: Number(customForm.kcal) || 0,
+        proteines: Number(customForm.proteines) || 0,
+        glucides: Number(customForm.glucides) || 0,
+        lipides: Number(customForm.lipides) || 0,
+      },
+    ]);
+    setCustomForm(EMPTY_CUSTOM);
+    setShowCustom(false);
+    setShowPicker(false);
   }
 
   function removeIngredient(index) {
-    setIngredients(ingredients.filter((_, i) => i !== index));
+    setIngredients((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function openQtyEditor(index) {
+    setEditingIndex(index);
+    setEditingQty(Number(ingredients[index].qte) || 0);
+  }
+
+  function saveQtyEditor() {
+    setIngredients((prev) => prev.map((ing, i) => (i === editingIndex ? rescaleIngredient(ing, editingQty) : ing)));
+    setEditingIndex(null);
   }
 
   function handleStepChange(index, value) {
-    setSteps(steps.map((s, i) => (i === index ? value : s)));
+    setSteps((prev) => prev.map((s, i) => (i === index ? value : s)));
   }
 
   function addStep() {
-    setSteps([...steps, '']);
+    setSteps((prev) => [...prev, '']);
   }
 
   function removeStep(index) {
-    setSteps(steps.filter((_, i) => i !== index));
+    setSteps((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function reset() {
-    setRecipe(EMPTY_RECIPE);
-    setIngredients([{ ...EMPTY_INGREDIENT }]);
-    setSteps(['']);
-    setStatus(null);
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!recipe.title.trim()) return;
-    const validIngredients = ingredients.filter((i) => i.nom.trim());
-    if (validIngredients.length === 0) {
-      setStatus({ text: t('recipeManual.needIngredient'), error: true });
-      return;
-    }
-
-    setLoading(true);
+  async function handleSubmit() {
+    if (!title.trim() || ingredients.length === 0 || saving) return;
+    setSaving(true);
     setStatus(null);
     try {
-      const created = await onCreate({
-        title: recipe.title.trim(),
-        description: recipe.description.trim() || null,
-        image: recipe.image.trim() || null,
-        portions: Number(recipe.portions) || 1,
-        ingredients: validIngredients.map((i) => ({
-          nom: i.nom.trim(),
+      const payload = {
+        title: title.trim(),
+        description: description.trim() || null,
+        image: image.trim() || null,
+        portions: p,
+        ingredients: ingredients.map((i) => ({
+          nom: i.nom,
           qte: Number(i.qte) || 0,
-          unite: i.unite || null,
+          unite: i.unite || 'g',
           kcal: Number(i.kcal) || 0,
           proteines: Number(i.proteines) || 0,
           glucides: Number(i.glucides) || 0,
           lipides: Number(i.lipides) || 0,
         })),
         steps: steps.filter((s) => s.trim()),
-      });
-      if (created && presetCategory) {
-        if (presetCategory.meals) await onSetCategories(created, presetCategory.meals);
-        if (presetCategory.tag) await onUpdate(created.id, { tags: [presetCategory.tag] });
+      };
+      if (mode === 'edit') {
+        await onUpdate(initialRecipe.id, payload);
+        onSaved(initialRecipe.id);
+      } else {
+        const created = await onCreate(payload);
+        if (created && presetCategory) {
+          if (presetCategory.meals) await onSetCategories(created, presetCategory.meals);
+          if (presetCategory.tag) await onUpdate(created.id, { tags: [presetCategory.tag] });
+        }
+        onSaved(created?.id);
       }
-      reset();
-      setOpen(false);
     } catch (err) {
       setStatus({ text: err.message || t('recipeManual.creationFailed'), error: true });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
 
+  const filteredFoods = foods.filter((f) => f.name.toLowerCase().includes(pickerSearch.trim().toLowerCase()));
+
   return (
     <div>
-      <div className="card-actions" style={{ padding: 0 }}>
-        <button type="button" className="btn-ghost" onClick={() => setOpen((o) => !o)}>
-          {open ? t('recipeManual.cancel') : t('recipeManual.createManually')}
+      <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+        <button type="button" className="meal-detail-back-btn" onClick={onBack} aria-label={t('meal.back')}>
+          <Icon name="chevron-left" size={20} />
+        </button>
+        <div className="meal-detail-heading">
+          <div className="day-nav-subtitle">{t('recipeList.title')}</div>
+          <div className="meal-detail-title" style={{ fontSize: 21 }}>
+            {mode === 'edit' ? t('recipeList.edit') : t('recipeManual.createRecipe')}
+          </div>
+        </div>
+      </div>
+
+      {mode === 'create' && onImportRecipe && (
+        <div className="type-list-row">
+          <button type="button" className={entryMode === 'manual' ? 'type-pill active' : 'type-pill'} onClick={() => setEntryMode('manual')}>
+            {t('recipeManual.createManually')}
+          </button>
+          <button type="button" className={entryMode === 'import' ? 'type-pill active' : 'type-pill'} onClick={() => setEntryMode('import')}>
+            {t('recipeImport.title')}
+          </button>
+        </div>
+      )}
+
+      {entryMode === 'import' && mode === 'create' ? (
+        <RecipeImport onImported={onImportRecipe} onSetCategories={onSetCategories} onUpdate={onUpdate} presetCategory={presetCategory} />
+      ) : (
+        <>
+      <label className="recipe-photo-drop">
+        <Icon name="image-plus" size={26} />
+        <span style={{ fontSize: 13, fontWeight: 600 }}>{t('recipeManual.image')}</span>
+        <input
+          type="url"
+          value={image}
+          onChange={(e) => setImage(e.target.value)}
+          placeholder="https://..."
+          style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
+        />
+      </label>
+      {image && <p className="hint" style={{ wordBreak: 'break-all' }}>{image}</p>}
+
+      <h4 className="section-label">{t('recipeManual.formTitle')}</h4>
+      <div className="search-input-row">
+        <input
+          type="text"
+          className="search-input"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder={t('recipeManual.titlePlaceholder')}
+        />
+      </div>
+
+      <h4 className="section-label">{t('recipeManual.description')}</h4>
+      <div className="search-input-row">
+        <input
+          type="text"
+          className="search-input"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder={t('recipeManual.optional')}
+        />
+      </div>
+
+      <h4 className="section-label">{t('recipeManual.portions')}</h4>
+      <div className="qty-stepper-row">
+        <button type="button" className="weight-minus-btn" onClick={() => setPortions((v) => Math.max(1, Number(v) - 1))}>
+          <Icon name="minus" size={18} />
+        </button>
+        <div className="qty-stepper-value">
+          <span className="weight-value">{portions}</span> <span className="rate">{t('addFood.portion')}</span>
+        </div>
+        <button type="button" className="weight-plus-btn qty-stepper-plus" onClick={() => setPortions((v) => Number(v) + 1)}>
+          <Icon name="plus" size={18} />
         </button>
       </div>
 
-      {open && (
-        <form className="card" onSubmit={handleSubmit} style={{ marginTop: 12 }}>
-          <div className="row">
-            <label>{t('recipeManual.formTitle')}</label>
-            <div className="field">
-              <input type="text" name="title" className="wide" value={recipe.title} onChange={handleRecipeChange} placeholder={t('recipeManual.titlePlaceholder')} />
-            </div>
-          </div>
-          <div className="row">
-            <label>{t('recipeManual.description')}</label>
-            <div className="field">
-              <input type="text" name="description" className="wide" value={recipe.description} onChange={handleRecipeChange} placeholder={t('recipeManual.optional')} />
-            </div>
-          </div>
-          <div className="row">
-            <label>{t('recipeManual.image')}</label>
-            <div className="field">
-              <input type="url" name="image" className="wide" value={recipe.image} onChange={handleRecipeChange} placeholder={t('recipeManual.optional')} />
-            </div>
-          </div>
-          <div className="row">
-            <label>{t('recipeManual.portions')}</label>
-            <div className="field">
-              <input type="number" name="portions" min="1" step="any" value={recipe.portions} onChange={handleRecipeChange} />
-            </div>
-          </div>
-
-          <h4 className="section-label">{t('recipeManual.ingredients')}</h4>
-          <datalist id="known-foods">
-            {foods.map((f) => (
-              <option key={f.id} value={f.name} />
-            ))}
-          </datalist>
+      <h4 className="section-label">{t('recipeManual.ingredients')}</h4>
+      {ingredients.length > 0 && (
+        <div className="recipe-form-ingredient-list">
           {ingredients.map((ing, i) => (
-            <div key={i} className="manual-ingredient-row">
-              <input
-                type="text"
-                placeholder={t('recipeManual.name')}
-                list="known-foods"
-                value={ing.nom}
-                onChange={(e) => handleIngredientChange(i, 'nom', e.target.value)}
-                onBlur={(e) => handleIngredientNomBlur(i, e.target.value)}
-                className="wide"
-              />
-              <div className="manual-ingredient-grid">
-                <input type="number" placeholder={t('recipeManual.qty')} min="0" step="any" value={ing.qte} onChange={(e) => handleIngredientChange(i, 'qte', e.target.value)} />
-                <select value={ing.unite} onChange={(e) => handleIngredientChange(i, 'unite', e.target.value)}>
-                  <option value="g">g</option>
-                  <option value="ml">ml</option>
-                </select>
-                <input type="number" placeholder={t('recipeManual.kcal')} min="0" step="any" value={ing.kcal} onChange={(e) => handleIngredientChange(i, 'kcal', e.target.value)} />
-                <input type="number" placeholder={t('recipeManual.protein')} min="0" step="any" value={ing.proteines} onChange={(e) => handleIngredientChange(i, 'proteines', e.target.value)} />
-                <input type="number" placeholder={t('recipeManual.carbs')} min="0" step="any" value={ing.glucides} onChange={(e) => handleIngredientChange(i, 'glucides', e.target.value)} />
-                <input type="number" placeholder={t('recipeManual.fat')} min="0" step="any" value={ing.lipides} onChange={(e) => handleIngredientChange(i, 'lipides', e.target.value)} />
-                <button type="button" className="btn-ghost" onClick={() => removeIngredient(i)}>
-                  ✕
-                </button>
+            <div className="recipe-form-ingredient-row" key={i}>
+              <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => openQtyEditor(i)}>
+                <div className="recipe-form-ingredient-name">{ing.nom}</div>
+                <div className="recipe-form-ingredient-qty">
+                  {ing.qte} {ing.unite || 'g'}
+                </div>
               </div>
-            </div>
-          ))}
-          <div className="inline-row">
-            <button type="button" className="btn-ghost" onClick={() => setShowIngredientPicker(true)}>
-              {t('recipeManual.pickExisting')}
-            </button>
-            <button type="button" className="btn-ghost" onClick={addIngredient}>
-              {t('recipeManual.customIngredient')}
-            </button>
-          </div>
-
-          <h4 className="section-label">{t('recipeManual.steps')}</h4>
-          {steps.map((step, i) => (
-            <div key={i} className="manual-step-row">
-              <input
-                type="text"
-                className="wide"
-                placeholder={t('recipeManual.stepPlaceholder').replace('{n}', i + 1)}
-                value={step}
-                onChange={(e) => handleStepChange(i, e.target.value)}
-              />
-              <button type="button" className="btn-ghost" onClick={() => removeStep(i)}>
-                ✕
+              <button type="button" className="recipe-form-ingredient-remove" onClick={() => removeIngredient(i)} aria-label={t('meal.delete')}>
+                <Icon name="x" size={17} />
               </button>
             </div>
           ))}
-          <button type="button" className="btn-ghost" onClick={addStep}>
-            {t('recipeManual.addStep')}
+        </div>
+      )}
+      <button type="button" className="recipe-add-ingredient-btn" onClick={() => setShowPicker(true)}>
+        <Icon name="plus" size={18} />
+        {t('recipeManual.addIngredientAction')}
+      </button>
+
+      <h4 className="section-label">{t('recipeManual.steps')}</h4>
+      {steps.map((step, i) => (
+        <div key={i} className="manual-step-row">
+          <input
+            type="text"
+            className="wide"
+            placeholder={t('recipeManual.stepPlaceholder').replace('{n}', i + 1)}
+            value={step}
+            onChange={(e) => handleStepChange(i, e.target.value)}
+          />
+          <button type="button" className="btn-ghost" onClick={() => removeStep(i)}>
+            ✕
           </button>
+        </div>
+      ))}
+      <button type="button" className="btn-ghost" onClick={addStep}>
+        {t('recipeManual.addStep')}
+      </button>
 
-          <div className="card-actions">
-            <button type="submit" className="btn" disabled={loading}>
-              {loading ? t('recipeManual.creating') : t('recipeManual.createRecipe')}
-            </button>
-          </div>
+      <h4 className="section-label">{t('recipeManual.perPortionComputed')}</h4>
+      <div className="portion-tile-row">
+        <div className="portion-tile">
+          <b>{Math.round(totals.kcal / p)}</b>
+          <span>kcal</span>
+        </div>
+        <div className="portion-tile">
+          <b style={{ color: 'var(--macro-protein)' }}>{Math.round(totals.protein / p)}</b>
+          <span>P</span>
+        </div>
+        <div className="portion-tile">
+          <b style={{ color: 'var(--macro-carb)' }}>{Math.round(totals.carbs / p)}</b>
+          <span>G</span>
+        </div>
+        <div className="portion-tile">
+          <b style={{ color: 'var(--macro-fat)' }}>{Math.round(totals.fat / p)}</b>
+          <span>L</span>
+        </div>
+      </div>
 
-          {status && <p className={status.error ? 'hint error' : 'hint success'}>{status.text}</p>}
-        </form>
+      {status && <p className={status.error ? 'hint error' : 'hint success'}>{status.text}</p>}
+
+      <button
+        type="button"
+        className="meal-add-cta"
+        style={{ marginTop: 18, marginBottom: 20 }}
+        onClick={handleSubmit}
+        disabled={saving || !title.trim() || ingredients.length === 0}
+      >
+        <Icon name="check" size={20} />
+        {saving ? t('recipeManual.creating') : mode === 'edit' ? t('meal.save') : t('recipeManual.createRecipe')}
+      </button>
+        </>
       )}
 
-      {showIngredientPicker && (
-        <div className="modal-overlay" onClick={() => setShowIngredientPicker(false)}>
+      {showPicker && (
+        <div className="modal-overlay" onClick={() => setShowPicker(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>{t('recipeManual.pickFood')}</h2>
-            <input
-              type="text"
-              placeholder={t('recipeManual.searchFood')}
-              value={ingredientSearch}
-              onChange={(e) => setIngredientSearch(e.target.value)}
-              style={{ marginBottom: 10 }}
-            />
-            {foods
-              .filter((f) => f.name.toLowerCase().includes(ingredientSearch.trim().toLowerCase()))
-              .map((f) => (
-                <div className="row" key={f.id}>
-                  <div className="name">
-                    <span>{f.name}</span>
-                    <span className="rate">{Math.round(f.kcal_per_100g)} kcal / 100g</span>
+            <div className="search-input-row">
+              <Icon name="search" size={18} color="var(--text-muted)" />
+              <input
+                type="text"
+                className="search-input"
+                placeholder={t('recipeManual.searchFood')}
+                value={pickerSearch}
+                onChange={(e) => setPickerSearch(e.target.value)}
+              />
+            </div>
+            <div className="entry-list" style={{ marginTop: 12 }}>
+              {filteredFoods.map((f) => (
+                <div className="entry-card" key={f.id} onClick={() => addFromFood(f)} style={{ cursor: 'pointer' }}>
+                  <div className="entry-card-body">
+                    <div className="entry-card-name">{f.name}</div>
+                    <div className="entry-card-sub">{Math.round(f.kcal_per_100g)} kcal / 100 g</div>
                   </div>
-                  <button
-                    type="button"
-                    className="round-add-btn"
-                    onClick={() => {
-                      addIngredientFromFood(f);
-                      setShowIngredientPicker(false);
-                      setIngredientSearch('');
-                    }}
-                  >
-                    +
-                  </button>
+                  <Icon name="plus" size={19} color="var(--acc)" />
                 </div>
               ))}
-            {foods.filter((f) => f.name.toLowerCase().includes(ingredientSearch.trim().toLowerCase())).length === 0 && (
-              <p className="hint">{t('recipeManual.noFoodFound')}</p>
+              {filteredFoods.length === 0 && <p className="hint">{t('recipeManual.noFoodFound')}</p>}
+            </div>
+
+            <button type="button" className="btn-ghost" style={{ marginTop: 12 }} onClick={() => setShowCustom((v) => !v)}>
+              {t('recipeManual.customIngredient')}
+            </button>
+            {showCustom && (
+              <div style={{ marginTop: 10 }}>
+                <div className="row">
+                  <label>{t('recipeManual.name')}</label>
+                  <div className="field">
+                    <input type="text" value={customForm.nom} onChange={(e) => setCustomForm((f) => ({ ...f, nom: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="row">
+                  <label>{t('recipeManual.qty')}</label>
+                  <div className="field">
+                    <input type="number" min="0" step="any" value={customForm.qte} onChange={(e) => setCustomForm((f) => ({ ...f, qte: e.target.value }))} />
+                    <span className="unit">g</span>
+                  </div>
+                </div>
+                <div className="row">
+                  <label>{t('recipeManual.kcal')}</label>
+                  <div className="field">
+                    <input type="number" min="0" step="any" value={customForm.kcal} onChange={(e) => setCustomForm((f) => ({ ...f, kcal: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="row">
+                  <label>{t('recipeManual.protein')}</label>
+                  <div className="field">
+                    <input type="number" min="0" step="any" value={customForm.proteines} onChange={(e) => setCustomForm((f) => ({ ...f, proteines: e.target.value }))} />
+                    <span className="unit">g</span>
+                  </div>
+                </div>
+                <div className="row">
+                  <label>{t('recipeManual.carbs')}</label>
+                  <div className="field">
+                    <input type="number" min="0" step="any" value={customForm.glucides} onChange={(e) => setCustomForm((f) => ({ ...f, glucides: e.target.value }))} />
+                    <span className="unit">g</span>
+                  </div>
+                </div>
+                <div className="row">
+                  <label>{t('recipeManual.fat')}</label>
+                  <div className="field">
+                    <input type="number" min="0" step="any" value={customForm.lipides} onChange={(e) => setCustomForm((f) => ({ ...f, lipides: e.target.value }))} />
+                    <span className="unit">g</span>
+                  </div>
+                </div>
+                <button type="button" className="btn btn-block" onClick={addCustom}>
+                  {t('recipeManual.add')}
+                </button>
+              </div>
             )}
           </div>
-          <button type="button" className="done-btn" onClick={() => setShowIngredientPicker(false)}>
+          <button type="button" className="done-btn" onClick={() => setShowPicker(false)}>
             {t('recipeManual.close')}
+          </button>
+        </div>
+      )}
+
+      {editingIndex != null && (
+        <div className="modal-overlay" onClick={() => setEditingIndex(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>{ingredients[editingIndex].nom}</h2>
+            <h4 className="section-label">{t('meal.quantity')}</h4>
+            <div className="qty-stepper-row">
+              <button type="button" className="weight-minus-btn" onClick={() => setEditingQty((v) => Math.max(0, v - 10))}>
+                <Icon name="minus" size={18} />
+              </button>
+              <div className="qty-stepper-value">
+                <span className="weight-value">{editingQty}</span> <span className="rate">{ingredients[editingIndex].unite || 'g'}</span>
+              </div>
+              <button type="button" className="weight-plus-btn qty-stepper-plus" onClick={() => setEditingQty((v) => v + 10)}>
+                <Icon name="plus" size={18} />
+              </button>
+            </div>
+            <button type="button" className="btn btn-block" style={{ marginTop: 16 }} onClick={saveQtyEditor}>
+              {t('meal.save')}
+            </button>
+          </div>
+          <button type="button" className="done-btn" onClick={() => setEditingIndex(null)}>
+            {t('meal.close')}
           </button>
         </div>
       )}

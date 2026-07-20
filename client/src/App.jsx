@@ -173,15 +173,23 @@ function MainApp({ onLogout, account }) {
   }
 
   async function handleUpdateRecipe(id, data) {
-    await api.updateRecipe(id, data);
-    // favorite/tags drive cross-card grouping (the Favoris category, etc.), so the parent's
-    // recipes list needs to actually reflect the change, not just the edited card's own state.
-    if ('favorite' in data || 'tags' in data) await refreshRecipes();
+    const recipe = await api.updateRecipe(id, data);
+    await refreshRecipes();
+    return recipe;
   }
 
   async function handleDeleteRecipe(id) {
     await api.deleteRecipe(id);
     await refreshRecipes();
+    await refreshFrequentFoods();
+  }
+
+  // Adding a recipe straight from the Recettes library (not from a Journal meal screen) has no
+  // "current meal" context to fall back on — the caller picks the meal explicitly.
+  async function handleQuickAddRecipe(mealKey, recipeId, quantity) {
+    await api.addFoodLogEntry({ date, meal: mealKey, source_type: 'recipe', source_id: recipeId, quantity });
+    if (selectedMeal === mealKey) await refreshMeal(mealKey);
+    await refreshDashboard();
     await refreshFrequentFoods();
   }
 
@@ -316,6 +324,7 @@ function MainApp({ onLogout, account }) {
               onImportRecipe={handleImportRecipe}
               onCreateRecipe={handleCreateRecipe}
               onSetCategories={handleSetRecipeCategories}
+              onQuickAddRecipe={handleQuickAddRecipe}
             />
           )}
           {view === 'rapport' && <Report />}

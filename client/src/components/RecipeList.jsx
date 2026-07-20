@@ -1,382 +1,56 @@
-import { useState } from 'react';
-import RecipeImport from './RecipeImport';
+import { useMemo, useState } from 'react';
 import RecipeManualForm from './RecipeManualForm';
+import RecipeDetail from './RecipeDetail';
+import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
-
-// Recipe ingredients store micronutrients under French keys (see server INGREDIENT_NUTRIENT_FIELDS)
-// while foods store them as English `${key}_per_100g` columns — this maps one to the other so
-// picking an existing food as an ingredient carries its full nutrition profile over, not just
-// the 4 macros.
-const INGREDIENT_MICRO_FIELDS = [
-  { food: 'fiber_per_100g', ing: 'fibres' },
-  { food: 'sodium_per_100g', ing: 'sodium' },
-  { food: 'potassium_per_100g', ing: 'potassium' },
-  { food: 'magnesium_per_100g', ing: 'magnesium' },
-  { food: 'calcium_per_100g', ing: 'calcium' },
-  { food: 'zinc_per_100g', ing: 'zinc' },
-  { food: 'iron_per_100g', ing: 'fer' },
-  { food: 'selenium_per_100g', ing: 'selenium' },
-  { food: 'iodine_per_100g', ing: 'iode' },
-  { food: 'vitamin_c_per_100g', ing: 'vitamine_c' },
-  { food: 'vitamin_a_per_100g', ing: 'vitamine_a' },
-  { food: 'vitamin_d_per_100g', ing: 'vitamine_d' },
-  { food: 'vitamin_e_per_100g', ing: 'vitamine_e' },
-  { food: 'vitamin_k_per_100g', ing: 'vitamine_k' },
-  { food: 'folate_per_100g', ing: 'folates' },
-  { food: 'b12_per_100g', ing: 'b12' },
-  { food: 'choline_per_100g', ing: 'choline' },
-  { food: 'omega3_per_100g', ing: 'omega3' },
-  { food: 'caffeine_per_100g', ing: 'cafeine' },
-];
-
-function ingredientFromFood(food, qte = 100) {
-  const ingredient = {
-    nom: food.name,
-    qte,
-    unite: 'g',
-    kcal: food.kcal_per_100g,
-    proteines: food.protein_per_100g,
-    glucides: food.carbs_per_100g,
-    lipides: food.fat_per_100g,
-  };
-  for (const { food: foodKey, ing: ingKey } of INGREDIENT_MICRO_FIELDS) {
-    if (food[foodKey]) ingredient[ingKey] = food[foodKey];
-  }
-  return ingredient;
-}
 
 function getCategoryGroups(t) {
   return [
-    { key: 'lunch_dinner', label: t('recipeList.categoryLunchDinner'), meals: ['lunch', 'dinner'] },
-    { key: 'breakfast', label: t('recipeList.categoryBreakfast'), meals: ['breakfast'] },
-    { key: 'snack', label: t('recipeList.categorySnack'), meals: ['snack'] },
+    { key: 'lunch_dinner', label: t('recipeList.categoryLunchDinner'), meals: ['lunch', 'dinner'], icon: 'utensils' },
+    { key: 'breakfast', label: t('recipeList.categoryBreakfast'), meals: ['breakfast'], icon: 'sunrise' },
+    { key: 'snack', label: t('recipeList.categorySnack'), meals: ['snack'], icon: 'apple' },
   ];
 }
 
-function RecipeCard({ recipe, onUpdate, onDelete, favoriteMeals, onToggleFavorite, foods = [] }) {
-  const { t } = useLanguage();
-  const CATEGORY_GROUPS = getCategoryGroups(t);
-  const [ingredients, setIngredients] = useState(recipe.ingredients);
-  const [portions, setPortions] = useState(recipe.portions);
-  const [imageUrl, setImageUrl] = useState(recipe.image || '');
-  const [imageOk, setImageOk] = useState(true);
-  const [expanded, setExpanded] = useState(false);
-  const [newIngredientName, setNewIngredientName] = useState('');
-  const [showIngredientPicker, setShowIngredientPicker] = useState(false);
-  const [ingredientSearch, setIngredientSearch] = useState('');
-  const [favorite, setFavorite] = useState(recipe.favorite);
-  const [tags, setTags] = useState(recipe.tags || []);
-  const [newTag, setNewTag] = useState('');
+function recipeKcalPerPortion(recipe) {
+  const total = recipe.ingredients.reduce((s, i) => s + (Number(i.kcal) || 0), 0);
+  return total / (recipe.portions || 1);
+}
 
-  function handleToggleGeneralFavorite() {
-    const next = !favorite;
-    setFavorite(next);
-    onUpdate(recipe.id, { favorite: next });
-  }
+function recipeProteinPerPortion(recipe) {
+  const total = recipe.ingredients.reduce((s, i) => s + (Number(i.proteines) || 0), 0);
+  return total / (recipe.portions || 1);
+}
 
-  function handleAddTag() {
-    const tag = newTag.trim();
-    if (!tag || tags.includes(tag)) return;
-    const next = [...tags, tag];
-    setTags(next);
-    onUpdate(recipe.id, { tags: next });
-    setNewTag('');
-  }
-
-  function handleRemoveTag(tag) {
-    const next = tags.filter((t) => t !== tag);
-    setTags(next);
-    onUpdate(recipe.id, { tags: next });
-  }
-
-  function addIngredientFromFood(food) {
-    const next = [...ingredients, ingredientFromFood(food)];
-    setIngredients(next);
-    onUpdate(recipe.id, { ingredients: next });
-  }
-
-  const totalKcal = ingredients.reduce((sum, i) => sum + (Number(i.kcal) || 0), 0);
-  const totalProtein = ingredients.reduce((sum, i) => sum + (Number(i.proteines) || 0), 0);
-  const totalCarbs = ingredients.reduce((sum, i) => sum + (Number(i.glucides) || 0), 0);
-  const totalFat = ingredients.reduce((sum, i) => sum + (Number(i.lipides) || 0), 0);
-  const p = portions || 1;
-
-  function handleQtyChange(index, newQty) {
-    const next = ingredients.map((ing, i) => {
-      if (i !== index) return ing;
-      const oldQty = Number(ing.qte) || 0;
-      const nextQty = Number(newQty) || 0;
-      if (oldQty <= 0) return { ...ing, qte: nextQty };
-      const factor = nextQty / oldQty;
-      const scaled = {
-        ...ing,
-        qte: nextQty,
-        kcal: (Number(ing.kcal) || 0) * factor,
-        proteines: (Number(ing.proteines) || 0) * factor,
-        glucides: (Number(ing.glucides) || 0) * factor,
-        lipides: (Number(ing.lipides) || 0) * factor,
-      };
-      for (const { ing: ingKey } of INGREDIENT_MICRO_FIELDS) {
-        if (ing[ingKey] !== undefined) scaled[ingKey] = (Number(ing[ingKey]) || 0) * factor;
-      }
-      return scaled;
-    });
-    setIngredients(next);
-    onUpdate(recipe.id, { ingredients: next });
-  }
-
-  // Adding an ingredient that matches a food already in the library pulls in its full nutrition
-  // profile (for a default 100g) instead of starting from a blank row every time.
-  function handleAddIngredient() {
-    const name = newIngredientName.trim();
-    if (!name) return;
-    const match = foods.find((f) => f.name.toLowerCase() === name.toLowerCase());
-    const next = [
-      ...ingredients,
-      match ? ingredientFromFood(match) : { nom: name, qte: 0, unite: 'g', kcal: 0, proteines: 0, glucides: 0, lipides: 0 },
-    ];
-    setIngredients(next);
-    onUpdate(recipe.id, { ingredients: next });
-    setNewIngredientName('');
-  }
-
-  function handleRemoveIngredient(index) {
-    const next = ingredients.filter((_, i) => i !== index);
-    setIngredients(next);
-    onUpdate(recipe.id, { ingredients: next });
-  }
-
-  function handlePortionsChange(newPortions) {
-    const next = Math.max(1, Number(newPortions) || 1);
-    setPortions(next);
-    onUpdate(recipe.id, { portions: next });
-  }
-
-  function handleImageBlur() {
-    const next = imageUrl.trim() || null;
-    setImageOk(true);
-    if (next !== recipe.image) onUpdate(recipe.id, { image: next });
-  }
-
+function RecipeRow({ recipe, onOpen, onToggleFavorite }) {
   return (
-    <article className="card recipe-card">
-      {imageUrl && imageOk && (
-        <img
-          src={imageUrl}
-          alt=""
-          className="recipe-image"
-          onError={() => setImageOk(false)}
-        />
-      )}
-
-      <div className="recipe-top">
-        <button
-          type="button"
-          className="favorite-star-btn"
-          onClick={handleToggleGeneralFavorite}
-          aria-label={t('recipeList.favoriteAria')}
-        >
-          {favorite ? '★' : '☆'}
-        </button>
-        <h3>{recipe.title}</h3>
-        <button className="btn-ghost" onClick={() => onDelete(recipe.id)}>
-          {t('recipeList.delete')}
-        </button>
+    <div className="recipe-row-card" onClick={() => onOpen(recipe.id)}>
+      <div className="recipe-row-thumb" style={{ background: 'linear-gradient(150deg, rgba(126,224,184,0.3), rgba(99,179,246,0.16))' }}>
+        {recipe.image ? <img src={recipe.image} alt="" /> : <Icon name="salad" size={24} color="var(--macro-protein)" />}
       </div>
-
-      {recipe.description && <p className="hint">{recipe.description}</p>}
-
-      <div className="tag-row">
-        {tags.map((tag) => (
-          <span className="tag-chip" key={tag}>
-            {tag}
-            <button type="button" onClick={() => handleRemoveTag(tag)} aria-label={t('recipeList.removeTag').replace('{tag}', tag)}>
-              ✕
-            </button>
+      <div className="recipe-row-body">
+        <div className="recipe-row-title">{recipe.title}</div>
+        <div className="recipe-row-stats">
+          <span>
+            <b>{Math.round(recipeKcalPerPortion(recipe))}</b> kcal
           </span>
-        ))}
-        <input
-          type="text"
-          className="tag-input"
-          placeholder={t('recipeList.addTag')}
-          value={newTag}
-          onChange={(e) => setNewTag(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              handleAddTag();
-            }
-          }}
-          onBlur={handleAddTag}
-        />
+          <span>
+            <i style={{ background: 'var(--macro-protein)' }} />
+            {Math.round(recipeProteinPerPortion(recipe))}g
+          </span>
+        </div>
       </div>
-
-      <div className="favorite-meal-row">
-        {CATEGORY_GROUPS.map((g) => {
-          const isFav = g.meals.every((m) => favoriteMeals.has(m));
-          return (
-            <button
-              type="button"
-              key={g.key}
-              className={isFav ? 'favorite-meal-chip active' : 'favorite-meal-chip'}
-              onClick={() => onToggleFavorite(g.meals, recipe, isFav)}
-            >
-              {isFav ? '★' : '☆'} {g.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="macro-chips">
-        <span className="chip">
-          <b>{Math.round(totalKcal / p)}</b> {t('recipeList.perPortion')}
-        </span>
-        <span className="chip">
-          <b>{Math.round(totalProtein / p)} g</b> {t('recipeList.protein')}
-        </span>
-        <span className="chip">
-          <b>{Math.round(totalCarbs / p)} g</b> {t('recipeList.carbs')}
-        </span>
-        <span className="chip">
-          <b>{Math.round(totalFat / p)} g</b> {t('recipeList.fat')}
-        </span>
-      </div>
-
-      <button type="button" className="btn-ghost expand-toggle" onClick={() => setExpanded((v) => !v)}>
-        {expanded ? t('recipeList.hideIngredientsSteps') : t('recipeList.showIngredientsSteps')}
+      <button
+        type="button"
+        className={recipe.favorite ? 'recipe-row-star active' : 'recipe-row-star'}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite(recipe);
+        }}
+      >
+        <Icon name="star" size={20} />
       </button>
-
-      {expanded && (
-        <>
-          <div className="row">
-            <label>{t('recipeList.image')}</label>
-            <div className="field">
-              <input
-                type="url"
-                className="image-url-input"
-                placeholder="https://..."
-                value={imageUrl}
-                onChange={(e) => {
-                  setImageUrl(e.target.value);
-                  setImageOk(true);
-                }}
-                onBlur={handleImageBlur}
-              />
-            </div>
-          </div>
-
-          <h4 className="section-label">{t('recipeList.ingredients')}</h4>
-          {ingredients.map((ing, i) => (
-            <div className="ingredient-row" key={i}>
-              <span className="ingredient-name">{ing.nom}</span>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={ing.qte}
-                onChange={(e) => handleQtyChange(i, e.target.value)}
-              />
-              <span className="ingredient-unit">{ing.unite || ''}</span>
-              <span className="ingredient-kcal">{Math.round(ing.kcal)} kcal</span>
-              <button type="button" className="btn-ghost" onClick={() => handleRemoveIngredient(i)}>
-                ✕
-              </button>
-            </div>
-          ))}
-
-          <div className="inline-row">
-            <button type="button" className="btn-ghost" onClick={() => setShowIngredientPicker(true)}>
-              {t('recipeList.pickExisting')}
-            </button>
-          </div>
-          <div className="manual-ingredient-row">
-            <input
-              type="text"
-              className="wide"
-              placeholder={t('recipeList.newIngredientPlaceholder')}
-              value={newIngredientName}
-              onChange={(e) => setNewIngredientName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddIngredient();
-                }
-              }}
-            />
-            <button type="button" className="btn-ghost" onClick={handleAddIngredient}>
-              {t('recipeList.add')}
-            </button>
-          </div>
-
-          {showIngredientPicker && (
-            <div className="modal-overlay" onClick={() => setShowIngredientPicker(false)}>
-              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>{t('recipeList.pickFood')}</h2>
-                <input
-                  type="text"
-                  placeholder={t('recipeList.searchFood')}
-                  value={ingredientSearch}
-                  onChange={(e) => setIngredientSearch(e.target.value)}
-                  style={{ marginBottom: 10 }}
-                />
-                {foods
-                  .filter((f) => f.name.toLowerCase().includes(ingredientSearch.trim().toLowerCase()))
-                  .map((f) => (
-                    <div className="row" key={f.id}>
-                      <div className="name">
-                        <span>{f.name}</span>
-                        <span className="rate">{Math.round(f.kcal_per_100g)} kcal / 100g</span>
-                      </div>
-                      <button
-                        type="button"
-                        className="round-add-btn"
-                        onClick={() => {
-                          addIngredientFromFood(f);
-                          setShowIngredientPicker(false);
-                          setIngredientSearch('');
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  ))}
-                {foods.filter((f) => f.name.toLowerCase().includes(ingredientSearch.trim().toLowerCase())).length === 0 && (
-                  <p className="hint">{t('recipeList.noFoodFound')}</p>
-                )}
-              </div>
-              <button type="button" className="done-btn" onClick={() => setShowIngredientPicker(false)}>
-                {t('recipeList.close')}
-              </button>
-            </div>
-          )}
-
-          {recipe.steps.length > 0 && (
-            <>
-              <h4 className="section-label">{t('recipeList.steps')}</h4>
-              {recipe.steps.map((step, i) => (
-                <div className="step-row" key={i}>
-                  <span className="step-num">{i + 1}</span>
-                  <span>{step}</span>
-                </div>
-              ))}
-            </>
-          )}
-
-          <div className="row" style={{ marginTop: 12 }}>
-            <label>{t('recipeList.portions')}</label>
-            <div className="field">
-              <input
-                type="number"
-                min="1"
-                step="any"
-                value={portions}
-                onChange={(e) => handlePortionsChange(e.target.value)}
-              />
-            </div>
-          </div>
-        </>
-      )}
-    </article>
+    </div>
   );
 }
 
@@ -390,9 +64,15 @@ export default function RecipeList({
   onImportRecipe,
   onCreateRecipe,
   onSetCategories,
+  onQuickAddRecipe,
 }) {
   const { t } = useLanguage();
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [screen, setScreen] = useState('home');
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState(null);
+  const [selectedRecipeId, setSelectedRecipeId] = useState(null);
+  const [homeSearch, setHomeSearch] = useState('');
+  const [allSearch, setAllSearch] = useState('');
+  const [sortMode, setSortMode] = useState('relevance');
 
   function favoriteMealsFor(recipeId) {
     return new Set(
@@ -408,89 +88,268 @@ export default function RecipeList({
     }),
   }));
   const favoriteRecipes = recipes.filter((r) => r.favorite);
-  // "Boissons" is a plain sorting tag, not a real meal — unlike the groups above it has no
-  // effect on kcal budgets or the weekly planner, it's purely for browsing the recipe list.
   const boissonsRecipes = recipes.filter((r) => (r.tags || []).includes('Boissons'));
   const allGroups = [
-    { key: 'favorites', label: t('recipeList.categoryFavorites'), recipes: favoriteRecipes },
-    { key: 'boissons', label: t('recipeList.categoryDrinks'), tag: 'Boissons', recipes: boissonsRecipes },
+    { key: 'favorites', label: t('recipeList.categoryFavorites'), icon: 'star', recipes: favoriteRecipes },
+    { key: 'boissons', label: t('recipeList.categoryDrinks'), tag: 'Boissons', icon: 'cup-soda', recipes: boissonsRecipes },
     ...groups,
   ];
 
-  function renderCard(r) {
+  async function handleToggleGeneralFavorite(recipe) {
+    await onUpdate(recipe.id, { favorite: !recipe.favorite });
+  }
+
+  function openRecipe(id) {
+    setSelectedRecipeId(id);
+    setScreen('detail');
+  }
+
+  const homeResults = useMemo(() => {
+    const term = homeSearch.trim().toLowerCase();
+    if (!term) return [];
+    return recipes.filter((r) => r.title.toLowerCase().includes(term));
+  }, [homeSearch, recipes]);
+
+  function sortRecipes(list) {
+    const sorted = [...list];
+    if (sortMode === 'kcal') sorted.sort((a, b) => recipeKcalPerPortion(a) - recipeKcalPerPortion(b));
+    else if (sortMode === 'protein') sorted.sort((a, b) => recipeProteinPerPortion(b) - recipeProteinPerPortion(a));
+    return sorted;
+  }
+
+  // --- Detail screen ---
+  if (screen === 'detail' && selectedRecipeId != null) {
+    const recipe = recipes.find((r) => r.id === selectedRecipeId);
+    if (!recipe) {
+      setScreen('home');
+      return null;
+    }
+    const cat = allGroups.find((g) => g.recipes.some((r) => r.id === recipe.id));
+    const recipeCategoryGroups = getCategoryGroups(t);
+    const activeCategoryKeys = new Set(
+      recipeCategoryGroups.filter((g) => g.meals.every((m) => favoriteMealsFor(recipe.id).has(m))).map((g) => g.key)
+    );
     return (
-      <RecipeCard
-        key={r.id}
-        recipe={r}
-        onUpdate={onUpdate}
-        onDelete={onDelete}
-        favoriteMeals={favoriteMealsFor(r.id)}
-        onToggleFavorite={onToggleFavorite}
-        foods={foods}
+      <RecipeDetail
+        recipe={recipe}
+        categoryLabel={cat?.label}
+        onBack={() => setScreen(selectedCategoryKey ? 'category' : 'home')}
+        onEdit={() => setScreen('edit')}
+        onDelete={async (id) => {
+          await onDelete(id);
+          setScreen('home');
+        }}
+        onToggleFavorite={handleToggleGeneralFavorite}
+        onQuickAdd={onQuickAddRecipe}
+        categoryGroups={recipeCategoryGroups}
+        activeCategoryKeys={activeCategoryKeys}
+        onToggleCategory={(g) => onToggleFavorite(g.meals, recipe, activeCategoryKeys.has(g.key))}
       />
     );
   }
 
-  if (selectedCategory) {
-    const active = allGroups.find((g) => g.key === selectedCategory);
-    // Favoris isn't a real creation target — you favorite existing recipes, not create into it.
-    const presetCategory = active.key === 'favorites' ? null : { meals: active.meals, tag: active.tag };
+  // --- Create / Edit screen ---
+  if (screen === 'create' || screen === 'edit') {
+    const editingRecipe = screen === 'edit' ? recipes.find((r) => r.id === selectedRecipeId) : null;
+    const active = selectedCategoryKey ? allGroups.find((g) => g.key === selectedCategoryKey) : null;
+    const presetCategory = active && active.key !== 'favorites' ? { meals: active.meals, tag: active.tag } : null;
+    return (
+      <RecipeManualForm
+        mode={screen === 'edit' ? 'edit' : 'create'}
+        initialRecipe={editingRecipe}
+        onCreate={onCreateRecipe}
+        onUpdate={onUpdate}
+        onSetCategories={onSetCategories}
+        onImportRecipe={onImportRecipe}
+        foods={foods}
+        presetCategory={screen === 'create' ? presetCategory : null}
+        onBack={() => setScreen(editingRecipe ? 'detail' : selectedCategoryKey ? 'category' : 'home')}
+        onSaved={(id) => {
+          if (id) setSelectedRecipeId(id);
+          setScreen('detail');
+        }}
+      />
+    );
+  }
+
+  // --- All recipes screen ---
+  if (screen === 'all') {
+    const term = allSearch.trim().toLowerCase();
+    const list = term ? recipes.filter((r) => r.title.toLowerCase().includes(term)) : recipes;
     return (
       <div>
-        <div className="meal-header">
-          <button className="btn-ghost back-btn" onClick={() => setSelectedCategory(null)}>
-            {t('recipeList.back')}
+        <div className="row" style={{ alignItems: 'center', gap: 12 }}>
+          <button type="button" className="meal-detail-back-btn" onClick={() => setScreen('home')} aria-label={t('meal.back')}>
+            <Icon name="chevron-left" size={20} />
           </button>
-          <h1 className="meal-title">{active.label}</h1>
+          <div>
+            <div className="day-nav-subtitle">{recipes.length} {t('recipeList.recipeCountShort')}</div>
+            <h1 style={{ margin: 0 }}>{t('recipeList.allRecipes')}</h1>
+          </div>
         </div>
-
-        {presetCategory && (
-          <>
-            <RecipeImport
-              onImported={onImportRecipe}
-              onSetCategories={onSetCategories}
-              onUpdate={onUpdate}
-              presetCategory={presetCategory}
-            />
-            <RecipeManualForm
-              onCreate={onCreateRecipe}
-              onUpdate={onUpdate}
-              onSetCategories={onSetCategories}
-              foods={foods}
-              presetCategory={presetCategory}
-            />
-          </>
-        )}
-
-        {active.recipes.length === 0 ? (
-          <p className="hint">{t('recipeList.noRecipesInCategory')}</p>
-        ) : (
-          <div className="recipe-list">{active.recipes.map(renderCard)}</div>
-        )}
+        <div className="search-input-row" style={{ marginTop: 14 }}>
+          <Icon name="search" size={18} color="var(--text-muted)" />
+          <input
+            type="text"
+            className="search-input"
+            placeholder={t('recipeList.searchPlaceholder')}
+            value={allSearch}
+            onChange={(e) => setAllSearch(e.target.value)}
+          />
+        </div>
+        <div className="entry-list" style={{ marginTop: 14 }}>
+          {list.length === 0 && <p className="hint">{t('recipeList.noResults')}</p>}
+          {list.map((r) => (
+            <RecipeRow key={r.id} recipe={r} onOpen={openRecipe} onToggleFavorite={handleToggleGeneralFavorite} />
+          ))}
+        </div>
       </div>
     );
   }
 
+  // --- Category screen ---
+  if (screen === 'category' && selectedCategoryKey) {
+    const active = allGroups.find((g) => g.key === selectedCategoryKey);
+    const list = sortRecipes(active.recipes);
+    return (
+      <div>
+        <div className="row" style={{ alignItems: 'center', gap: 12 }}>
+          <button type="button" className="meal-detail-back-btn" onClick={() => setScreen('home')} aria-label={t('meal.back')}>
+            <Icon name="chevron-left" size={20} />
+          </button>
+          <div style={{ flex: 1 }}>
+            <div className="day-nav-subtitle">{t('recipeList.categoryLabel')}</div>
+            <h1 style={{ margin: 0 }}>{active.label}</h1>
+          </div>
+        </div>
+
+        <div className="filter-pill-row" style={{ marginTop: 14 }}>
+          {[
+            ['relevance', t('recipeList.sortRelevance')],
+            ['kcal', t('recipeList.sortKcal')],
+            ['protein', t('recipeList.sortProtein')],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              className={sortMode === key ? 'filter-pill active' : 'filter-pill'}
+              onClick={() => setSortMode(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {list.length === 0 ? (
+          <p className="hint" style={{ marginTop: 14 }}>{t('recipeList.noRecipesInCategory')}</p>
+        ) : (
+          <div className="entry-list" style={{ marginTop: 14 }}>
+            {list.map((r) => (
+              <RecipeRow key={r.id} recipe={r} onOpen={openRecipe} onToggleFavorite={handleToggleGeneralFavorite} />
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="meal-add-cta"
+          style={{ marginTop: 16 }}
+          onClick={() => setScreen('create')}
+        >
+          <Icon name="plus" size={20} />
+          {t('recipeManual.createRecipe')}
+        </button>
+      </div>
+    );
+  }
+
+  // --- Home screen ---
   return (
     <div>
-      <h2>{t('recipeList.title')}</h2>
-      <div className="category-menu">
-        {allGroups.map((g) => {
-          const withImage = g.recipes.find((r) => r.image);
-          return (
-            <button
-              type="button"
-              key={g.key}
-              className="category-card"
-              onClick={() => setSelectedCategory(g.key)}
-            >
-              {withImage ? <img src={withImage.image} alt="" /> : <div className="category-card-noimg">🍽️</div>}
-              <span className="category-card-label">{g.label}</span>
-              <span className="rate">{g.recipes.length} {t('recipeList.recipeCount')}</span>
-            </button>
-          );
-        })}
+      <div className="row" style={{ alignItems: 'center' }}>
+        <div>
+          <div className="day-nav-subtitle">{t('recipeList.library')}</div>
+          <h1 style={{ margin: 0 }}>{t('recipeList.title')}</h1>
+        </div>
+        <button
+          type="button"
+          className="meal-add-btn"
+          style={{ marginLeft: 'auto' }}
+          onClick={() => {
+            setSelectedCategoryKey(null);
+            setScreen('create');
+          }}
+          aria-label={t('recipeManual.createRecipe')}
+        >
+          <Icon name="plus" size={22} color="var(--text-on-accent)" />
+        </button>
       </div>
+
+      <div className="search-input-row" style={{ marginTop: 14 }}>
+        <Icon name="search" size={18} color="var(--text-muted)" />
+        <input
+          type="text"
+          className="search-input"
+          placeholder={t('recipeList.searchPlaceholder')}
+          value={homeSearch}
+          onChange={(e) => setHomeSearch(e.target.value)}
+        />
+      </div>
+
+      {homeSearch.trim() ? (
+        <div className="entry-list" style={{ marginTop: 14 }}>
+          {homeResults.length === 0 && <p className="hint">{t('recipeList.noResults')}</p>}
+          {homeResults.map((r) => (
+            <RecipeRow key={r.id} recipe={r} onOpen={openRecipe} onToggleFavorite={handleToggleGeneralFavorite} />
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="filter-pill-row" style={{ marginTop: 14 }}>
+            <button type="button" className="filter-pill active" onClick={() => setScreen('all')}>
+              {t('recipeList.all')}
+            </button>
+            {allGroups.map((g) => (
+              <button
+                type="button"
+                key={g.key}
+                className="filter-pill"
+                onClick={() => {
+                  setSelectedCategoryKey(g.key);
+                  setScreen('category');
+                }}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+
+          <h2>{t('recipeList.categoryLabel')}</h2>
+          <div className="recipe-category-grid">
+            {allGroups.map((g) => (
+              <button
+                type="button"
+                key={g.key}
+                className="recipe-category-tile"
+                onClick={() => {
+                  setSelectedCategoryKey(g.key);
+                  setScreen('category');
+                }}
+              >
+                <div className="recipe-category-thumb" style={{ background: 'linear-gradient(150deg, rgba(245,194,107,0.28), rgba(139,118,249,0.14))' }}>
+                  <Icon name={g.icon} size={26} color="var(--acc)" />
+                </div>
+                <div className="recipe-category-body">
+                  <div className="recipe-category-title">{g.label}</div>
+                  <div className="recipe-category-count">
+                    {g.recipes.length} {t('recipeList.recipeCount')}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

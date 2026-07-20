@@ -831,10 +831,13 @@ function friendlyImportError(err) {
 }
 
 app.put('/api/recipes/:id', (req, res) => {
-  const { portions, ingredients, image, favorite, tags } = req.body;
+  const { title, description, steps, portions, ingredients, image, favorite, tags } = req.body;
   const current = db.prepare('SELECT * FROM recipes WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   if (!current) return res.status(404).json({ error: 'recette introuvable' });
 
+  const nextTitle = title !== undefined && title.trim() ? title.trim() : current.title;
+  const nextDescription = description !== undefined ? description : current.description;
+  const nextSteps = steps !== undefined ? JSON.stringify(steps.filter((s) => s.trim())) : current.steps;
   const nextPortions = portions ?? current.portions;
   const nextIngredients = ingredients ?? JSON.parse(current.ingredients);
   const nextImage = image !== undefined ? image : current.image;
@@ -842,8 +845,11 @@ app.put('/api/recipes/:id', (req, res) => {
   const nextTags = tags !== undefined ? JSON.stringify(tags) : current.tags;
 
   db.prepare(
-    'UPDATE recipes SET portions = ?, ingredients = ?, image = ?, favorite = ?, tags = ? WHERE id = ? AND user_id = ?'
-  ).run(nextPortions, JSON.stringify(nextIngredients), nextImage, nextFavorite, nextTags, req.params.id, req.userId);
+    'UPDATE recipes SET title = ?, description = ?, steps = ?, portions = ?, ingredients = ?, image = ?, favorite = ?, tags = ? WHERE id = ? AND user_id = ?'
+  ).run(
+    nextTitle, nextDescription, nextSteps, nextPortions, JSON.stringify(nextIngredients), nextImage,
+    nextFavorite, nextTags, req.params.id, req.userId
+  );
 
   const row = db.prepare('SELECT * FROM recipes WHERE id = ?').get(req.params.id);
   res.json(serializeRecipe(row));
