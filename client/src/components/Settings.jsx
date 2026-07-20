@@ -5,6 +5,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 
 const GOAL_KEYS = ['lose', 'maintain', 'gain'];
 const PACE_OPTIONS = [500, 750, 1000];
+const SEX_KEYS = ['male', 'female', 'other'];
 
 function iconForActivity(type) {
   if (type === 'force') return 'dumbbell';
@@ -27,10 +28,15 @@ export default function Settings({
   const { t, lang, setLang } = useLanguage();
   const [screen, setScreen] = useState('home');
 
-  // --- Profile (BMR/movement/digestion) screen state ---
+  // --- Profile (BMR/movement/digestion + personal info) screen state ---
   const [bmr, setBmr] = useState('');
   const [movement, setMovement] = useState('');
   const [digestion, setDigestion] = useState('');
+  const [sex, setSex] = useState('');
+  const [birthdate, setBirthdate] = useState('');
+  const [heightCm, setHeightCm] = useState('');
+  const [weightKg, setWeightKg] = useState('');
+  const [bodyFatPct, setBodyFatPct] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
@@ -38,6 +44,11 @@ export default function Settings({
       setBmr(profile.bmr);
       setMovement(profile.daily_movement_kcal);
       setDigestion(profile.digestion_kcal);
+      setSex(profile.sex || '');
+      setBirthdate(profile.birthdate || '');
+      setHeightCm(profile.height_cm ?? '');
+      setWeightKg(profile.weight_kg ?? '');
+      setBodyFatPct(profile.body_fat_pct ?? '');
     }
   }, [profile]);
 
@@ -45,7 +56,16 @@ export default function Settings({
     if (savingProfile) return;
     setSavingProfile(true);
     try {
-      await onSaveProfile({ bmr: Number(bmr), daily_movement_kcal: Number(movement), digestion_kcal: Number(digestion) });
+      await onSaveProfile({
+        bmr: Number(bmr),
+        daily_movement_kcal: Number(movement),
+        digestion_kcal: Number(digestion),
+        sex: sex || null,
+        birthdate: birthdate || null,
+        height_cm: heightCm !== '' ? Number(heightCm) : null,
+        weight_kg: weightKg !== '' ? Number(weightKg) : undefined,
+        body_fat_pct: bodyFatPct !== '' ? Number(bodyFatPct) : null,
+      });
       setScreen('home');
     } finally {
       setSavingProfile(false);
@@ -55,12 +75,16 @@ export default function Settings({
   // --- Goal screen state ---
   const [goalType, setGoalType] = useState('lose');
   const [pace, setPace] = useState(750);
+  const [autoTarget, setAutoTarget] = useState(true);
+  const [manualKcal, setManualKcal] = useState('');
   const [savingGoal, setSavingGoal] = useState(false);
 
   useEffect(() => {
     if (profile) {
       setGoalType(profile.goal);
       if (profile.goal_kcal) setPace(profile.goal_kcal);
+      setAutoTarget(profile.manual_target_kcal == null);
+      setManualKcal(profile.manual_target_kcal ?? '');
     }
   }, [profile]);
 
@@ -68,7 +92,11 @@ export default function Settings({
     if (savingGoal) return;
     setSavingGoal(true);
     try {
-      await onSaveProfile({ goal: goalType, goal_kcal: pace });
+      await onSaveProfile({
+        goal: goalType,
+        goal_kcal: pace,
+        manual_target_kcal: autoTarget ? null : Number(manualKcal) || 0,
+      });
       setScreen('home');
     } finally {
       setSavingGoal(false);
@@ -158,6 +186,47 @@ export default function Settings({
           <span className="unit">kcal</span>
         </div>
 
+        <h4 className="section-label" style={{ marginTop: 22 }}>{t('profile.infoSection')}</h4>
+
+        <div className="hint" style={{ padding: '0 0 6px' }}>{t('profile.sex')}</div>
+        <div className="type-list-row" style={{ marginTop: 0 }}>
+          {SEX_KEYS.map((s) => (
+            <button key={s} type="button" className={sex === s ? 'type-pill active' : 'type-pill'} onClick={() => setSex(s)}>
+              {t(`profile.sex.${s}`)}
+            </button>
+          ))}
+        </div>
+
+        <h4 className="section-label">{t('profile.birthdate')}</h4>
+        <div className="search-input-row">
+          <input type="date" className="search-input" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <h4 className="section-label">{t('profile.height')}</h4>
+            <div className="search-input-row">
+              <input type="number" min="0" step="any" className="search-input" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} />
+              <span className="unit">cm</span>
+            </div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <h4 className="section-label">{t('profile.weight')}</h4>
+            <div className="search-input-row">
+              <input type="number" min="0" step="any" className="search-input" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} />
+              <span className="unit">kg</span>
+            </div>
+          </div>
+        </div>
+
+        <h4 className="section-label">
+          {t('profile.bodyFat')} <span style={{ textTransform: 'none', fontWeight: 400 }}>({t('profile.optional')})</span>
+        </h4>
+        <div className="search-input-row">
+          <input type="number" min="0" max="100" step="any" className="search-input" value={bodyFatPct} onChange={(e) => setBodyFatPct(e.target.value)} />
+          <span className="unit">%</span>
+        </div>
+
         <button
           type="button"
           className="meal-add-cta"
@@ -215,17 +284,47 @@ export default function Settings({
           </>
         )}
 
-        {targetIntake != null && (
-          <>
-            <h4 className="section-label">{t('settings.dailyTarget')}</h4>
-            <div className="portion-tile-row">
+        <h4 className="section-label">{t('settings.dailyTarget')}</h4>
+        <div className="settings-goal-card">
+          <div
+            className="settings-list-row"
+            style={{ padding: '2px 0 14px', margin: 0 }}
+            onClick={() => setAutoTarget((v) => !v)}
+          >
+            <span className="settings-list-label">{t('settings.autoTarget')}</span>
+            <button
+              type="button"
+              className={autoTarget ? 'toggle-switch on' : 'toggle-switch'}
+              onClick={(e) => {
+                e.stopPropagation();
+                setAutoTarget((v) => !v);
+              }}
+              aria-pressed={autoTarget}
+            >
+              <span className="toggle-switch-thumb" />
+            </button>
+          </div>
+          {autoTarget ? (
+            <div className="portion-tile-row" style={{ margin: 0 }}>
               <div className="portion-tile">
-                <b>{Math.round(targetIntake)}</b>
+                <b>{targetIntake != null ? Math.round(targetIntake) : '—'}</b>
                 <span>kcal</span>
               </div>
             </div>
-          </>
-        )}
+          ) : (
+            <div className="search-input-row" style={{ marginTop: 0 }}>
+              <input
+                type="number"
+                min="0"
+                step="10"
+                className="search-input"
+                value={manualKcal}
+                onChange={(e) => setManualKcal(e.target.value)}
+              />
+              <span className="unit">kcal</span>
+            </div>
+          )}
+        </div>
 
         <button
           type="button"
@@ -312,6 +411,29 @@ export default function Settings({
         <button type="button" className="entry-icon-btn" onClick={() => setScreen('profile')} aria-label={t('recipeList.edit')}>
           <Icon name="pencil" size={19} />
         </button>
+      </div>
+
+      <h4 className="section-label" style={{ marginTop: 18, marginBottom: 0 }}>{t('settings.profileGroupLabel')}</h4>
+      <div className="section-header" style={{ marginTop: 10 }}>
+        <span className="section-title">{t('settings.metabolism')}</span>
+        <button type="button" className="report-link" onClick={() => setScreen('profile')}>
+          <Icon name="pencil" size={14} />
+          {t('recipeList.edit')}
+        </button>
+      </div>
+      <div className="portion-tile-row">
+        <div className="portion-tile">
+          <b>{Math.round(profile.bmr || 0)}</b>
+          <span>{t('profile.bmr')}</span>
+        </div>
+        <div className="portion-tile">
+          <b>{Math.round(profile.daily_movement_kcal || 0)}</b>
+          <span>{t('profile.movement')}</span>
+        </div>
+        <div className="portion-tile">
+          <b>{Math.round(profile.digestion_kcal || 0)}</b>
+          <span>{t('profile.digestion')}</span>
+        </div>
       </div>
 
       <div className="section-header" style={{ marginTop: 18 }}>

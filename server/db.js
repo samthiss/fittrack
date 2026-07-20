@@ -504,6 +504,29 @@ if (!db.prepare('SELECT 1 FROM profile WHERE user_id = 1').get()) {
   ).run();
 }
 
+// Personal info shown on the "Éditer le profil" screen — static-ish (sex/birthdate/height never
+// change day to day, body_fat_pct is a single current snapshot, not tracked historically like
+// weight_logs) so these live only on the current profile row, not in profile_history.
+const profileCols2 = db.prepare('PRAGMA table_info(profile)').all().map((c) => c.name);
+if (!profileCols2.includes('sex')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN sex TEXT`);
+}
+if (!profileCols2.includes('birthdate')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN birthdate TEXT`);
+}
+if (!profileCols2.includes('height_cm')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN height_cm REAL`);
+}
+if (!profileCols2.includes('body_fat_pct')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN body_fat_pct REAL`);
+}
+// NULL (the default) means "adapt automatically" (bmr + movement + digestion + today's
+// activities, ± the goal deficit/surplus) — set means the daily kcal target is pinned to this
+// number regardless of activity, until cleared back to NULL.
+if (!profileCols2.includes('manual_target_kcal')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN manual_target_kcal REAL`);
+}
+
 // Seed one history row from the current profile if none exists yet, so profileAsOf() in
 // index.js always has a fallback for dates before this feature started tracking changes.
 if (!db.prepare('SELECT 1 FROM profile_history LIMIT 1').get()) {

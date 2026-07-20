@@ -260,6 +260,9 @@ function computeSummary(userId, date, profileOverride) {
   let targetIntake = tdee;
   if (profile.goal === 'lose') targetIntake = tdee - profile.goal_kcal;
   if (profile.goal === 'gain') targetIntake = tdee + profile.goal_kcal;
+  // A manually pinned target overrides the auto-computed one entirely — it stays fixed
+  // regardless of today's activities until the user clears it back to automatic.
+  if (profile.manual_target_kcal != null) targetIntake = profile.manual_target_kcal;
 
   return {
     date,
@@ -301,11 +304,16 @@ app.get('/api/profile', (req, res) => {
   res.json(getProfile(req.userId));
 });
 
+const SEX_OPTIONS = ['male', 'female', 'other'];
+
 app.put('/api/profile', (req, res) => {
-  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal } = req.body;
+  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal } = req.body;
 
   if (goal !== undefined && !GOALS.includes(goal)) {
     return res.status(400).json({ error: 'goal invalide' });
+  }
+  if (sex !== undefined && sex !== null && !SEX_OPTIONS.includes(sex)) {
+    return res.status(400).json({ error: 'sex invalide' });
   }
 
   const current = getProfile(req.userId);
@@ -316,10 +324,16 @@ app.put('/api/profile', (req, res) => {
     weight_kg: weight_kg ?? current.weight_kg,
     goal: goal ?? current.goal,
     goal_kcal: goal_kcal ?? current.goal_kcal,
+    sex: sex !== undefined ? sex : current.sex,
+    birthdate: birthdate !== undefined ? birthdate : current.birthdate,
+    height_cm: height_cm !== undefined ? height_cm : current.height_cm,
+    body_fat_pct: body_fat_pct !== undefined ? body_fat_pct : current.body_fat_pct,
+    manual_target_kcal: manual_target_kcal !== undefined ? manual_target_kcal : current.manual_target_kcal,
   };
 
   db.prepare(
-    `UPDATE profile SET bmr = ?, daily_movement_kcal = ?, digestion_kcal = ?, weight_kg = ?, goal = ?, goal_kcal = ?
+    `UPDATE profile SET bmr = ?, daily_movement_kcal = ?, digestion_kcal = ?, weight_kg = ?, goal = ?, goal_kcal = ?,
+     sex = ?, birthdate = ?, height_cm = ?, body_fat_pct = ?, manual_target_kcal = ?
      WHERE user_id = ?`
   ).run(
     next.bmr,
@@ -328,6 +342,11 @@ app.put('/api/profile', (req, res) => {
     next.weight_kg,
     next.goal,
     next.goal_kcal,
+    next.sex,
+    next.birthdate,
+    next.height_cm,
+    next.body_fat_pct,
+    next.manual_target_kcal,
     req.userId
   );
 
@@ -1456,11 +1475,64 @@ function microbiomeSummaryForWeek(userId, dates) {
   return { plantCount: plants.size, plantList: [...plants].sort((a, b) => a.localeCompare(b, 'fr')) };
 }
 
+// FR/EN strings for buildPreviousDayImprovements below — this is the only server-generated text
+// surfaced in the Journal UI, so it's the only spot that needs its own small i18n table rather
+// than being hardcoded French like the rest of the (French-only) nutrition engine.
+const IMPROVEMENT_I18N = {
+  fr: {
+    calories: 'Calories',
+    proteines: 'Protéines',
+    sodium: 'Sodium',
+    cafeine: 'Caféine',
+    microLabels: { fiber: 'Fibres', potassium: 'Potassium', magnesium: 'Magnésium', calcium: 'Calcium', vitamin_c: 'Vitamine C', zinc: 'Zinc', iron: 'Fer' },
+    proteinSuggestion: '150 g de blanc de poulet ou 200 g de skyr (≈ 30-35 g de protéines)',
+    microSuggestions: {
+      fiber: 'des légumineuses, flocons d\'avoine, légumes ou fruits',
+      potassium: "une pomme de terre avec la peau (300 g ≈ 900 mg) ou une poignée d'épinards",
+      magnesium: '30 g d\'amandes (≈ 75 mg), des épinards, du chocolat noir ou des graines de courge',
+      calcium: 'un laitage, 100 g de sardines, 30 g d\'amandes ou du tofu',
+      vitamin_c: "un kiwi ou la moitié d'un poivron rouge (≈ 70-90 mg)",
+      zinc: 'de la viande rouge, des fruits de mer, des œufs ou des graines de courge',
+      iron: '100 g de lentilles cuites (≈ 3 mg) ou un steak de bœuf',
+    },
+    kcalOver: (n) => `${n} kcal au-dessus de ta cible hier — vise un peu moins aujourd'hui.`,
+    kcalUnder: (n) => `${n} kcal en dessous de ta cible hier — vise un peu plus aujourd'hui.`,
+    proteinDetail: (pct, suggestion) => `${pct}% de ta cible hier — ajoute ${suggestion} aujourd'hui.`,
+    sodiumDetail: (n) => `Dépassé de ${n} mg hier — réduis le sel aujourd'hui.`,
+    caffeineDetail: (n) => `Dépassée de ${n} mg hier — limite les cafés aujourd'hui.`,
+    microDetail: (pct, suggestion) => `${pct}% de ta cible hier — ajoute ${suggestion} aujourd'hui.`,
+  },
+  en: {
+    calories: 'Calories',
+    proteines: 'Protein',
+    sodium: 'Sodium',
+    cafeine: 'Caffeine',
+    microLabels: { fiber: 'Fiber', potassium: 'Potassium', magnesium: 'Magnesium', calcium: 'Calcium', vitamin_c: 'Vitamin C', zinc: 'Zinc', iron: 'Iron' },
+    proteinSuggestion: '150 g of chicken breast or 200 g of skyr (≈ 30-35 g protein)',
+    microSuggestions: {
+      fiber: 'legumes, oats, vegetables or fruit',
+      potassium: 'a potato with the skin on (300 g ≈ 900 mg) or a handful of spinach',
+      magnesium: '30 g of almonds (≈ 75 mg), spinach, dark chocolate or pumpkin seeds',
+      calcium: 'a dairy portion, 100 g of sardines, 30 g of almonds or tofu',
+      vitamin_c: 'a kiwi or half a red bell pepper (≈ 70-90 mg)',
+      zinc: 'red meat, seafood, eggs or pumpkin seeds',
+      iron: '100 g of cooked lentils (≈ 3 mg) or a beef steak',
+    },
+    kcalOver: (n) => `${n} kcal above your target yesterday — aim a bit lower today.`,
+    kcalUnder: (n) => `${n} kcal below your target yesterday — aim a bit higher today.`,
+    proteinDetail: (pct, suggestion) => `${pct}% of your target yesterday — add ${suggestion} today.`,
+    sodiumDetail: (n) => `Exceeded by ${n} mg yesterday — cut back on salt today.`,
+    caffeineDetail: (n) => `Exceeded by ${n} mg yesterday — limit coffee today.`,
+    microDetail: (pct, suggestion) => `${pct}% of your target yesterday — add ${suggestion} today.`,
+  },
+};
+
 // Everything worth improving today, based on the previous day's numbers — one item per nutrient
 // that missed the mark (kcal, protein, sodium/caffeine limits, daily-goal micros), sorted worst
 // first. Only "needs improvement" items are returned (nothing for things that were fine), so the
 // Journal banner can show a short, purely actionable list instead of a full recap.
-function buildPreviousDayImprovements(userId, date) {
+function buildPreviousDayImprovements(userId, date, lang) {
+  const S = IMPROVEMENT_I18N[lang] || IMPROVEMENT_I18N.fr;
   const prev = new Date(`${date}T00:00:00Z`);
   prev.setUTCDate(prev.getUTCDate() - 1);
   const prevDate = prev.toISOString().slice(0, 10);
@@ -1489,16 +1561,16 @@ function buildPreviousDayImprovements(userId, date) {
   if (kcalDiff > KCAL_TOLERANCE) {
     items.push({
       key: 'kcal',
-      label: 'Calories',
+      label: S.calories,
       severity: kcalDiff,
-      detail: `${Math.round(kcalDiff)} kcal au-dessus de ta cible hier — vise un peu moins aujourd'hui.`,
+      detail: S.kcalOver(Math.round(kcalDiff)),
     });
   } else if (kcalDiff < -KCAL_TOLERANCE) {
     items.push({
       key: 'kcal',
-      label: 'Calories',
+      label: S.calories,
       severity: -kcalDiff,
-      detail: `${Math.round(-kcalDiff)} kcal en dessous de ta cible hier — vise un peu plus aujourd'hui.`,
+      detail: S.kcalUnder(Math.round(-kcalDiff)),
     });
   }
 
@@ -1506,26 +1578,26 @@ function buildPreviousDayImprovements(userId, date) {
     const pct = (consumed.protein / proteinTarget) * 100;
     items.push({
       key: 'protein',
-      label: 'Protéines',
+      label: S.proteines,
       severity: 100 - pct,
-      detail: `${Math.round(pct)}% de ta cible hier — ajoute ${FOOD_SUGGESTIONS.protein} aujourd'hui.`,
+      detail: S.proteinDetail(Math.round(pct), S.proteinSuggestion),
     });
   }
 
   if (consumed.sodium > MICRO_REFERENCE.sodium.reference) {
     items.push({
       key: 'sodium',
-      label: 'Sodium',
+      label: S.sodium,
       severity: consumed.sodium - MICRO_REFERENCE.sodium.reference,
-      detail: `Dépassé de ${Math.round(consumed.sodium - MICRO_REFERENCE.sodium.reference)} mg hier — réduis le sel aujourd'hui.`,
+      detail: S.sodiumDetail(Math.round(consumed.sodium - MICRO_REFERENCE.sodium.reference)),
     });
   }
   if (consumed.caffeine > MICRO_REFERENCE.caffeine.reference) {
     items.push({
       key: 'caffeine',
-      label: 'Caféine',
+      label: S.cafeine,
       severity: consumed.caffeine - MICRO_REFERENCE.caffeine.reference,
-      detail: `Dépassée de ${Math.round(consumed.caffeine - MICRO_REFERENCE.caffeine.reference)} mg hier — limite les cafés aujourd'hui.`,
+      detail: S.caffeineDetail(Math.round(consumed.caffeine - MICRO_REFERENCE.caffeine.reference)),
     });
   }
 
@@ -1536,9 +1608,9 @@ function buildPreviousDayImprovements(userId, date) {
     if (pct < 80) {
       items.push({
         key,
-        label: ref.label,
+        label: S.microLabels[key] || ref.label,
         severity: 80 - pct,
-        detail: `${Math.round(pct)}% de ta cible hier — ajoute ${NUTRIENT_SUGGESTIONS[key] || 'une source adaptée'} aujourd'hui.`,
+        detail: S.microDetail(Math.round(pct), S.microSuggestions[key] || ref.label),
       });
     }
   }
@@ -1549,6 +1621,7 @@ function buildPreviousDayImprovements(userId, date) {
 
 app.get('/api/dashboard', (req, res) => {
   const date = req.query.date || todayStr();
+  const lang = req.query.lang === 'en' ? 'en' : 'fr';
   const summary = computeSummary(req.userId, date);
   const logs = db.prepare('SELECT * FROM food_logs WHERE user_id = ? AND date = ? ORDER BY id').all(req.userId, date);
 
@@ -1637,7 +1710,7 @@ app.get('/api/dashboard', (req, res) => {
     micros,
     microSources,
     meals,
-    previousDayImprovements: buildPreviousDayImprovements(req.userId, date),
+    previousDayImprovements: buildPreviousDayImprovements(req.userId, date, lang),
   });
 });
 

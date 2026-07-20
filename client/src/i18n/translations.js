@@ -66,6 +66,8 @@ export const translations = {
 
     // Settings (redesign)
     'settings.editProfile': 'Modifier le profil',
+    'settings.profileGroupLabel': 'Profil',
+    'settings.metabolism': 'Mon métabolisme',
     'settings.goal': 'Objectif',
     'settings.goalType': "Type d'objectif",
     'settings.goalType.lose': 'Perte',
@@ -75,6 +77,7 @@ export const translations = {
     'settings.perWeek': 'semaine',
     'settings.perWeekShort': 'sem.',
     'settings.dailyTarget': 'Objectif quotidien',
+    'settings.autoTarget': "Adapter l'objectif kcal automatiquement selon les activités",
     'settings.allActivities': 'Toutes les activités',
     'settings.preferences': 'Préférences',
 
@@ -327,6 +330,16 @@ export const translations = {
     'profile.bmr': 'Métabolisme de base',
     'profile.movement': 'Mouvement quotidien',
     'profile.digestion': 'Dépense de digestion',
+    'profile.infoSection': 'Informations',
+    'profile.sex': 'Sexe',
+    'profile.sex.male': 'Homme',
+    'profile.sex.female': 'Femme',
+    'profile.sex.other': 'Autre',
+    'profile.birthdate': 'Date de naissance',
+    'profile.height': 'Taille',
+    'profile.weight': 'Poids actuel',
+    'profile.bodyFat': 'Masse grasse',
+    'profile.optional': 'optionnel',
 
     // Meal detail
     'meal.save': 'Enregistrer',
@@ -678,6 +691,8 @@ export const translations = {
 
     // Settings (redesign)
     'settings.editProfile': 'Edit profile',
+    'settings.profileGroupLabel': 'Profile',
+    'settings.metabolism': 'My metabolism',
     'settings.goal': 'Goal',
     'settings.goalType': 'Goal type',
     'settings.goalType.lose': 'Lose',
@@ -687,6 +702,7 @@ export const translations = {
     'settings.perWeek': 'week',
     'settings.perWeekShort': 'wk',
     'settings.dailyTarget': 'Daily target',
+    'settings.autoTarget': 'Adapt kcal target automatically based on activities',
     'settings.allActivities': 'All activities',
     'settings.preferences': 'Preferences',
 
@@ -939,6 +955,16 @@ export const translations = {
     'profile.bmr': 'Basal metabolic rate',
     'profile.movement': 'Daily movement',
     'profile.digestion': 'Digestion expenditure',
+    'profile.infoSection': 'Information',
+    'profile.sex': 'Sex',
+    'profile.sex.male': 'Male',
+    'profile.sex.female': 'Female',
+    'profile.sex.other': 'Other',
+    'profile.birthdate': 'Date of birth',
+    'profile.height': 'Height',
+    'profile.weight': 'Current weight',
+    'profile.bodyFat': 'Body fat',
+    'profile.optional': 'optional',
 
     // Meal detail
     'meal.save': 'Save',

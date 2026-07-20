@@ -104,7 +104,10 @@ export const api = {
   deleteFoodLogEntry: (id) => request(`/food-log/${id}`, { method: 'DELETE' }),
   updateFoodLogEntry: (id, quantity, unit) =>
     request(`/food-log/${id}`, { method: 'PUT', body: JSON.stringify({ quantity, unit }) }),
-  getDashboard: (date) => request(`/dashboard?date=${date}`),
+  getDashboard: (date) => {
+    const lang = localStorage.getItem('fittrack-lang') === 'en' ? 'en' : 'fr';
+    return request(`/dashboard?date=${date}&lang=${lang}`);
+  },
   getMeal: (key, date) => request(`/meals/${key}?date=${date}`),
   getReport: (range) => request(`/report?range=${range}`),
   getTodayReport: (date) => request(date ? `/today-report?date=${date}` : '/today-report'),
