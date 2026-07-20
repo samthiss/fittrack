@@ -434,6 +434,18 @@ for (const table of [
   addUserIdColumn(table);
 }
 
+// Optional custom name for a workout (e.g. "Pecs & Triceps") shown instead of the plain
+// activity-type label — added after these tables already existed, so it's a migration rather
+// than part of the original CREATE TABLE like activity_exercises.
+function addColumnIfMissing(table, columnName, columnDef) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+  if (!cols.includes(columnName)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`);
+  }
+}
+addColumnIfMissing('activity_logs', 'label', 'label TEXT');
+addColumnIfMissing('activity_plan', 'label', 'label TEXT');
+
 // profile: was a single CHECK(id=1) row — rebuild to one row per user, keyed by user_id.
 const profileCols = db.prepare('PRAGMA table_info(profile)').all().map((c) => c.name);
 if (!profileCols.includes('user_id')) {

@@ -3,8 +3,12 @@ import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
-export default function ActivityDetail({ activity, onBack, onStart, onDeleted }) {
-  const { t } = useLanguage();
+const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const WEEKDAY_LABEL = { mon: 'L', tue: 'M', wed: 'M', thu: 'J', fri: 'V', sat: 'S', sun: 'D' };
+const WEEKDAY_LABEL_EN = { mon: 'M', tue: 'T', wed: 'W', thu: 'T', fri: 'F', sat: 'S', sun: 'S' };
+
+export default function ActivityDetail({ activity, recurringDays = [], onBack, onStart, onDeleted }) {
+  const { t, lang } = useLanguage();
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -80,8 +84,25 @@ export default function ActivityDetail({ activity, onBack, onStart, onDeleted })
 
       <div style={{ padding: '18px 0 0' }}>
         <div className="day-nav-subtitle">{activity.duration_minutes} min</div>
-        <h1 style={{ lineHeight: 1.15, marginTop: 2 }}>{t(`activityType.${activity.type}`)}</h1>
+        <h1 style={{ lineHeight: 1.15, marginTop: 2 }}>{activity.label || t(`activityType.${activity.type}`)}</h1>
+        {activity.label && <p className="hint" style={{ marginTop: 2 }}>{t(`activityType.${activity.type}`)}</p>}
       </div>
+
+      {recurringDays.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <h4 className="section-label">{t('activityLog.recurringDays')}</h4>
+          <div className="day-chip-row">
+            {DAY_ORDER.map((key) => (
+              <span
+                key={key}
+                className={recurringDays.includes(key) ? 'day-chip active' : 'day-chip'}
+              >
+                {(lang === 'en' ? WEEKDAY_LABEL_EN : WEEKDAY_LABEL)[key]}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="tile-grid" style={{ marginTop: 16 }}>
         <div className="tile">

@@ -51,6 +51,7 @@ export default function ActivitesScreen() {
   const [activities, setActivities] = useState([]);
   const [weekPresence, setWeekPresence] = useState({});
   const [recurringKeys, setRecurringKeys] = useState(new Set());
+  const [planEntries, setPlanEntries] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [openActivity, setOpenActivity] = useState(null);
   const [session, setSession] = useState(null);
@@ -62,9 +63,13 @@ export default function ActivitesScreen() {
   }, [date]);
 
   const refresh = useCallback(async () => {
+    if (date === todayStr()) {
+      await api.applyActivityPlanToLog(date);
+    }
     const [types, logs, plan] = await Promise.all([api.getActivityTypes(), api.getActivities(date), api.getActivityPlan()]);
     setActivityTypes(types);
     setActivities(logs);
+    setPlanEntries(plan.entries);
     const dayKey = isoDayKey(date);
     setRecurringKeys(
       new Set(
@@ -84,13 +89,20 @@ export default function ActivitesScreen() {
     Promise.all(weekDays.map((d) => api.getActivities(d.date).then((logs) => [d.date, logs.length > 0]))).then(
       (pairs) => {
         if (cancelled) return;
-        setWeekPresence(Object.fromEntries(pairs));
+        setWeekPresence((prev) => {
+          const next = Object.fromEntries(pairs);
+          for (const d of weekDays) {
+            const dayKey = isoDayKey(d.date);
+            if (planEntries.some((e) => e.day === dayKey)) next[d.date] = true;
+          }
+          return next;
+        });
       }
     );
     return () => {
       cancelled = true;
     };
-  }, [weekDays]);
+  }, [weekDays, planEntries]);
 
   const totalKcal = activities.reduce((s, a) => s + a.kcal, 0);
   const totalMin = activities.reduce((s, a) => s + a.duration_minutes, 0);
@@ -141,9 +153,13 @@ export default function ActivitesScreen() {
   }
 
   if (openActivity) {
+    const recurringDays = planEntries
+      .filter((e) => e.type === openActivity.type && e.duration_minutes === openActivity.duration_minutes)
+      .map((e) => e.day);
     return (
       <ActivityDetail
         activity={openActivity}
+        recurringDays={recurringDays}
         onBack={() => setOpenActivity(null)}
         onStart={(exercises) => {
           setSession({ activity: openActivity, exercises, doneIds: new Set() });
@@ -221,7 +237,7 @@ export default function ActivitesScreen() {
             </span>
             <div className="meal-card-body">
               <div className="meal-card-title">
-                {activityTypes.some((at) => at.type === a.type) ? t(`activityType.${a.type}`) : a.type}
+                {a.label || (activityTypes.some((at) => at.type === a.type) ? t(`activityType.${a.type}`) : a.type)}
                 {recurringKeys.has(`${a.type}-${a.duration_minutes}`) && (
                   <Icon name="repeat" size={14} color="var(--acc)" style={{ marginLeft: 6, verticalAlign: -2 }} />
                 )}

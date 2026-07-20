@@ -160,6 +160,9 @@ export const translations = {
     'activityLog.intensityIntense': 'Intense',
     'activityLog.recurrence': 'Récurrence',
     'activityLog.recurringActivity': 'Activité récurrente',
+    'activityLog.recurringDays': 'Jours récurrents',
+    'activityLog.workoutName': 'Nom (optionnel)',
+    'activityLog.workoutNamePlaceholder': 'ex. Pecs & Triceps',
     'activityLog.estimatedBurn': 'Dépense estimée',
     'activityLog.addToJournal': 'Ajouter au journal',
 
@@ -708,6 +711,9 @@ export const translations = {
     'activityLog.intensityIntense': 'Intense',
     'activityLog.recurrence': 'Recurrence',
     'activityLog.recurringActivity': 'Recurring activity',
+    'activityLog.recurringDays': 'Recurring days',
+    'activityLog.workoutName': 'Name (optional)',
+    'activityLog.workoutNamePlaceholder': 'e.g. Chest & Triceps',
     'activityLog.estimatedBurn': 'Estimated burn',
     'activityLog.addToJournal': 'Add to journal',
 

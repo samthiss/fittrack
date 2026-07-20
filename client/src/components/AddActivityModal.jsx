@@ -24,6 +24,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState('cardio');
   const [selectedType, setSelectedType] = useState(null);
+  const [label, setLabel] = useState('');
   const [duration, setDuration] = useState(30);
   const [intensity, setIntensity] = useState('moderate');
   const [recurring, setRecurring] = useState(false);
@@ -57,9 +58,10 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     if (!selectedType || saving) return;
     setSaving(true);
     try {
-      await api.addActivity({ date, type: selectedType, duration_minutes: duration, kcal: estimatedKcal });
+      const finalLabel = label.trim() || undefined;
+      await api.addActivity({ date, type: selectedType, duration_minutes: duration, kcal: estimatedKcal, label: finalLabel });
       if (recurring && days.size > 0) {
-        await api.addActivityPlan({ days: [...days], type: selectedType, duration_minutes: duration });
+        await api.addActivityPlan({ days: [...days], type: selectedType, duration_minutes: duration, label: finalLabel });
       }
       onAdded();
     } finally {
@@ -126,6 +128,22 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
             );
           })}
         </div>
+
+        {selected && (
+          <>
+            <h4 className="section-label">{t('activityLog.workoutName')}</h4>
+            <div className="search-input-row">
+              <Icon name="pencil" size={18} color="var(--text-muted)" />
+              <input
+                type="text"
+                className="search-input"
+                placeholder={t('activityLog.workoutNamePlaceholder')}
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+            </div>
+          </>
+        )}
 
         <h4 className="section-label">{t('activityLog.duration')}</h4>
         <div className="row" style={{ justifyContent: 'center', gap: 16 }}>

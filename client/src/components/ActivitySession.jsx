@@ -31,7 +31,7 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
           <Icon name="chevron-left" size={20} />
         </button>
         <div className="meal-detail-heading">
-          <div className="day-nav-subtitle">{t('activityLog.inProgress')} · {t(`activityType.${activity.type}`)}</div>
+          <div className="day-nav-subtitle">{t('activityLog.inProgress')} · {activity.label || t(`activityType.${activity.type}`)}</div>
           <div className="meal-detail-title">{t('activityLog.sessionTitle')}</div>
         </div>
         <span className="activity-session-live">

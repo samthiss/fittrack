@@ -364,7 +364,7 @@ app.get('/api/activities', (req, res) => {
 });
 
 app.post('/api/activities', (req, res) => {
-  const { date, type, duration_minutes, kcal } = req.body;
+  const { date, type, duration_minutes, kcal, label } = req.body;
   if (!type || !duration_minutes) {
     return res.status(400).json({ error: 'type et duration_minutes requis' });
   }
@@ -374,12 +374,13 @@ app.post('/api/activities', (req, res) => {
     kcal !== undefined && kcal !== null
       ? Number(kcal)
       : kcalPerHourFor(req.userId, type) * (Number(duration_minutes) / 60);
+  const finalLabel = label && label.trim() ? label.trim() : null;
 
   const result = db
     .prepare(
-      `INSERT INTO activity_logs (user_id, date, type, duration_minutes, kcal) VALUES (?, ?, ?, ?, ?)`
+      `INSERT INTO activity_logs (user_id, date, type, duration_minutes, kcal, label) VALUES (?, ?, ?, ?, ?, ?)`
     )
-    .run(req.userId, finalDate, type, Number(duration_minutes), finalKcal);
+    .run(req.userId, finalDate, type, Number(duration_minutes), finalKcal, finalLabel);
 
   const log = db.prepare('SELECT * FROM activity_logs WHERE id = ? AND user_id = ?').get(result.lastInsertRowid, req.userId);
   res.status(201).json(log);
@@ -446,16 +447,17 @@ app.get('/api/activity-plan', (req, res) => {
 });
 
 app.post('/api/activity-plan', (req, res) => {
-  const { days, type, duration_minutes } = req.body;
+  const { days, type, duration_minutes, label } = req.body;
   if (!Array.isArray(days) || days.length === 0 || !type || !duration_minutes) {
     return res.status(400).json({ error: 'days, type et duration_minutes requis' });
   }
   if (!days.every((d) => PLAN_DAYS.some((p) => p.key === d))) {
     return res.status(400).json({ error: 'jour invalide' });
   }
-  const insert = db.prepare('INSERT INTO activity_plan (user_id, day, type, duration_minutes) VALUES (?, ?, ?, ?)');
+  const finalLabel = label && label.trim() ? label.trim() : null;
+  const insert = db.prepare('INSERT INTO activity_plan (user_id, day, type, duration_minutes, label) VALUES (?, ?, ?, ?, ?)');
   const rows = days.map((d) => {
-    const result = insert.run(req.userId, d, type, Number(duration_minutes));
+    const result = insert.run(req.userId, d, type, Number(duration_minutes), finalLabel);
     return db.prepare('SELECT * FROM activity_plan WHERE id = ?').get(result.lastInsertRowid);
   });
   res.status(201).json(rows);
@@ -489,8 +491,8 @@ app.post('/api/activity-plan/apply-to-log', (req, res) => {
     if (appliedIds.has(entry.id)) continue;
     const kcal = kcalPerHourFor(req.userId, entry.type) * (entry.duration_minutes / 60);
     const result = db
-      .prepare('INSERT INTO activity_logs (user_id, date, type, duration_minutes, kcal) VALUES (?, ?, ?, ?, ?)')
-      .run(req.userId, date, entry.type, entry.duration_minutes, kcal);
+      .prepare('INSERT INTO activity_logs (user_id, date, type, duration_minutes, kcal, label) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(req.userId, date, entry.type, entry.duration_minutes, kcal, entry.label ?? null);
     added.push(db.prepare('SELECT * FROM activity_logs WHERE id = ?').get(result.lastInsertRowid));
   }
   res.json({ date, planDay, added });
