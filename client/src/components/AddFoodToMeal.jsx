@@ -71,6 +71,7 @@ export default function AddFoodToMeal({
   onParseText,
   onParsePhoto,
   onDeleteEntry,
+  onUpdateEntry,
   onAddedRecipe,
 }) {
   const { t } = useLanguage();
@@ -89,6 +90,7 @@ export default function AddFoodToMeal({
   const [modalUnit, setModalUnit] = useState('g');
   const [modalRecurring, setModalRecurring] = useState(false);
   const [excludedIngredients, setExcludedIngredients] = useState(new Set());
+  const [ingredientOverrides, setIngredientOverrides] = useState({});
   const [savingModal, setSavingModal] = useState(false);
   const [recurringKeys, setRecurringKeys] = useState(new Set());
   const swipeRef = useRef(null);
@@ -222,6 +224,7 @@ export default function AddFoodToMeal({
     // a reflection of whatever the current status happens to be.
     setModalRecurring(false);
     setExcludedIngredients(new Set());
+    setIngredientOverrides({});
     setSavingModal(false);
     // Default quantity is more useful as whatever amount was last logged for this same meal
     // (e.g. Flexpresso is always 30g at breakfast, a recipe is always 2 portions at dinner) —
@@ -245,12 +248,16 @@ export default function AddFoodToMeal({
     setSavingModal(true);
     try {
       const createdRows = await onAddEntry(viewingItem.type, viewingItem.id, qty, viewingItem.type === 'food' ? modalUnit : 'g');
-      // Ingredients unchecked in the preview list were only ever meant to skip logging — the
-      // server always logs every ingredient, so the ones the user excluded are deleted right
-      // back out before anything is shown as "added".
-      if (viewingItem.type === 'recipe' && excludedIngredients.size > 0 && Array.isArray(createdRows) && onDeleteEntry) {
+      // The server always logs every ingredient at its default scaled quantity — ingredients
+      // excluded or manually resized in the preview are patched right back out/adjusted before
+      // anything is shown as "added".
+      if (viewingItem.type === 'recipe' && Array.isArray(createdRows)) {
         for (const row of createdRows) {
-          if (excludedIngredients.has(row.label)) await onDeleteEntry(row.id);
+          if (excludedIngredients.has(row.label)) {
+            if (onDeleteEntry) await onDeleteEntry(row.id);
+          } else if (row.label in ingredientOverrides && onUpdateEntry) {
+            await onUpdateEntry(row.id, ingredientOverrides[row.label], row.unit || 'g');
+          }
         }
       }
       await syncRecurring(viewingItem.type, viewingItem.id, qty, modalRecurring);
@@ -793,26 +800,53 @@ export default function AddFoodToMeal({
                   <div className="entry-list">
                     {recipe.ingredients
                       .filter((ing) => !excludedIngredients.has(ing.nom))
-                      .map((ing, i) => (
-                        <div className="entry-card" key={i}>
-                          <div className="entry-card-body" style={{ cursor: 'default' }}>
-                            <div className="entry-card-name">{ing.nom}</div>
-                            <div className="entry-card-sub">
-                              {Math.round((Number(ing.qte) || 0) * scale)} {ing.unite || 'g'} · {Math.round((Number(ing.kcal) || 0) * scale)} kcal
+                      .map((ing, i) => {
+                        const defaultQty = Math.round((Number(ing.qte) || 0) * scale);
+                        const qty = ingredientOverrides[ing.nom] ?? defaultQty;
+                        const kcalPerUnit = (Number(ing.qte) || 0) > 0 ? (Number(ing.kcal) || 0) / Number(ing.qte) : 0;
+                        return (
+                          <div className="entry-card" key={i}>
+                            <div className="entry-card-body" style={{ cursor: 'default' }}>
+                              <div className="entry-card-name">{ing.nom}</div>
+                              <div className="entry-card-sub">
+                                {qty} {ing.unite || 'g'} · {Math.round(kcalPerUnit * qty)} kcal
+                              </div>
+                            </div>
+                            <div className="row" style={{ gap: 6 }}>
+                              <button
+                                type="button"
+                                className="entry-icon-btn"
+                                onClick={() =>
+                                  setIngredientOverrides((prev) => ({ ...prev, [ing.nom]: Math.max(0, qty - 10) }))
+                                }
+                                aria-label={t('meal.decrease')}
+                              >
+                                <Icon name="minus" size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                className="entry-icon-btn"
+                                onClick={() =>
+                                  setIngredientOverrides((prev) => ({ ...prev, [ing.nom]: qty + 10 }))
+                                }
+                                aria-label={t('meal.increase')}
+                              >
+                                <Icon name="plus" size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                className="entry-icon-btn entry-delete-btn"
+                                onClick={() =>
+                                  setExcludedIngredients((prev) => new Set(prev).add(ing.nom))
+                                }
+                                aria-label={t('meal.delete')}
+                              >
+                                <Icon name="trash-2" size={15} />
+                              </button>
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            className="entry-icon-btn entry-delete-btn"
-                            onClick={() =>
-                              setExcludedIngredients((prev) => new Set(prev).add(ing.nom))
-                            }
-                            aria-label={t('meal.delete')}
-                          >
-                            <Icon name="trash-2" size={15} />
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 </>
               );

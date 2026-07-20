@@ -501,6 +501,7 @@ export default function MealDetail({
               onParseText={onParseText}
               onParsePhoto={onParsePhoto}
               onDeleteEntry={onDeleteEntry}
+              onUpdateEntry={onUpdateEntry}
               onAddedRecipe={(recipeId, portions) => {
                 setShowAdd(false);
                 setEditingGroupId(recipeId);
