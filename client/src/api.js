@@ -53,6 +53,9 @@ export const api = {
   addActivityPlan: (data) =>
     request('/activity-plan', { method: 'POST', body: JSON.stringify(data) }),
   deleteActivityPlan: (id) => request(`/activity-plan/${id}`, { method: 'DELETE' }),
+  updateActivityPlanGroup: (groupId, data) =>
+    request(`/activity-plan/group/${groupId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteActivityPlanGroup: (groupId) => request(`/activity-plan/group/${groupId}`, { method: 'DELETE' }),
   applyActivityPlanToLog: (date) =>
     request('/activity-plan/apply-to-log', { method: 'POST', body: JSON.stringify({ date }) }),
   getWater: (date) => request(`/water?date=${date}`),

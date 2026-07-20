@@ -536,6 +536,49 @@ app.post('/api/activity-plan', (req, res) => {
   res.status(201).json(rows);
 });
 
+// Edit or remove a whole recurring group (used for a "scheduled" future occurrence that hasn't
+// materialized into a real activity_logs row yet, so there's no /api/activities/:id to hit).
+app.put('/api/activity-plan/group/:groupId', (req, res) => {
+  const { groupId } = req.params;
+  const existing = db.prepare('SELECT * FROM activity_plan WHERE user_id = ? AND group_id = ?').all(req.userId, groupId);
+  if (existing.length === 0) return res.status(404).json({ error: 'introuvable' });
+
+  const { label, duration_minutes, days } = req.body;
+  const finalLabel = label && label.trim() ? label.trim() : null;
+  const finalDuration = duration_minutes != null ? Number(duration_minutes) : existing[0].duration_minutes;
+  const type = existing[0].type;
+
+  db.prepare('DELETE FROM activity_plan WHERE user_id = ? AND group_id = ?').run(req.userId, groupId);
+
+  const validDays = Array.isArray(days) ? days.filter((d) => PLAN_DAYS.some((p) => p.key === d)) : [];
+  const insert = db.prepare(
+    'INSERT INTO activity_plan (user_id, day, type, duration_minutes, label, group_id) VALUES (?, ?, ?, ?, ?, ?)'
+  );
+  const today = todayStr();
+  const todayPlanDay = WEEKDAY_TO_PLAN_DAY[new Date(`${today}T00:00:00Z`).getUTCDay()];
+  const rows = validDays.map((day) => {
+    const result = insert.run(req.userId, day, type, finalDuration, finalLabel, groupId);
+    if (day === todayPlanDay) markPlanAppliedToday.run(req.userId, today, result.lastInsertRowid);
+    return db.prepare('SELECT * FROM activity_plan WHERE id = ?').get(result.lastInsertRowid);
+  });
+
+  // Keep already-materialized logs for this group in sync too.
+  db.prepare('UPDATE activity_logs SET label = ?, duration_minutes = ? WHERE user_id = ? AND plan_group_id = ?').run(
+    finalLabel,
+    finalDuration,
+    req.userId,
+    groupId
+  );
+
+  res.json(rows);
+});
+
+app.delete('/api/activity-plan/group/:groupId', (req, res) => {
+  db.prepare('DELETE FROM activity_plan WHERE user_id = ? AND group_id = ?').run(req.userId, req.params.groupId);
+  db.prepare('UPDATE activity_logs SET plan_group_id = NULL WHERE user_id = ? AND plan_group_id = ?').run(req.userId, req.params.groupId);
+  res.status(204).end();
+});
+
 app.delete('/api/activity-plan/:id', (req, res) => {
   db.prepare('DELETE FROM activity_plan WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
   res.status(204).end();

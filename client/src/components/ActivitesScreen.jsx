@@ -5,6 +5,7 @@ import ActivityDetail from './ActivityDetail';
 import ActivitySession from './ActivitySession';
 import ExerciseSession from './ExerciseSession';
 import AddActivityModal from './AddActivityModal';
+import PlanGroupModal from './PlanGroupModal';
 import { useLanguage } from '../i18n/LanguageContext';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -55,6 +56,7 @@ export default function ActivitesScreen() {
   const [openActivity, setOpenActivity] = useState(null);
   const [session, setSession] = useState(null);
   const [sessionExercise, setSessionExercise] = useState(null);
+  const [openPlanGroup, setOpenPlanGroup] = useState(null);
 
   const weekDays = useMemo(() => {
     const monday = mondayOfWeek(date);
@@ -100,11 +102,23 @@ export default function ActivitesScreen() {
 
   // A recurring plan entry only becomes a real activity_logs row once its day is actually
   // "today" (see refresh()). For any other date (future, or a past day the user never opened
-  // the app on), show it here as a read-only preview so the recurrence is still visible.
+  // the app on), show it here as an editable preview so the recurrence is still visible and can
+  // still be renamed, rescheduled, or removed before it ever materializes. Grouped by group_id
+  // (not one row per plan entry) since a group can have several day-rows.
   const loggedGroupIds = new Set(activities.filter((a) => a.plan_group_id).map((a) => a.plan_group_id));
-  const scheduledOnly = planEntries.filter(
-    (e) => e.day === isoDayKey(date) && !loggedGroupIds.has(e.group_id)
-  );
+  const scheduledGroups = [];
+  const seenGroupIds = new Set();
+  for (const e of planEntries) {
+    if (e.day !== isoDayKey(date) || loggedGroupIds.has(e.group_id) || seenGroupIds.has(e.group_id)) continue;
+    seenGroupIds.add(e.group_id);
+    scheduledGroups.push({
+      groupId: e.group_id,
+      type: e.type,
+      duration_minutes: e.duration_minutes,
+      label: e.label,
+      days: planEntries.filter((p) => p.group_id === e.group_id).map((p) => p.day),
+    });
+  }
 
   async function handleDelete(id) {
     await api.deleteActivity(id);
@@ -225,25 +239,31 @@ export default function ActivitesScreen() {
 
       <h2>{t('activityLog.today')}</h2>
       <div className="meal-card-list">
-        {activities.length === 0 && scheduledOnly.length === 0 && <p className="hint">{t('activityLog.none')}</p>}
-        {scheduledOnly.map((e) => {
-          const at = activityTypes.find((t2) => t2.type === e.type);
-          const kcal = at ? Math.round(at.kcal_per_hour * (e.duration_minutes / 60)) : null;
+        {activities.length === 0 && scheduledGroups.length === 0 && <p className="hint">{t('activityLog.none')}</p>}
+        {scheduledGroups.map((g) => {
+          const at = activityTypes.find((t2) => t2.type === g.type);
+          const kcal = at ? Math.round(at.kcal_per_hour * (g.duration_minutes / 60)) : null;
           return (
-            <div className="activites-row" key={`plan-${e.id}`} style={{ opacity: 0.55 }}>
+            <div
+              className="activites-row clickable"
+              key={`plan-${g.groupId}`}
+              style={{ opacity: 0.7 }}
+              onClick={() => setOpenPlanGroup(g)}
+            >
               <span className="activites-row-icon">
-                <Icon name={iconForType(e.type)} size={21} />
+                <Icon name={iconForType(g.type)} size={21} />
               </span>
               <div className="meal-card-body">
                 <div className="meal-card-title">
-                  {e.label || t(`activityType.${e.type}`)}
+                  {g.label || t(`activityType.${g.type}`)}
                   <Icon name="repeat" size={14} color="var(--acc)" style={{ marginLeft: 6, verticalAlign: -2 }} />
                 </div>
                 <div className="meal-card-kcal">
-                  {e.duration_minutes} min · {t('activityLog.scheduled')}
+                  {g.duration_minutes} min · {t('activityLog.scheduled')}
                 </div>
               </div>
               {kcal != null && <b className="activites-row-kcal">≈ {kcal} kcal</b>}
+              <Icon name="chevron-right" size={16} color="var(--text-muted)" />
             </div>
           );
         })}
@@ -295,6 +315,21 @@ export default function ActivitesScreen() {
           onClose={() => setShowAdd(false)}
           onAdded={() => {
             setShowAdd(false);
+            refresh();
+          }}
+        />
+      )}
+
+      {openPlanGroup && (
+        <PlanGroupModal
+          group={openPlanGroup}
+          onClose={() => setOpenPlanGroup(null)}
+          onSaved={() => {
+            setOpenPlanGroup(null);
+            refresh();
+          }}
+          onDeleted={() => {
+            setOpenPlanGroup(null);
             refresh();
           }}
         />
