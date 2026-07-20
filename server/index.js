@@ -230,6 +230,20 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// profile.meal_shares (set via Réglages > Repas du jour) overrides each meal's slice of the
+// daily kcal budget when present — falls back to the fixed 15/5/35/45% split otherwise.
+function mealSharesFor(profile) {
+  if (profile?.meal_shares) {
+    try {
+      const parsed = JSON.parse(profile.meal_shares);
+      if (MEALS.every((m) => typeof parsed[m.key] === 'number')) return parsed;
+    } catch {
+      // malformed JSON — fall through to the default split
+    }
+  }
+  return Object.fromEntries(MEALS.map((m) => [m.key, m.share]));
+}
+
 // profile.protein_pct/carbs_pct (set via the onboarding "Ajuster les macros" step or Réglages)
 // override the 30/35/35 default split when present; fat is always the remainder.
 function computeMacroTargets(targetIntake, profile) {
@@ -318,13 +332,16 @@ app.get('/api/profile', (req, res) => {
 const SEX_OPTIONS = ['male', 'female', 'other'];
 
 app.put('/api/profile', (req, res) => {
-  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct } = req.body;
+  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares } = req.body;
 
   if (goal !== undefined && !GOALS.includes(goal)) {
     return res.status(400).json({ error: 'goal invalide' });
   }
   if (sex !== undefined && sex !== null && !SEX_OPTIONS.includes(sex)) {
     return res.status(400).json({ error: 'sex invalide' });
+  }
+  if (meal_shares !== undefined && meal_shares !== null && !MEALS.every((m) => typeof meal_shares[m.key] === 'number')) {
+    return res.status(400).json({ error: 'meal_shares invalide' });
   }
 
   const current = getProfile(req.userId);
@@ -344,12 +361,13 @@ app.put('/api/profile', (req, res) => {
     steps_per_day: steps_per_day !== undefined ? steps_per_day : current.steps_per_day,
     protein_pct: protein_pct !== undefined ? protein_pct : current.protein_pct,
     carbs_pct: carbs_pct !== undefined ? carbs_pct : current.carbs_pct,
+    meal_shares: meal_shares !== undefined ? (meal_shares === null ? null : JSON.stringify(meal_shares)) : current.meal_shares,
   };
 
   db.prepare(
     `UPDATE profile SET bmr = ?, daily_movement_kcal = ?, digestion_kcal = ?, weight_kg = ?, goal = ?, goal_kcal = ?,
      sex = ?, birthdate = ?, height_cm = ?, body_fat_pct = ?, manual_target_kcal = ?, target_weight_kg = ?, steps_per_day = ?,
-     protein_pct = ?, carbs_pct = ?
+     protein_pct = ?, carbs_pct = ?, meal_shares = ?
      WHERE user_id = ?`
   ).run(
     next.bmr,
@@ -367,6 +385,7 @@ app.put('/api/profile', (req, res) => {
     next.steps_per_day,
     next.protein_pct,
     next.carbs_pct,
+    next.meal_shares,
     req.userId
   );
 
@@ -1694,6 +1713,7 @@ app.get('/api/dashboard', (req, res) => {
     microSources.caffeine = [...microSources.caffeine, ...drinkSources].sort((a, b) => b.value - a.value);
   }
 
+  const dashboardMealShares = mealSharesFor(summary.profile);
   const meals = MEALS.map((m) => {
     const mealLogs = logs.filter((l) => l.meal === m.key);
     const mealTotals = mealLogs.reduce(
@@ -1708,7 +1728,7 @@ app.get('/api/dashboard', (req, res) => {
     return {
       key: m.key,
       label: m.label,
-      budgetKcal: summary.targetIntake * m.share,
+      budgetKcal: summary.targetIntake * dashboardMealShares[m.key],
       consumedKcal: mealTotals.kcal,
       consumedProtein: mealTotals.protein,
       consumedCarbs: mealTotals.carbs,
@@ -1856,16 +1876,17 @@ app.get('/api/meals/:key', (req, res) => {
   );
 
   const dayMacroTargets = computeMacroTargets(summary.targetIntake, summary.profile);
+  const mealShare = mealSharesFor(summary.profile)[mealDef.key];
   const macroTargets = {
-    carbs: dayMacroTargets.carbs * mealDef.share,
-    protein: dayMacroTargets.protein * mealDef.share,
-    fat: dayMacroTargets.fat * mealDef.share,
+    carbs: dayMacroTargets.carbs * mealShare,
+    protein: dayMacroTargets.protein * mealShare,
+    fat: dayMacroTargets.fat * mealShare,
   };
 
   res.json({
     key: mealDef.key,
     label: mealDef.label,
-    budgetKcal: summary.targetIntake * mealDef.share,
+    budgetKcal: summary.targetIntake * mealShare,
     consumed,
     macroTargets,
     entries,
@@ -2543,14 +2564,15 @@ app.get('/api/meal-plan', (req, res) => {
   const planSummary = computeSummary(req.userId, todayStr());
   const targetIntake = planSummary.targetIntake;
   const dayMacroTargets = computeMacroTargets(targetIntake, planSummary.profile);
+  const planMealShares = mealSharesFor(planSummary.profile);
   const meals = MEALS.map((m) => ({
     key: m.key,
     label: m.label,
-    budgetKcal: targetIntake * m.share,
+    budgetKcal: targetIntake * planMealShares[m.key],
     macroTargets: {
-      carbs: dayMacroTargets.carbs * m.share,
-      protein: dayMacroTargets.protein * m.share,
-      fat: dayMacroTargets.fat * m.share,
+      carbs: dayMacroTargets.carbs * planMealShares[m.key],
+      protein: dayMacroTargets.protein * planMealShares[m.key],
+      fat: dayMacroTargets.fat * planMealShares[m.key],
     },
   }));
   res.json({ days: PLAN_DAYS, meals, entries: rows, targetIntake });
@@ -2730,19 +2752,21 @@ app.post('/api/meal-plan/generate', async (req, res) => {
   }
 
   try {
-    const targetIntake = Number(targetIntakeOverride) || computeSummary(req.userId, todayStr()).targetIntake;
+    const genSummary = computeSummary(req.userId, todayStr());
+    const targetIntake = Number(targetIntakeOverride) || genSummary.targetIntake;
     // Custom daily protein/carbs/fat (grams) override the automatic 30/35/35% split when provided.
-    const autoMacros = computeMacroTargets(targetIntake);
+    const autoMacros = computeMacroTargets(targetIntake, genSummary.profile);
     const dayMacroTargets = {
       protein: Number(proteinTarget) || autoMacros.protein,
       carbs: Number(carbsTarget) || autoMacros.carbs,
       fat: Number(fatTarget) || autoMacros.fat,
     };
-    const kcalTarget = targetIntake * mealDef.share;
+    const genMealShare = mealSharesFor(genSummary.profile)[mealDef.key];
+    const kcalTarget = targetIntake * genMealShare;
     const macroTargets = {
-      protein: dayMacroTargets.protein * mealDef.share,
-      carbs: dayMacroTargets.carbs * mealDef.share,
-      fat: dayMacroTargets.fat * mealDef.share,
+      protein: dayMacroTargets.protein * genMealShare,
+      carbs: dayMacroTargets.carbs * genMealShare,
+      fat: dayMacroTargets.fat * genMealShare,
     };
 
     if (mode === 'library' || mode === 'favorites') {

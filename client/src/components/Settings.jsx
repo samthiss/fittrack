@@ -6,6 +6,21 @@ import { useLanguage } from '../i18n/LanguageContext';
 const GOAL_KEYS = ['lose', 'maintain', 'gain'];
 const PACE_OPTIONS = [500, 750, 1000];
 const SEX_KEYS = ['male', 'female', 'other'];
+const MEAL_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
+const DEFAULT_MEAL_SHARES = { breakfast: 0.15, snack: 0.05, lunch: 0.35, dinner: 0.45 };
+const MEAL_ICONS = { breakfast: 'sunrise', lunch: 'utensils', dinner: 'moon', snack: 'apple' };
+
+function parseMealShares(profile) {
+  if (profile?.meal_shares) {
+    try {
+      const parsed = JSON.parse(profile.meal_shares);
+      if (typeof parsed?.breakfast === 'number') return parsed;
+    } catch {
+      // malformed — fall through to defaults
+    }
+  }
+  return DEFAULT_MEAL_SHARES;
+}
 
 function iconForActivity(type) {
   if (type === 'force') return 'dumbbell';
@@ -105,6 +120,35 @@ export default function Settings({
         daily_movement_kcal: Number(movement),
         digestion_kcal: Number(digestion),
       });
+      setScreen('home');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // --- Repas du jour screen state (per-meal kcal budget, stored as shares of targetIntake) ---
+  const [mealKcal, setMealKcal] = useState({ breakfast: 0, snack: 0, lunch: 0, dinner: 0 });
+
+  useEffect(() => {
+    if (profile && summary) {
+      const shares = parseMealShares(profile);
+      const target = summary.targetIntake || 0;
+      const next = {};
+      for (const key of MEAL_ORDER) next[key] = Math.round(target * (shares[key] ?? 0));
+      setMealKcal(next);
+    }
+  }, [profile, summary]);
+
+  const mealKcalTotal = MEAL_ORDER.reduce((s, k) => s + (Number(mealKcal[k]) || 0), 0);
+
+  async function handleSaveMeals() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const target = summary?.targetIntake || 0;
+      const shares = {};
+      for (const key of MEAL_ORDER) shares[key] = target > 0 ? (Number(mealKcal[key]) || 0) / target : DEFAULT_MEAL_SHARES[key];
+      await onSaveProfile({ meal_shares: shares });
       setScreen('home');
     } finally {
       setSaving(false);
@@ -311,6 +355,81 @@ export default function Settings({
     );
   }
 
+  // --- Repas du jour screen (per-meal kcal budget) ---
+  if (screen === 'meals') {
+    const target = summary?.targetIntake || 0;
+    const onTarget = target > 0 && Math.abs(mealKcalTotal - target) <= 25;
+    return (
+      <div>
+        <SubHeader title={t('settings.meals')} onBack={() => setScreen('home')} t={t} />
+        <p className="hint" style={{ marginTop: -4 }}>{t('settings.mealsHint')}</p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {MEAL_ORDER.map((key) => {
+            const pct = target > 0 ? (mealKcal[key] / target) * 100 : 0;
+            return (
+              <div key={key}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14.5, fontWeight: 600 }}>
+                    <Icon name={MEAL_ICONS[key]} size={17} color="var(--acc)" />
+                    {t(`mealName.${key}`)}
+                  </span>
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{Math.round(pct)}%</span>
+                </div>
+                <div className="search-input-row" style={{ marginTop: 0 }}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="10"
+                    className="search-input"
+                    value={mealKcal[key]}
+                    onChange={(e) => setMealKcal((v) => ({ ...v, [key]: e.target.value }))}
+                  />
+                  <span className="unit">kcal</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'var(--surface-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 18,
+            padding: '16px 18px',
+            marginTop: 20,
+          }}
+        >
+          <div>
+            <div className="hint" style={{ margin: 0 }}>{t('settings.totalMeals')}</div>
+            <div className="weight-value" style={{ fontSize: 22 }}>
+              {mealKcalTotal} <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>/ {Math.round(target)} kcal</span>
+            </div>
+          </div>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: onTarget ? 'var(--success)' : 'var(--warning)' }}>
+            <Icon name="circle-check" size={16} />
+            {target > 0 ? Math.round((mealKcalTotal / target) * 100) : 0}%
+          </span>
+        </div>
+
+        <button
+          type="button"
+          className="meal-add-cta"
+          style={{ marginTop: 20, marginBottom: 20 }}
+          onClick={handleSaveMeals}
+          disabled={saving}
+        >
+          <Icon name="check" size={20} />
+          {saving ? t('addFood.saving') : t('meal.save')}
+        </button>
+      </div>
+    );
+  }
+
   // --- Goal edit screen ---
   if (screen === 'goal') {
     return (
@@ -506,6 +625,13 @@ export default function Settings({
             <Icon name="flame" size={19} />
           </span>
           <span className="settings-list-label">{t('settings.metabolism')}</span>
+          <Icon name="chevron-right" size={18} color="var(--text-muted)" />
+        </button>
+        <button type="button" className="settings-list-row" onClick={() => setScreen('meals')}>
+          <span className="settings-list-icon">
+            <Icon name="utensils" size={19} />
+          </span>
+          <span className="settings-list-label">{t('settings.meals')}</span>
           <Icon name="chevron-right" size={18} color="var(--text-muted)" />
         </button>
       </div>

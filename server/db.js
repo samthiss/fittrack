@@ -549,6 +549,13 @@ if (!profileCols2.includes('protein_pct')) {
 if (!profileCols2.includes('carbs_pct')) {
   db.exec(`ALTER TABLE profile ADD COLUMN carbs_pct REAL`);
 }
+// NULL means "use the default 15/5/35/45% breakfast/snack/lunch/dinner split" (see
+// mealSharesFor in index.js) — JSON object {breakfast,snack,lunch,dinner} of 0-1 shares, set via
+// Réglages > Repas du jour to override each meal's kcal budget everywhere (dashboard, meal
+// detail, meal plan) instead of the fixed split.
+if (!profileCols2.includes('meal_shares')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN meal_shares TEXT`);
+}
 
 // Seed one history row from the current profile if none exists yet, so profileAsOf() in
 // index.js always has a fallback for dates before this feature started tracking changes.
