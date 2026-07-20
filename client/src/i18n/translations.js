@@ -163,6 +163,8 @@ export const translations = {
     'activityLog.recurringDays': 'Jours récurrents',
     'activityLog.workoutName': 'Nom (optionnel)',
     'activityLog.workoutNamePlaceholder': 'ex. Pecs & Triceps',
+    'activityLog.editName': 'Modifier le nom',
+    'activityLog.save': 'Enregistrer',
     'activityLog.estimatedBurn': 'Dépense estimée',
     'activityLog.addToJournal': 'Ajouter au journal',
 
@@ -714,6 +716,8 @@ export const translations = {
     'activityLog.recurringDays': 'Recurring days',
     'activityLog.workoutName': 'Name (optional)',
     'activityLog.workoutNamePlaceholder': 'e.g. Chest & Triceps',
+    'activityLog.editName': 'Edit name',
+    'activityLog.save': 'Save',
     'activityLog.estimatedBurn': 'Estimated burn',
     'activityLog.addToJournal': 'Add to journal',
 

@@ -169,6 +169,7 @@ export default function ActivitesScreen() {
           setOpenActivity(null);
           refresh();
         }}
+        onUpdated={refresh}
       />
     );
   }
@@ -228,9 +229,9 @@ export default function ActivitesScreen() {
         {activities.length === 0 && <p className="hint">{t('activityLog.none')}</p>}
         {activities.map((a) => (
           <div
-            className={a.type === 'force' ? 'activites-row clickable' : 'activites-row'}
+            className="activites-row clickable"
             key={a.id}
-            onClick={() => a.type === 'force' && setOpenActivity(a)}
+            onClick={() => setOpenActivity(a)}
           >
             <span className="activites-row-icon">
               <Icon name={iconForType(a.type)} size={21} />
@@ -245,7 +246,7 @@ export default function ActivitesScreen() {
               <div className="meal-card-kcal">{a.duration_minutes} min</div>
             </div>
             <b className="activites-row-kcal">{Math.round(a.kcal)} kcal</b>
-            {a.type === 'force' && <Icon name="chevron-right" size={16} color="var(--text-muted)" />}
+            <Icon name="chevron-right" size={16} color="var(--text-muted)" />
             <button
               type="button"
               className="activites-row-delete"

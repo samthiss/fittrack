@@ -42,6 +42,7 @@ export const api = {
   addActivity: (data) =>
     request('/activities', { method: 'POST', body: JSON.stringify(data) }),
   deleteActivity: (id) => request(`/activities/${id}`, { method: 'DELETE' }),
+  updateActivity: (id, data) => request(`/activities/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   getActivityExercises: (activityId) => request(`/activities/${activityId}/exercises`),
   addActivityExercise: (activityId, data) =>
     request(`/activities/${activityId}/exercises`, { method: 'POST', body: JSON.stringify(data) }),

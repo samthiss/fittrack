@@ -7,11 +7,14 @@ const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const WEEKDAY_LABEL = { mon: 'L', tue: 'M', wed: 'M', thu: 'J', fri: 'V', sat: 'S', sun: 'D' };
 const WEEKDAY_LABEL_EN = { mon: 'M', tue: 'T', wed: 'W', thu: 'T', fri: 'F', sat: 'S', sun: 'S' };
 
-export default function ActivityDetail({ activity, recurringDays = [], onBack, onStart, onDeleted }) {
+export default function ActivityDetail({ activity, recurringDays = [], onBack, onStart, onDeleted, onUpdated }) {
   const { t, lang } = useLanguage();
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [label, setLabel] = useState(activity.label || '');
+  const [showEditLabel, setShowEditLabel] = useState(false);
+  const [labelSaving, setLabelSaving] = useState(false);
   const [name, setName] = useState('');
   const [sets, setSets] = useState(4);
   const [reps, setReps] = useState(10);
@@ -61,6 +64,21 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
     onDeleted();
   }
 
+  async function handleSaveLabel() {
+    if (labelSaving) return;
+    setLabelSaving(true);
+    try {
+      const trimmed = label.trim();
+      await api.updateActivity(activity.id, { label: trimmed });
+      activity.label = trimmed || null;
+      setLabel(trimmed);
+      setShowEditLabel(false);
+      onUpdated?.();
+    } finally {
+      setLabelSaving(false);
+    }
+  }
+
   return (
     <div>
       <div className="activity-detail-hero">
@@ -84,8 +102,18 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
 
       <div style={{ padding: '18px 0 0' }}>
         <div className="day-nav-subtitle">{activity.duration_minutes} min</div>
-        <h1 style={{ lineHeight: 1.15, marginTop: 2 }}>{activity.label || t(`activityType.${activity.type}`)}</h1>
-        {activity.label && <p className="hint" style={{ marginTop: 2 }}>{t(`activityType.${activity.type}`)}</p>}
+        <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+          <h1 style={{ lineHeight: 1.15, marginTop: 2 }}>{label || t(`activityType.${activity.type}`)}</h1>
+          <button
+            type="button"
+            className="entry-icon-btn"
+            onClick={() => setShowEditLabel(true)}
+            aria-label={t('activityLog.editName')}
+          >
+            <Icon name="pencil" size={16} />
+          </button>
+        </div>
+        {label && <p className="hint" style={{ marginTop: 2 }}>{t(`activityType.${activity.type}`)}</p>}
       </div>
 
       {recurringDays.length > 0 && (
@@ -164,6 +192,32 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
           </button>
         )}
       </div>
+
+      {showEditLabel && (
+        <div className="modal-overlay" onClick={() => setShowEditLabel(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>{t('activityLog.editName')}</h2>
+            <div className="row">
+              <label>{t('activityLog.workoutName')}</label>
+              <div className="field">
+                <input
+                  type="text"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder={t('activityLog.workoutNamePlaceholder')}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <button type="button" className="btn btn-block" onClick={handleSaveLabel} disabled={labelSaving}>
+              {labelSaving ? t('activityLog.saving') : t('activityLog.save')}
+            </button>
+          </div>
+          <button type="button" className="done-btn" onClick={() => setShowEditLabel(false)}>
+            {t('activityLog.close')}
+          </button>
+        </div>
+      )}
 
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>

@@ -386,6 +386,21 @@ app.post('/api/activities', (req, res) => {
   res.status(201).json(log);
 });
 
+app.put('/api/activities/:id', (req, res) => {
+  const log = db.prepare('SELECT * FROM activity_logs WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
+  if (!log) return res.status(404).json({ error: 'introuvable' });
+  const finalLabel = req.body.label && req.body.label.trim() ? req.body.label.trim() : null;
+  db.prepare('UPDATE activity_logs SET label = ? WHERE id = ? AND user_id = ?').run(finalLabel, req.params.id, req.userId);
+  // Keep the recurring template's name in sync so future auto-logged occurrences inherit it too.
+  db.prepare('UPDATE activity_plan SET label = ? WHERE user_id = ? AND type = ? AND duration_minutes = ?').run(
+    finalLabel,
+    req.userId,
+    log.type,
+    log.duration_minutes
+  );
+  res.json(db.prepare('SELECT * FROM activity_logs WHERE id = ? AND user_id = ?').get(req.params.id, req.userId));
+});
+
 app.delete('/api/activities/:id', (req, res) => {
   db.prepare('DELETE FROM activity_exercises WHERE activity_log_id = ? AND user_id = ?').run(req.params.id, req.userId);
   db.prepare('DELETE FROM activity_logs WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
