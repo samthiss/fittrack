@@ -445,6 +445,35 @@ function addColumnIfMissing(table, columnName, columnDef) {
 }
 addColumnIfMissing('activity_logs', 'label', 'label TEXT');
 addColumnIfMissing('activity_plan', 'label', 'label TEXT');
+// Ties together the set of day-rows created by one "recurring" submission, so viewing an
+// activity's recurring days shows only the group it actually belongs to — matching by
+// type+duration alone was wrong, since unrelated recurring plans can share the same type/duration.
+addColumnIfMissing('activity_plan', 'group_id', 'group_id TEXT');
+addColumnIfMissing('activity_logs', 'plan_group_id', 'plan_group_id TEXT');
+
+// Backfill: rows created before group_id existed have none yet. Group them the same way the
+// old (buggy) matching used to — by user+type+duration+label — so existing recurring plans keep
+// working, and each distinct combination becomes its own stable group going forward instead of
+// silently merging with unrelated plans that happen to share a type/duration.
+{
+  const legacyPlanRows = db.prepare('SELECT * FROM activity_plan WHERE group_id IS NULL').all();
+  if (legacyPlanRows.length > 0) {
+    const groupIds = new Map();
+    const updatePlanGroup = db.prepare('UPDATE activity_plan SET group_id = ? WHERE id = ?');
+    for (const row of legacyPlanRows) {
+      const key = `${row.user_id}|${row.type}|${row.duration_minutes}|${row.label || ''}`;
+      if (!groupIds.has(key)) groupIds.set(key, crypto.randomUUID());
+      updatePlanGroup.run(groupIds.get(key), row.id);
+    }
+    const updateLogGroup = db.prepare('UPDATE activity_logs SET plan_group_id = ? WHERE id = ?');
+    const legacyLogs = db.prepare('SELECT * FROM activity_logs WHERE plan_group_id IS NULL').all();
+    for (const log of legacyLogs) {
+      const key = `${log.user_id}|${log.type}|${log.duration_minutes}|${log.label || ''}`;
+      const gid = groupIds.get(key);
+      if (gid) updateLogGroup.run(gid, log.id);
+    }
+  }
+}
 
 // profile: was a single CHECK(id=1) row — rebuild to one row per user, keyed by user_id.
 const profileCols = db.prepare('PRAGMA table_info(profile)').all().map((c) => c.name);

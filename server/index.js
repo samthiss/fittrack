@@ -364,7 +364,7 @@ app.get('/api/activities', (req, res) => {
 });
 
 app.post('/api/activities', (req, res) => {
-  const { date, type, duration_minutes, kcal, label } = req.body;
+  const { date, type, duration_minutes, kcal, label, recurringGroupId } = req.body;
   if (!type || !duration_minutes) {
     return res.status(400).json({ error: 'type et duration_minutes requis' });
   }
@@ -378,26 +378,69 @@ app.post('/api/activities', (req, res) => {
 
   const result = db
     .prepare(
-      `INSERT INTO activity_logs (user_id, date, type, duration_minutes, kcal, label) VALUES (?, ?, ?, ?, ?, ?)`
+      `INSERT INTO activity_logs (user_id, date, type, duration_minutes, kcal, label, plan_group_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(req.userId, finalDate, type, Number(duration_minutes), finalKcal, finalLabel);
+    .run(req.userId, finalDate, type, Number(duration_minutes), finalKcal, finalLabel, recurringGroupId || null);
 
   const log = db.prepare('SELECT * FROM activity_logs WHERE id = ? AND user_id = ?').get(result.lastInsertRowid, req.userId);
   res.status(201).json(log);
 });
 
+const markPlanAppliedToday = db.prepare(
+  'INSERT OR IGNORE INTO activity_plan_applied (user_id, date, activity_plan_id) VALUES (?, ?, ?)'
+);
+
 app.put('/api/activities/:id', (req, res) => {
   const log = db.prepare('SELECT * FROM activity_logs WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   if (!log) return res.status(404).json({ error: 'introuvable' });
+
   const finalLabel = req.body.label && req.body.label.trim() ? req.body.label.trim() : null;
-  db.prepare('UPDATE activity_logs SET label = ? WHERE id = ? AND user_id = ?').run(finalLabel, req.params.id, req.userId);
-  // Keep the recurring template's name in sync so future auto-logged occurrences inherit it too.
-  db.prepare('UPDATE activity_plan SET label = ? WHERE user_id = ? AND type = ? AND duration_minutes = ?').run(
+  const finalDuration = req.body.duration_minutes != null ? Number(req.body.duration_minutes) : log.duration_minutes;
+  const finalKcal = req.body.kcal != null ? Number(req.body.kcal) : log.kcal;
+
+  db.prepare('UPDATE activity_logs SET label = ?, duration_minutes = ?, kcal = ? WHERE id = ? AND user_id = ?').run(
     finalLabel,
-    req.userId,
-    log.type,
-    log.duration_minutes
+    finalDuration,
+    finalKcal,
+    req.params.id,
+    req.userId
   );
+
+  if (Array.isArray(req.body.recurringDays)) {
+    const recurringDays = req.body.recurringDays.filter((d) => PLAN_DAYS.some((p) => p.key === d));
+    let groupId = log.plan_group_id;
+
+    if (groupId) {
+      db.prepare('DELETE FROM activity_plan WHERE user_id = ? AND group_id = ?').run(req.userId, groupId);
+    }
+
+    if (recurringDays.length === 0) {
+      groupId = null;
+    } else {
+      groupId = groupId || crypto.randomUUID();
+      const insert = db.prepare(
+        'INSERT INTO activity_plan (user_id, day, type, duration_minutes, label, group_id) VALUES (?, ?, ?, ?, ?, ?)'
+      );
+      const today = todayStr();
+      const todayPlanDay = WEEKDAY_TO_PLAN_DAY[new Date(`${today}T00:00:00Z`).getUTCDay()];
+      for (const day of recurringDays) {
+        const result = insert.run(req.userId, day, log.type, finalDuration, finalLabel, groupId);
+        if (day === todayPlanDay) markPlanAppliedToday.run(req.userId, today, result.lastInsertRowid);
+      }
+    }
+
+    db.prepare('UPDATE activity_logs SET plan_group_id = ? WHERE id = ? AND user_id = ?').run(groupId, req.params.id, req.userId);
+  } else if (log.plan_group_id) {
+    // Recurrence itself wasn't touched — just keep the existing group's rows (label/duration)
+    // in sync so future auto-logged occurrences reflect the edit too.
+    db.prepare('UPDATE activity_plan SET label = ?, duration_minutes = ? WHERE user_id = ? AND group_id = ?').run(
+      finalLabel,
+      finalDuration,
+      req.userId,
+      log.plan_group_id
+    );
+  }
+
   res.json(db.prepare('SELECT * FROM activity_logs WHERE id = ? AND user_id = ?').get(req.params.id, req.userId));
 });
 
@@ -462,7 +505,7 @@ app.get('/api/activity-plan', (req, res) => {
 });
 
 app.post('/api/activity-plan', (req, res) => {
-  const { days, type, duration_minutes, label } = req.body;
+  const { days, type, duration_minutes, label, groupId } = req.body;
   if (!Array.isArray(days) || days.length === 0 || !type || !duration_minutes) {
     return res.status(400).json({ error: 'days, type et duration_minutes requis' });
   }
@@ -470,9 +513,10 @@ app.post('/api/activity-plan', (req, res) => {
     return res.status(400).json({ error: 'jour invalide' });
   }
   const finalLabel = label && label.trim() ? label.trim() : null;
-  const insert = db.prepare('INSERT INTO activity_plan (user_id, day, type, duration_minutes, label) VALUES (?, ?, ?, ?, ?)');
+  const finalGroupId = groupId || crypto.randomUUID();
+  const insert = db.prepare('INSERT INTO activity_plan (user_id, day, type, duration_minutes, label, group_id) VALUES (?, ?, ?, ?, ?, ?)');
   const rows = days.map((d) => {
-    const result = insert.run(req.userId, d, type, Number(duration_minutes), finalLabel);
+    const result = insert.run(req.userId, d, type, Number(duration_minutes), finalLabel, finalGroupId);
     return db.prepare('SELECT * FROM activity_plan WHERE id = ?').get(result.lastInsertRowid);
   });
 
@@ -520,8 +564,8 @@ app.post('/api/activity-plan/apply-to-log', (req, res) => {
     if (appliedIds.has(entry.id)) continue;
     const kcal = kcalPerHourFor(req.userId, entry.type) * (entry.duration_minutes / 60);
     const result = db
-      .prepare('INSERT INTO activity_logs (user_id, date, type, duration_minutes, kcal, label) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(req.userId, date, entry.type, entry.duration_minutes, kcal, entry.label ?? null);
+      .prepare('INSERT INTO activity_logs (user_id, date, type, duration_minutes, kcal, label, plan_group_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(req.userId, date, entry.type, entry.duration_minutes, kcal, entry.label ?? null, entry.group_id ?? null);
     added.push(db.prepare('SELECT * FROM activity_logs WHERE id = ?').get(result.lastInsertRowid));
   }
   res.json({ date, planDay, added });

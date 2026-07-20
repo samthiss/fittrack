@@ -50,7 +50,6 @@ export default function ActivitesScreen() {
   const [activityTypes, setActivityTypes] = useState([]);
   const [activities, setActivities] = useState([]);
   const [weekPresence, setWeekPresence] = useState({});
-  const [recurringKeys, setRecurringKeys] = useState(new Set());
   const [planEntries, setPlanEntries] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [openActivity, setOpenActivity] = useState(null);
@@ -70,14 +69,6 @@ export default function ActivitesScreen() {
     setActivityTypes(types);
     setActivities(logs);
     setPlanEntries(plan.entries);
-    const dayKey = isoDayKey(date);
-    setRecurringKeys(
-      new Set(
-        plan.entries
-          .filter((e) => e.day === dayKey)
-          .map((e) => `${e.type}-${e.duration_minutes}`)
-      )
-    );
   }, [date]);
 
   useEffect(() => {
@@ -106,6 +97,14 @@ export default function ActivitesScreen() {
 
   const totalKcal = activities.reduce((s, a) => s + a.kcal, 0);
   const totalMin = activities.reduce((s, a) => s + a.duration_minutes, 0);
+
+  // A recurring plan entry only becomes a real activity_logs row once its day is actually
+  // "today" (see refresh()). For any other date (future, or a past day the user never opened
+  // the app on), show it here as a read-only preview so the recurrence is still visible.
+  const loggedGroupIds = new Set(activities.filter((a) => a.plan_group_id).map((a) => a.plan_group_id));
+  const scheduledOnly = planEntries.filter(
+    (e) => e.day === isoDayKey(date) && !loggedGroupIds.has(e.group_id)
+  );
 
   async function handleDelete(id) {
     await api.deleteActivity(id);
@@ -153,9 +152,9 @@ export default function ActivitesScreen() {
   }
 
   if (openActivity) {
-    const recurringDays = planEntries
-      .filter((e) => e.type === openActivity.type && e.duration_minutes === openActivity.duration_minutes)
-      .map((e) => e.day);
+    const recurringDays = openActivity.plan_group_id
+      ? planEntries.filter((e) => e.group_id === openActivity.plan_group_id).map((e) => e.day)
+      : [];
     return (
       <ActivityDetail
         activity={openActivity}
@@ -226,7 +225,28 @@ export default function ActivitesScreen() {
 
       <h2>{t('activityLog.today')}</h2>
       <div className="meal-card-list">
-        {activities.length === 0 && <p className="hint">{t('activityLog.none')}</p>}
+        {activities.length === 0 && scheduledOnly.length === 0 && <p className="hint">{t('activityLog.none')}</p>}
+        {scheduledOnly.map((e) => {
+          const at = activityTypes.find((t2) => t2.type === e.type);
+          const kcal = at ? Math.round(at.kcal_per_hour * (e.duration_minutes / 60)) : null;
+          return (
+            <div className="activites-row" key={`plan-${e.id}`} style={{ opacity: 0.55 }}>
+              <span className="activites-row-icon">
+                <Icon name={iconForType(e.type)} size={21} />
+              </span>
+              <div className="meal-card-body">
+                <div className="meal-card-title">
+                  {e.label || t(`activityType.${e.type}`)}
+                  <Icon name="repeat" size={14} color="var(--acc)" style={{ marginLeft: 6, verticalAlign: -2 }} />
+                </div>
+                <div className="meal-card-kcal">
+                  {e.duration_minutes} min · {t('activityLog.scheduled')}
+                </div>
+              </div>
+              {kcal != null && <b className="activites-row-kcal">≈ {kcal} kcal</b>}
+            </div>
+          );
+        })}
         {activities.map((a) => (
           <div
             className="activites-row clickable"
@@ -239,7 +259,7 @@ export default function ActivitesScreen() {
             <div className="meal-card-body">
               <div className="meal-card-title">
                 {a.label || (activityTypes.some((at) => at.type === a.type) ? t(`activityType.${a.type}`) : a.type)}
-                {recurringKeys.has(`${a.type}-${a.duration_minutes}`) && (
+                {a.plan_group_id && (
                   <Icon name="repeat" size={14} color="var(--acc)" style={{ marginLeft: 6, verticalAlign: -2 }} />
                 )}
               </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -42,6 +42,15 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     });
   }, [activityTypes, kind, search, t]);
 
+  // "Force" only ever has a single option ("Entraînement de force"), so requiring a tap on it
+  // before the sole button unlocks is easy to miss — auto-select whenever a filter narrows to
+  // exactly one match instead of leaving the submit button silently disabled.
+  useEffect(() => {
+    if (filtered.length === 1 && selectedType !== filtered[0].type) {
+      setSelectedType(filtered[0].type);
+    }
+  }, [filtered]);
+
   const selected = activityTypes.find((at) => at.type === selectedType);
   const estimatedKcal = selected ? Math.round(selected.kcal_per_hour * (duration / 60) * INTENSITY_FACTOR[intensity]) : null;
 
@@ -59,9 +68,17 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     setSaving(true);
     try {
       const finalLabel = label.trim() || undefined;
-      await api.addActivity({ date, type: selectedType, duration_minutes: duration, kcal: estimatedKcal, label: finalLabel });
-      if (recurring && days.size > 0) {
-        await api.addActivityPlan({ days: [...days], type: selectedType, duration_minutes: duration, label: finalLabel });
+      const groupId = recurring && days.size > 0 ? crypto.randomUUID() : undefined;
+      await api.addActivity({
+        date,
+        type: selectedType,
+        duration_minutes: duration,
+        kcal: estimatedKcal,
+        label: finalLabel,
+        recurringGroupId: groupId,
+      });
+      if (groupId) {
+        await api.addActivityPlan({ days: [...days], type: selectedType, duration_minutes: duration, label: finalLabel, groupId });
       }
       onAdded();
     } finally {
@@ -201,6 +218,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
         )}
 
       </div>
+      {!selectedType && <p className="hint" style={{ textAlign: 'center', margin: '0 16px 8px' }}>{t('activityLog.pickTypeHint')}</p>}
       <button
         type="button"
         className="done-btn done-btn-primary"

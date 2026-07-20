@@ -13,8 +13,12 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [label, setLabel] = useState(activity.label || '');
-  const [showEditLabel, setShowEditLabel] = useState(false);
-  const [labelSaving, setLabelSaving] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editDuration, setEditDuration] = useState(activity.duration_minutes);
+  const [editKcal, setEditKcal] = useState(Math.round(activity.kcal));
+  const [editRecurring, setEditRecurring] = useState(recurringDays.length > 0);
+  const [editDays, setEditDays] = useState(new Set(recurringDays));
+  const [editSaving, setEditSaving] = useState(false);
   const [name, setName] = useState('');
   const [sets, setSets] = useState(4);
   const [reps, setReps] = useState(10);
@@ -64,18 +68,38 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
     onDeleted();
   }
 
-  async function handleSaveLabel() {
-    if (labelSaving) return;
-    setLabelSaving(true);
+  function toggleEditDay(key) {
+    setEditDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  async function handleSaveEdit() {
+    if (editSaving) return;
+    setEditSaving(true);
     try {
       const trimmed = label.trim();
-      await api.updateActivity(activity.id, { label: trimmed });
+      const finalDuration = Number(editDuration) || activity.duration_minutes;
+      const finalKcal = Number(editKcal) || activity.kcal;
+      const recurringDaysPayload = editRecurring ? [...editDays] : [];
+      const updated = await api.updateActivity(activity.id, {
+        label: trimmed,
+        duration_minutes: finalDuration,
+        kcal: finalKcal,
+        recurringDays: recurringDaysPayload,
+      });
       activity.label = trimmed || null;
+      activity.duration_minutes = updated.duration_minutes;
+      activity.kcal = updated.kcal;
+      activity.plan_group_id = updated.plan_group_id;
       setLabel(trimmed);
-      setShowEditLabel(false);
+      setShowEdit(false);
       onUpdated?.();
     } finally {
-      setLabelSaving(false);
+      setEditSaving(false);
     }
   }
 
@@ -107,7 +131,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
           <button
             type="button"
             className="entry-icon-btn"
-            onClick={() => setShowEditLabel(true)}
+            onClick={() => setShowEdit(true)}
             aria-label={t('activityLog.editName')}
           >
             <Icon name="pencil" size={16} />
@@ -193,28 +217,87 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
         )}
       </div>
 
-      {showEditLabel && (
-        <div className="modal-overlay" onClick={() => setShowEditLabel(false)}>
+      {showEdit && (
+        <div className="modal-overlay" onClick={() => setShowEdit(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{t('activityLog.editName')}</h2>
-            <div className="row">
-              <label>{t('activityLog.workoutName')}</label>
-              <div className="field">
-                <input
-                  type="text"
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  placeholder={t('activityLog.workoutNamePlaceholder')}
-                  autoFocus
-                />
+            <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+              <button type="button" className="meal-detail-back-btn" onClick={() => setShowEdit(false)} aria-label={t('meal.close')}>
+                <Icon name="x" size={20} />
+              </button>
+              <div className="meal-detail-heading">
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('activityLog.editName')}</div>
               </div>
             </div>
-            <button type="button" className="btn btn-block" onClick={handleSaveLabel} disabled={labelSaving}>
-              {labelSaving ? t('activityLog.saving') : t('activityLog.save')}
-            </button>
+
+            <h4 className="section-label">{t('activityLog.workoutName')}</h4>
+            <div className="search-input-row">
+              <Icon name="pencil" size={18} color="var(--text-muted)" />
+              <input
+                type="text"
+                className="search-input"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder={t('activityLog.workoutNamePlaceholder')}
+                autoFocus
+              />
+            </div>
+
+            <h4 className="section-label">{t('activityLog.duration')}</h4>
+            <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
+              <button type="button" className="weight-minus-btn" onClick={() => setEditDuration((d) => Math.max(5, Number(d) - 5))}>
+                <Icon name="minus" size={18} />
+              </button>
+              <div style={{ textAlign: 'center', minWidth: 70 }}>
+                <span className="weight-value">{editDuration}</span> <span className="rate">min</span>
+              </div>
+              <button type="button" className="weight-plus-btn" onClick={() => setEditDuration((d) => Number(d) + 5)}>
+                <Icon name="plus" size={18} />
+              </button>
+            </div>
+
+            <h4 className="section-label">{t('activityLog.kcalBurned')}</h4>
+            <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
+              <button type="button" className="weight-minus-btn" onClick={() => setEditKcal((k) => Math.max(0, Number(k) - 10))}>
+                <Icon name="minus" size={18} />
+              </button>
+              <div style={{ textAlign: 'center', minWidth: 70 }}>
+                <span className="weight-value">{editKcal}</span> <span className="rate">kcal</span>
+              </div>
+              <button type="button" className="weight-plus-btn" onClick={() => setEditKcal((k) => Number(k) + 10)}>
+                <Icon name="plus" size={18} />
+              </button>
+            </div>
+
+            <h4 className="section-label">{t('activityLog.recurrence')}</h4>
+            <label className="recurring-toggle-row">
+              <input type="checkbox" checked={editRecurring} onChange={(e) => setEditRecurring(e.target.checked)} />
+              <span>{t('activityLog.recurringActivity')}</span>
+            </label>
+            {editRecurring && (
+              <div className="day-chip-row" style={{ marginTop: 10 }}>
+                {DAY_ORDER.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={editDays.has(key) ? 'day-chip active' : 'day-chip'}
+                    onClick={() => toggleEditDay(key)}
+                  >
+                    {(lang === 'en' ? WEEKDAY_LABEL_EN : WEEKDAY_LABEL)[key]}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <button type="button" className="done-btn" onClick={() => setShowEditLabel(false)}>
-            {t('activityLog.close')}
+          <button
+            type="button"
+            className="done-btn done-btn-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSaveEdit();
+            }}
+            disabled={editSaving}
+          >
+            {editSaving ? t('activityLog.saving') : t('activityLog.save')}
           </button>
         </div>
       )}

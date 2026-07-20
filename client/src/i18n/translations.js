@@ -165,6 +165,8 @@ export const translations = {
     'activityLog.workoutNamePlaceholder': 'ex. Pecs & Triceps',
     'activityLog.editName': 'Modifier le nom',
     'activityLog.save': 'Enregistrer',
+    'activityLog.pickTypeHint': 'Choisissez un type d’activité ci-dessus pour continuer',
+    'activityLog.scheduled': 'Prévu',
     'activityLog.estimatedBurn': 'Dépense estimée',
     'activityLog.addToJournal': 'Ajouter au journal',
 
@@ -718,6 +720,8 @@ export const translations = {
     'activityLog.workoutNamePlaceholder': 'e.g. Chest & Triceps',
     'activityLog.editName': 'Edit name',
     'activityLog.save': 'Save',
+    'activityLog.pickTypeHint': 'Pick an activity type above to continue',
+    'activityLog.scheduled': 'Scheduled',
     'activityLog.estimatedBurn': 'Estimated burn',
     'activityLog.addToJournal': 'Add to journal',
 
