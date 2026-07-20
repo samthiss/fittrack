@@ -1,127 +1,59 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../api';
 import { useLanguage } from '../i18n/LanguageContext';
+import Icon from './Icon';
 
-function PlanEntryPicker({ recipes, foods, onPick, onGenerate, onClose, generating }) {
-  const { t } = useLanguage();
-  const [search, setSearch] = useState('');
-  const [quantities, setQuantities] = useState({});
+const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const MEAL_DISPLAY_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
+const MEAL_ICONS = { breakfast: 'sunrise', lunch: 'utensils', dinner: 'moon', snack: 'apple' };
 
-  // Kept as two separate lists (not one merged/capped list) so a handful of simple foods
-  // (e.g. "just a yogurt" for a snack) are never crowded out by a large recipe library.
-  const foodItems = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    const all = foods.map((f) => ({ type: 'food', id: f.id, label: f.name }));
-    const filtered = term ? all.filter((i) => i.label.toLowerCase().includes(term)) : all;
-    return filtered.slice(0, 30);
-  }, [search, foods]);
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
 
-  const recipeItems = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    const all = recipes.map((r) => ({ type: 'recipe', id: r.id, label: r.title }));
-    const filtered = term ? all.filter((i) => i.label.toLowerCase().includes(term)) : all;
-    return filtered.slice(0, 30);
-  }, [search, recipes]);
+function mondayOfWeek(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const jsDay = d.getUTCDay();
+  const diff = (jsDay + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - diff);
+  return d.toISOString().slice(0, 10);
+}
 
-  function qtyFor(item) {
-    return quantities[`${item.type}-${item.id}`] ?? (item.type === 'food' ? '100' : '1');
+function shiftDateStr(dateStr, delta) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+function dayNum(dateStr) {
+  return new Date(`${dateStr}T00:00:00Z`).getUTCDate();
+}
+
+function localeFor(lang) {
+  return lang === 'fr' ? 'fr-FR' : 'en-US';
+}
+
+function formatWeekRange(weekStart, lang) {
+  const end = shiftDateStr(weekStart, 6);
+  const startD = new Date(`${weekStart}T00:00:00Z`);
+  const endD = new Date(`${end}T00:00:00Z`);
+  const monthFmt = new Intl.DateTimeFormat(localeFor(lang), { month: 'long', timeZone: 'UTC' });
+  if (startD.getUTCMonth() === endD.getUTCMonth()) {
+    return `${startD.getUTCDate()} – ${endD.getUTCDate()} ${monthFmt.format(endD)}`;
   }
+  const shortFmt = new Intl.DateTimeFormat(localeFor(lang), { month: 'short', timeZone: 'UTC' });
+  return `${startD.getUTCDate()} ${shortFmt.format(startD)} – ${endD.getUTCDate()} ${shortFmt.format(endD)}`;
+}
 
-  function setQtyFor(item, value) {
-    setQuantities({ ...quantities, [`${item.type}-${item.id}`]: value });
-  }
+function formatDayLong(dateStr, lang) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const fmt = new Intl.DateTimeFormat(localeFor(lang), { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return fmt.format(d);
+}
 
-  function handlePick(item) {
-    const qty = Number(qtyFor(item));
-    if (!qty) return;
-    onPick(item.type, item.id, qty);
-  }
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h2>{t('planner.pickDish')}</h2>
-        <input
-          type="text"
-          placeholder={t('planner.searchPlaceholder')}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ marginBottom: 10 }}
-        />
-        {onGenerate && (
-          <button
-            type="button"
-            className="btn"
-            disabled={generating}
-            onClick={onGenerate}
-            style={{ marginBottom: 12 }}
-          >
-            {generating ? t('planner.generating') : t('planner.generateWithAI')}
-          </button>
-        )}
-
-        {foodItems.length > 0 && (
-          <>
-            <h4 className="section-label">{t('planner.foods')}</h4>
-            {foodItems.map((item) => (
-              <div className="row" key={`${item.type}-${item.id}`}>
-                <div className="name">
-                  <span>{item.label}</span>
-                  <span className="rate">g</span>
-                </div>
-                <div className="field">
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={qtyFor(item)}
-                    onChange={(e) => setQtyFor(item, e.target.value)}
-                    style={{ width: 60 }}
-                  />
-                  <button type="button" className="round-add-btn" onClick={() => handlePick(item)}>
-                    +
-                  </button>
-                </div>
-              </div>
-            ))}
-          </>
-        )}
-
-        {recipeItems.length > 0 && (
-          <>
-            <h4 className="section-label">{t('planner.recipes')}</h4>
-            {recipeItems.map((item) => (
-              <div className="row" key={`${item.type}-${item.id}`}>
-                <div className="name">
-                  <span>{item.label}</span>
-                  <span className="rate">portion(s)</span>
-                </div>
-                <div className="field">
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={qtyFor(item)}
-                    onChange={(e) => setQtyFor(item, e.target.value)}
-                    style={{ width: 60 }}
-                  />
-                  <button type="button" className="round-add-btn" onClick={() => handlePick(item)}>
-                    +
-                  </button>
-                </div>
-              </div>
-            ))}
-          </>
-        )}
-
-        {foodItems.length === 0 && recipeItems.length === 0 && <p className="hint">{t('planner.noResults')}</p>}
-
-        <button type="button" className="done-btn" onClick={onClose}>
-          {t('planner.close')}
-        </button>
-      </div>
-    </div>
-  );
+function recipeKcalPerPortion(recipe) {
+  const total = (recipe.ingredients || []).reduce((s, i) => s + (Number(i.kcal) || 0), 0);
+  return total / (recipe.portions || 1);
 }
 
 // A dish is "recurring" for a meal when it appears on every single day of the week — a meal
@@ -137,13 +69,51 @@ export function findRecurringItems(entries, mealKey, days) {
   );
 }
 
+function WeekStrip({ weekStart, dayKeys, activeDay, onSelect, t }) {
+  return (
+    <div className="activites-week-card">
+      <div className="activites-week-row">
+        {dayKeys.map((key, i) => {
+          const dateStr = shiftDateStr(weekStart, i);
+          return (
+            <button
+              key={key}
+              type="button"
+              className={key === activeDay ? 'activites-week-day active' : 'activites-week-day'}
+              onClick={() => onSelect(key)}
+            >
+              <span className="activites-week-letter">{t(`dayName.${key}`).slice(0, 1)}</span>
+              <span className="activites-week-number">{dayNum(dateStr)}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ToggleSwitch({ on, onChange, disabled }) {
+  return (
+    <button
+      type="button"
+      className={on ? 'toggle-switch on' : 'toggle-switch'}
+      disabled={disabled}
+      onClick={() => !disabled && onChange(!on)}
+      aria-pressed={on}
+    >
+      <span className="toggle-switch-thumb" />
+    </button>
+  );
+}
+
 export default function MealPlanner({ recipes, foods }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [plan, setPlan] = useState(null);
-  const [day, setDay] = useState('mon');
-  const [pickerMeal, setPickerMeal] = useState(null);
-  const [generating, setGenerating] = useState(false);
+  const [day, setDay] = useState(DAY_ORDER[(new Date().getUTCDay() + 6) % 7]);
   const [loading, setLoading] = useState(true);
+  const [screen, setScreen] = useState('home'); // 'home' | 'generate' | 'add'
+  const [addMeal, setAddMeal] = useState('breakfast');
+
   const [weekTarget, setWeekTarget] = useState('');
   // Only protein% and carbs% are user-editable; fat% is always the remainder so the
   // three always sum to exactly 100% (no rounding drift to reconcile).
@@ -152,10 +122,14 @@ export default function MealPlanner({ recipes, foods }) {
   const fatPct = Math.max(0, 100 - proteinPct - carbsPct);
   const [weekProgress, setWeekProgress] = useState(null);
   const [weekMessage, setWeekMessage] = useState(null);
+  const [generating, setGenerating] = useState(false);
   const [overwriteFilled, setOverwriteFilled] = useState(false);
   const [journalMessage, setJournalMessage] = useState(null);
   const [genMode, setGenMode] = useState('library'); // 'ai' | 'library' | 'favorites'
   const [clearingWeek, setClearingWeek] = useState(false);
+  const [addSearch, setAddSearch] = useState('');
+
+  const weekStart = useMemo(() => mondayOfWeek(todayStr()), []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -197,10 +171,6 @@ export default function MealPlanner({ recipes, foods }) {
     // stays fully independent (usually 1-2 simple foods, not a batch-cooked dish).
     const dayPairs = [];
     for (let i = 0; i < plan.days.length; i += 2) dayPairs.push(plan.days.slice(i, i + 2));
-    // Breakfast, lunch and dinner are each their OWN independent sequence — lunch and dinner
-    // are different dishes from each other, but each repeats on its own for 2 days before
-    // changing (day1=day2 lunch, day3=day4 lunch with a different dish, and separately the
-    // same pattern for dinner) — one grocery run covers 2 days of the same dish.
     const groups = ['breakfast', 'lunch', 'dinner']
       .filter((k) => !recurringMeals.has(k))
       .map((k) => ({ poolKey: k, mealKeys: [k] }));
@@ -300,8 +270,6 @@ export default function MealPlanner({ recipes, foods }) {
 
     // Lunch and dinner share ONE exclusion pool ("main") so a dish is capped at 2 occurrences
     // total across the whole week, not 2 in lunch AND 2 more in dinner. Breakfast has its own.
-    // Seeded from the EXISTING plan (not just this run) — otherwise a second "Générer" click
-    // forgets what an earlier click already placed and happily reuses it past the cap.
     const sharedKeyFor = (poolKey) => (poolKey === 'lunch' || poolKey === 'dinner' ? 'main' : poolKey);
     const sharedPools = {};
     for (const { poolKey, mealKeys } of groups) {
@@ -319,8 +287,6 @@ export default function MealPlanner({ recipes, foods }) {
     }
 
     for (const { poolKey, blocks } of blocksByPool) {
-      // Shared across lunch+dinner (see above), own pool for breakfast — either way, tracked
-      // across all its blocks so a dish used for one pair of days won't turn up in a later pair.
       const usedPool = sharedPools[sharedKeyFor(poolKey)];
       for (const blockSlots of blocks) {
         try {
@@ -347,8 +313,6 @@ export default function MealPlanner({ recipes, foods }) {
             avoidTitles: usedPool.avoidTitles,
           });
           const entry = result.entry;
-          // Same dish + same quantity copied onto the rest of the block (other day, other
-          // meal) — that's the "same meal twice, two days running" consistency.
           for (const slot of blockSlots.slice(1)) {
             await api.setMealPlanEntry({
               day: slot.day,
@@ -361,8 +325,6 @@ export default function MealPlanner({ recipes, foods }) {
           for (const slot of blockSlots) {
             chosenByDayMeal[`${slot.day}|${slot.meal}`] = `${entry.source_type}:${entry.source_id}`;
           }
-          // Excluded twice = hits the server's 2-repeats cap immediately, so this dish won't be
-          // picked again for a *different* block later in the same run.
           usedPool.excludeIds.push(`${entry.source_type}:${entry.source_id}`, `${entry.source_type}:${entry.source_id}`);
           usedPool.avoidTitles.push(entry.label);
         } catch (err) {
@@ -378,7 +340,12 @@ export default function MealPlanner({ recipes, foods }) {
     await refresh();
     setGenerating(false);
     setWeekProgress(null);
-    if (lastError) setWeekMessage(t('planner.doneWithFailures').replace('{error}', lastError));
+    if (lastError) {
+      setWeekMessage(t('planner.doneWithFailures').replace('{error}', lastError));
+    } else {
+      setWeekMessage(null);
+      setScreen('home');
+    }
   }
 
   async function handleApplyToJournal() {
@@ -403,14 +370,19 @@ export default function MealPlanner({ recipes, foods }) {
 
   const entriesForDay = plan.entries.filter((e) => e.day === day);
   const dayTotalKcal = entriesForDay.reduce((s, e) => s + e.kcal, 0);
+  const kcalDiff = Math.round(dayTotalKcal - plan.targetIntake);
 
-  async function handlePick(mealKey, sourceType, sourceId, quantity) {
-    await api.setMealPlanEntry({ day, meal: mealKey, source_type: sourceType, source_id: sourceId, quantity });
-    // Stays open — a meal often has several items (e.g. yogurt + a fruit); "Fermer" ends the session.
+  async function togglePick(mealKey, type, id, existingEntry) {
+    if (existingEntry) {
+      await api.deleteMealPlanEntry(existingEntry.id);
+    } else {
+      const quantity = type === 'food' ? 100 : 1;
+      await api.setMealPlanEntry({ day, meal: mealKey, source_type: type, source_id: id, quantity });
+    }
     await refresh();
   }
 
-  async function handleGenerate(mealKey) {
+  async function handleGenerateSlot(mealKey) {
     setGenerating(true);
     const targetIntake = Number(weekTarget) || plan.targetIntake;
     try {
@@ -423,7 +395,6 @@ export default function MealPlanner({ recipes, foods }) {
         carbsTarget: (targetIntake * carbsPct) / 100 / 4,
         fatTarget: (targetIntake * fatPct) / 100 / 9,
       });
-      setPickerMeal(null);
       await refresh();
     } catch (err) {
       alert(err.message || t('planner.generationFailed'));
@@ -432,171 +403,364 @@ export default function MealPlanner({ recipes, foods }) {
     }
   }
 
-  async function handleDelete(entryId) {
-    await api.deleteMealPlanEntry(entryId);
-    await refresh();
+  function openAdd(mealKey) {
+    setAddMeal(mealKey);
+    setAddSearch('');
+    setScreen('add');
   }
 
-  return (
-    <div>
-      <h2>{t('planner.title')}</h2>
+  // ---- screen: add ("Planning · Planifier") ----
+  if (screen === 'add') {
+    const term = addSearch.trim().toLowerCase();
+    const addDayEntries = plan.entries.filter((e) => e.day === day);
+    const recipeItems = (term ? recipes.filter((r) => r.title.toLowerCase().includes(term)) : recipes).slice(0, 40);
+    const foodItems = (term ? foods.filter((f) => f.name.toLowerCase().includes(term)) : foods).slice(0, 40);
 
-      <div className="card">
-        <label>{t('planner.dailyGoal')}</label>
-        <input
-          type="number"
-          min="800"
-          step="50"
-          placeholder={t('planner.dailyGoalPlaceholder')}
-          value={weekTarget}
-          onChange={(e) => setWeekTarget(e.target.value)}
-          style={{ width: '100%', margin: '6px 0 12px' }}
-        />
+    return (
+      <div className="modal-overlay">
+        <div className="modal-content">
+          <div className="meal-detail-header">
+            <button type="button" className="meal-detail-back-btn" onClick={() => setScreen('home')} aria-label={t('meal.back')}>
+              <Icon name="chevron-left" size={20} />
+            </button>
+            <div className="meal-detail-heading">
+              <div className="day-nav-subtitle">
+                {t('planner.title')} · {formatDayLong(shiftDateStr(weekStart, DAY_ORDER.indexOf(day)), lang)}
+              </div>
+              <div className="meal-detail-title">{t('planner.planMeal')}</div>
+            </div>
+          </div>
 
-        <label>{t('planner.macroSplit')}</label>
-        <div className="macro-pct-row">
-          <div className="macro-pct-field">
+          <h4 className="section-label">{t('planner.dayLabel')}</h4>
+          <WeekStrip weekStart={weekStart} dayKeys={plan.days.map((d) => d.key)} activeDay={day} onSelect={setDay} t={t} />
+
+          <h4 className="section-label">{t('planner.slotLabel')}</h4>
+          <div className="type-list-row" style={{ margin: '0 0 4px' }}>
+            {MEAL_DISPLAY_ORDER.map((key) => (
+              <button
+                key={key}
+                type="button"
+                className={addMeal === key ? 'type-pill active' : 'type-pill'}
+                onClick={() => setAddMeal(key)}
+              >
+                {t(`planner.slotShort.${key}`)}
+              </button>
+            ))}
+          </div>
+
+          <div className="search-input-row">
+            <Icon name="search" size={18} color="var(--dim)" />
             <input
-              type="number"
-              min="0"
-              max="100"
-              value={proteinPct}
-              onChange={(e) => handleProteinPctChange(e.target.value)}
+              type="text"
+              className="search-input"
+              placeholder={t('planner.searchPlaceholder')}
+              value={addSearch}
+              onChange={(e) => setAddSearch(e.target.value)}
             />
-            <span>{t('planner.pctProtein')}</span>
-            <span className="hint">{Math.round(((Number(weekTarget) || 0) * proteinPct) / 100 / 4)} g</span>
           </div>
-          <div className="macro-pct-field">
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={carbsPct}
-              onChange={(e) => handleCarbsPctChange(e.target.value)}
-            />
-            <span>{t('planner.pctCarbs')}</span>
-            <span className="hint">{Math.round(((Number(weekTarget) || 0) * carbsPct) / 100 / 4)} g</span>
-          </div>
-          <div className="macro-pct-field">
-            <input type="number" value={fatPct} disabled />
-            <span>{t('planner.pctFatAuto')}</span>
-            <span className="hint">{Math.round(((Number(weekTarget) || 0) * fatPct) / 100 / 9)} g</span>
-          </div>
+
+          <button
+            type="button"
+            className="recurring-feature-row"
+            style={{ justifyContent: 'center', width: '100%', marginTop: 12, font: 'inherit', cursor: generating ? 'default' : 'pointer' }}
+            disabled={generating}
+            onClick={() => handleGenerateSlot(addMeal)}
+          >
+            <Icon name="sparkles" size={18} color="var(--acc)" />
+            <span className="recurring-feature-title" style={{ color: 'var(--acc)' }}>
+              {generating ? t('planner.generating') : t('planner.generateWithAI')}
+            </span>
+          </button>
+
+          {recipeItems.length > 0 && (
+            <>
+              <h4 className="section-label">{t('planner.recipes')}</h4>
+              <div className="settings-list-card">
+                {recipeItems.map((r) => {
+                  const existing = addDayEntries.find((e) => e.meal === addMeal && e.source_type === 'recipe' && e.source_id === r.id);
+                  return (
+                    <div className="plan-pick-row" key={`recipe-${r.id}`}>
+                      <span className="plan-pick-thumb">
+                        <Icon name="salad" size={22} />
+                      </span>
+                      <div className="plan-pick-body">
+                        <div className="plan-pick-name">{r.title}</div>
+                        <div className="plan-pick-sub">{Math.round(recipeKcalPerPortion(r))} kcal</div>
+                      </div>
+                      <button
+                        type="button"
+                        className={existing ? 'plan-pick-btn added' : 'plan-pick-btn'}
+                        onClick={() => togglePick(addMeal, 'recipe', r.id, existing)}
+                        aria-label={existing ? t('planner.remove') : t('planner.addAction')}
+                      >
+                        <Icon name={existing ? 'check' : 'plus'} size={18} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {foodItems.length > 0 && (
+            <>
+              <h4 className="section-label">{t('planner.foods')}</h4>
+              <div className="settings-list-card">
+                {foodItems.map((f) => {
+                  const existing = addDayEntries.find((e) => e.meal === addMeal && e.source_type === 'food' && e.source_id === f.id);
+                  return (
+                    <div className="plan-pick-row" key={`food-${f.id}`}>
+                      <span className="plan-pick-thumb">
+                        <Icon name="egg" size={22} />
+                      </span>
+                      <div className="plan-pick-body">
+                        <div className="plan-pick-name">{f.name}</div>
+                        <div className="plan-pick-sub">{Math.round(f.kcal_per_100g || 0)} kcal / 100g</div>
+                      </div>
+                      <button
+                        type="button"
+                        className={existing ? 'plan-pick-btn added' : 'plan-pick-btn'}
+                        onClick={() => togglePick(addMeal, 'food', f.id, existing)}
+                        aria-label={existing ? t('planner.remove') : t('planner.addAction')}
+                      >
+                        <Icon name={existing ? 'check' : 'plus'} size={18} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {recipeItems.length === 0 && foodItems.length === 0 && <p className="hint">{t('planner.noResults')}</p>}
         </div>
+        <button type="button" className="done-btn done-btn-primary" onClick={(e) => { e.stopPropagation(); setScreen('home'); }}>
+          {t('planner.close')}
+        </button>
+      </div>
+    );
+  }
 
-        <label>{t('planner.dishSource')}</label>
-        <select value={genMode} onChange={(e) => setGenMode(e.target.value)} style={{ width: '100%', margin: '6px 0 10px' }}>
-          <option value="ai">{t('planner.sourceAI')}</option>
-          <option value="library">{t('planner.sourceLibrary')}</option>
-          <option value="favorites">{t('planner.sourceFavorites')}</option>
-        </select>
+  // ---- screen: generate ("Générer via IA") ----
+  if (screen === 'generate') {
+    const SOURCES = [
+      { key: 'ai', icon: 'wand-sparkles', title: t('planner.sourceAiTitle'), desc: t('planner.sourceAiDesc'), bg: 'var(--gradient-brand)', fg: 'var(--text-on-accent)' },
+      { key: 'favorites', icon: 'star', title: t('planner.sourceFavoritesTitle'), desc: t('planner.sourceFavoritesDesc'), bg: 'rgba(245,194,107,0.15)', fg: 'var(--warning)' },
+      { key: 'library', icon: 'chef-hat', title: t('planner.sourceLibraryTitle'), desc: t('planner.sourceLibraryDesc'), bg: 'var(--accent-soft)', fg: 'var(--acc)' },
+    ];
+    return (
+      <div className="modal-overlay">
+        <div className="modal-content">
+          <div className="meal-detail-header">
+            <button type="button" className="meal-detail-back-btn" onClick={() => setScreen('home')} aria-label={t('meal.back')}>
+              <Icon name="chevron-left" size={20} />
+            </button>
+            <div className="meal-detail-heading">
+              <div className="day-nav-subtitle">{formatWeekRange(weekStart, lang)}</div>
+              <div className="meal-detail-title">{t('planner.generateTitle')}</div>
+            </div>
+          </div>
 
-        <label className="checkbox-row">
+          <div className="planning-info-card">
+            <span className="planning-info-icon">
+              <Icon name="sparkles" size={26} />
+            </span>
+            <div>
+              <div className="planning-info-title">{t('planner.generateInfoTitle')}</div>
+              <div className="planning-info-desc">
+                {t('planner.generateInfoDesc').replace('{kcal}', Math.round(Number(weekTarget) || plan.targetIntake))}
+              </div>
+            </div>
+          </div>
+
+          <h4 className="section-label">{t('planner.sourceLabel')}</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {SOURCES.map((s) => (
+              <div
+                key={s.key}
+                className={genMode === s.key ? 'recurring-feature-row active' : 'recurring-feature-row'}
+                onClick={() => setGenMode(s.key)}
+              >
+                <span className="recurring-feature-icon" style={{ background: s.bg, color: s.fg }}>
+                  <Icon name={s.icon} size={20} />
+                </span>
+                <div className="recurring-feature-body">
+                  <div className="recurring-feature-title">{s.title}</div>
+                  <div className="recurring-feature-desc">{s.desc}</div>
+                </div>
+                <span className={genMode === s.key ? 'recurring-feature-check checked round' : 'recurring-feature-check round'}>
+                  <Icon name="check" size={14} />
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <h4 className="section-label">{t('planner.optionsLabel')}</h4>
+          <div className="settings-list-card">
+            <div className="settings-list-row" style={{ cursor: 'default' }}>
+              <span className="settings-list-label">{t('planner.optionRespectGoal')}</span>
+              <ToggleSwitch on disabled onChange={() => {}} />
+            </div>
+            <div className="settings-list-row" style={{ cursor: 'default' }}>
+              <span className="settings-list-label">{t('planner.optionAvoidRepeats')}</span>
+              <ToggleSwitch on disabled onChange={() => {}} />
+            </div>
+            <div className="settings-list-row" style={{ cursor: 'default' }}>
+              <span className="settings-list-label">{t('planner.overwriteFilled')}</span>
+              <ToggleSwitch on={overwriteFilled} onChange={setOverwriteFilled} />
+            </div>
+          </div>
+
+          <h4 className="section-label">{t('planner.dailyGoal')}</h4>
           <input
-            type="checkbox"
-            checked={overwriteFilled}
-            onChange={(e) => setOverwriteFilled(e.target.checked)}
+            type="number"
+            min="800"
+            step="50"
+            placeholder={t('planner.dailyGoalPlaceholder')}
+            value={weekTarget}
+            onChange={(e) => setWeekTarget(e.target.value)}
+            style={{ width: '100%', margin: '0 0 12px' }}
           />
-          {t('planner.overwriteFilled')}
-        </label>
 
+          <h4 className="section-label" style={{ marginTop: 0 }}>{t('planner.macroSplit')}</h4>
+          <div className="macro-pct-row">
+            <div className="macro-pct-field">
+              <input type="number" min="0" max="100" value={proteinPct} onChange={(e) => handleProteinPctChange(e.target.value)} />
+              <span>{t('planner.pctProtein')}</span>
+              <span className="hint">{Math.round(((Number(weekTarget) || 0) * proteinPct) / 100 / 4)} g</span>
+            </div>
+            <div className="macro-pct-field">
+              <input type="number" min="0" max="100" value={carbsPct} onChange={(e) => handleCarbsPctChange(e.target.value)} />
+              <span>{t('planner.pctCarbs')}</span>
+              <span className="hint">{Math.round(((Number(weekTarget) || 0) * carbsPct) / 100 / 4)} g</span>
+            </div>
+            <div className="macro-pct-field">
+              <input type="number" value={fatPct} disabled />
+              <span>{t('planner.pctFatAuto')}</span>
+              <span className="hint">{Math.round(((Number(weekTarget) || 0) * fatPct) / 100 / 9)} g</span>
+            </div>
+          </div>
+
+          {weekMessage && <p className="hint" style={{ marginTop: 12 }}>{weekMessage}</p>}
+        </div>
         <button
           type="button"
-          className="btn"
-          style={{ width: '100%', marginTop: 10 }}
+          className="done-btn done-btn-primary"
           disabled={generating}
-          onClick={handleGenerateWeek}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleGenerateWeek();
+          }}
         >
           {weekProgress
             ? t('planner.generatingProgress').replace('{done}', weekProgress.done).replace('{total}', weekProgress.total)
             : t('planner.generateFullWeek')}
         </button>
-        {weekMessage && <p className="hint">{weekMessage}</p>}
+      </div>
+    );
+  }
 
+  // ---- screen: home ("Planning") ----
+  const selectedDate = shiftDateStr(weekStart, DAY_ORDER.indexOf(day));
+
+  return (
+    <div>
+      <div className="planning-header-row">
+        <div>
+          <div className="planning-header-date">{formatWeekRange(weekStart, lang)}</div>
+          <div className="planning-header-title">{t('planner.title')}</div>
+        </div>
+        <span className="planning-calendar-btn">
+          <Icon name="calendar-days" size={20} />
+        </span>
+      </div>
+
+      <WeekStrip weekStart={weekStart} dayKeys={plan.days.map((d) => d.key)} activeDay={day} onSelect={setDay} t={t} />
+
+      <button type="button" className="planning-ai-cta" onClick={() => setScreen('generate')}>
+        <span className="planning-ai-cta-icon">
+          <Icon name="sparkles" size={23} />
+        </span>
+        <div className="planning-ai-cta-body">
+          <div className="planning-ai-cta-title">{t('planner.generateCtaTitle')}</div>
+          <div className="planning-ai-cta-sub">{t('planner.generateCtaSub')}</div>
+        </div>
+        <Icon name="chevron-right" size={20} color="var(--acc)" />
+      </button>
+
+      <div className="planning-summary-card">
+        <div>
+          <div className="planning-summary-label">
+            {t('planner.plannedTotal')} · {formatDayLong(selectedDate, lang)}
+          </div>
+          <div className="planning-summary-value">
+            {Math.round(dayTotalKcal).toLocaleString(localeFor(lang))} <span>kcal</span>
+          </div>
+        </div>
+        <div className="planning-summary-diff">
+          <div className="planning-summary-label">{t('planner.goalShort')}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: kcalDiff <= 0 ? 'var(--success)' : 'var(--warning)' }}>
+            {kcalDiff > 0 ? '+' : ''}
+            {kcalDiff} kcal
+          </div>
+        </div>
+      </div>
+
+      <div className="meal-card-list" style={{ marginBottom: 18 }}>
+        {MEAL_DISPLAY_ORDER.map((key) => {
+          const m = plan.meals.find((mm) => mm.key === key);
+          if (!m) return null;
+          const mealEntries = entriesForDay.filter((e) => e.meal === key);
+          if (mealEntries.length === 0) {
+            return (
+              <div key={key} className="meal-card empty" onClick={() => openAdd(key)}>
+                <span className="meal-icon-box" style={{ background: 'var(--surface-raised)', color: 'var(--dim)' }}>
+                  <Icon name={MEAL_ICONS[key]} size={21} />
+                </span>
+                <div className="meal-card-body">
+                  <div className="meal-card-kcal">{t(`mealName.${key}`)}</div>
+                  <div className="meal-card-title" style={{ color: 'var(--text-secondary)' }}>
+                    {t(`planner.addMealAction.${key}`)}
+                  </div>
+                </div>
+                <Icon name="plus" size={22} color="var(--acc)" />
+              </div>
+            );
+          }
+          const totalKcal = mealEntries.reduce((s, e) => s + e.kcal, 0);
+          const label = mealEntries.map((e) => e.label).join(' + ');
+          return (
+            <div key={key} className="meal-card" onClick={() => openAdd(key)}>
+              <span className="meal-icon-box">
+                <Icon name={MEAL_ICONS[key]} size={21} />
+              </span>
+              <div className="meal-card-body">
+                <div className="meal-card-kcal">{t(`mealName.${key}`)}</div>
+                <div className="meal-card-title">{label}</div>
+              </div>
+              <b style={{ fontSize: 13, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                {Math.round(totalKcal)}
+              </b>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginBottom: 10 }}>
+        <button type="button" className="section-label clickable" style={{ margin: 0, border: 0, background: 'none', cursor: 'pointer' }} onClick={handleApplyToJournal}>
+          {t('planner.addTodayToJournal')}
+        </button>
         <button
           type="button"
-          className="btn-ghost btn-block"
-          style={{ marginTop: 10 }}
+          className="section-label clickable"
+          style={{ margin: 0, border: 0, background: 'none', cursor: 'pointer', color: 'var(--danger)' }}
           disabled={clearingWeek}
           onClick={handleClearWeek}
         >
           {clearingWeek ? t('planner.clearingWeek') : t('planner.clearWeek')}
         </button>
       </div>
-
-      <div className="card">
-        <button type="button" className="btn" style={{ width: '100%' }} onClick={handleApplyToJournal}>
-          {t('planner.addTodayToJournal')}
-        </button>
-        {journalMessage && <p className="hint success">{journalMessage}</p>}
-      </div>
-
-      <h2>{t('planner.adjustDay')}</h2>
-      <div className="card">
-        <div className="day-chip-row">
-          {plan.days.map((d) => (
-            <button
-              key={d.key}
-              type="button"
-              className={d.key === day ? 'day-chip active' : 'day-chip'}
-              onClick={() => setDay(d.key)}
-            >
-              {t(`dayName.${d.key}`).slice(0, 3)}
-            </button>
-          ))}
-        </div>
-        <p className="hint">
-          {Math.round(dayTotalKcal)} / {Math.round(plan.targetIntake)} {t('planner.plannedForDay')}
-        </p>
-      </div>
-
-      <div className="card">
-        {plan.meals.map((m) => {
-          const mealEntries = entriesForDay.filter((e) => e.meal === m.key);
-          return (
-            <div className="plan-row" key={m.key}>
-              <div className="row" style={{ borderBottom: mealEntries.length > 0 ? undefined : 0 }}>
-                <div className="name">
-                  <span>{t(`mealName.${m.key}`)}</span>
-                  {mealEntries.length === 0 && (
-                    <span className="rate">{t('planner.toDefine')} · {t('planner.goalShort')} {Math.round(m.budgetKcal)} kcal</span>
-                  )}
-                </div>
-                <div className="field">
-                  <button type="button" className="btn-ghost" onClick={() => setPickerMeal(m.key)}>
-                    {mealEntries.length > 0 ? t('planner.addAction') : t('planner.chooseAction')}
-                  </button>
-                </div>
-              </div>
-              {mealEntries.map((entry) => (
-                <div className="row ingredient-sub-row" key={entry.id}>
-                  <div className="name">
-                    <span>{entry.label}</span>
-                  </div>
-                  <div className="field">
-                    <span className="rate">{Math.round(entry.kcal)} kcal</span>
-                    <button type="button" className="btn-ghost" onClick={() => handleDelete(entry.id)}>
-                      🗑
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
-
-      {pickerMeal && (
-        <PlanEntryPicker
-          recipes={recipes}
-          foods={foods}
-          generating={generating}
-          onPick={(type, id, qty) => handlePick(pickerMeal, type, id, qty)}
-          onGenerate={() => handleGenerate(pickerMeal)}
-          onClose={() => setPickerMeal(null)}
-        />
-      )}
-
+      {journalMessage && <p className="hint success" style={{ textAlign: 'center' }}>{journalMessage}</p>}
     </div>
   );
 }
