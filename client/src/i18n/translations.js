@@ -64,6 +64,20 @@ export const translations = {
     'account.passwordChangeFailed': 'Échec du changement de mot de passe.',
     'account.logout': 'Se déconnecter',
 
+    // Settings (redesign)
+    'settings.editProfile': 'Modifier le profil',
+    'settings.goal': 'Objectif',
+    'settings.goalType': "Type d'objectif",
+    'settings.goalType.lose': 'Perte',
+    'settings.goalType.maintain': 'Maintien',
+    'settings.goalType.gain': 'Prise de masse',
+    'settings.pace': 'Rythme',
+    'settings.perWeek': 'semaine',
+    'settings.perWeekShort': 'sem.',
+    'settings.dailyTarget': 'Objectif quotidien',
+    'settings.allActivities': 'Toutes les activités',
+    'settings.preferences': 'Préférences',
+
     // Activity settings
     'activitySettings.title': 'Réglages des activités',
     'activitySettings.hint':
@@ -642,6 +656,20 @@ export const translations = {
     'account.passwordUpdated': 'Password updated.',
     'account.passwordChangeFailed': 'Failed to change password.',
     'account.logout': 'Log out',
+
+    // Settings (redesign)
+    'settings.editProfile': 'Edit profile',
+    'settings.goal': 'Goal',
+    'settings.goalType': 'Goal type',
+    'settings.goalType.lose': 'Lose',
+    'settings.goalType.maintain': 'Maintain',
+    'settings.goalType.gain': 'Gain',
+    'settings.pace': 'Pace',
+    'settings.perWeek': 'week',
+    'settings.perWeekShort': 'wk',
+    'settings.dailyTarget': 'Daily target',
+    'settings.allActivities': 'All activities',
+    'settings.preferences': 'Preferences',
 
     // Activity settings
     'activitySettings.title': 'Activity settings',

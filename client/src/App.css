@@ -3352,6 +3352,137 @@ textarea.wide {
   cursor: pointer;
 }
 
+/* Réglages redesign */
+.settings-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.settings-avatar {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--gradient-brand, var(--acc));
+  color: var(--text-on-accent, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display, inherit);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.settings-avatar-lg {
+  width: 76px;
+  height: 76px;
+  font-size: 28px;
+}
+
+.settings-profile-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-profile-name {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.settings-profile-email {
+  font-size: 13px;
+  color: var(--text-muted, var(--dim));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-goal-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.settings-goal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-list-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.settings-list-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle, var(--line));
+  cursor: pointer;
+  background: none;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.settings-list-row:last-child {
+  border-bottom: 0;
+}
+
+.settings-list-icon {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 11px;
+  background: var(--accent-soft, rgba(139,118,249,0.14));
+  color: var(--acc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-list-label {
+  flex: 1;
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.settings-list-value {
+  font-size: 13.5px;
+  color: var(--text-muted, var(--dim));
+}
+
+.settings-logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  border: 1px solid var(--border-strong, var(--line));
+  background: transparent;
+  color: var(--danger);
+  border-radius: 14px;
+  padding: 14px;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .photo-tile-footer {
   display: flex;
   align-items: center;

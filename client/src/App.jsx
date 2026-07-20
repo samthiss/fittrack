@@ -1,10 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from './api';
-import ProfileForm from './components/ProfileForm';
-import ActivitySettings from './components/ActivitySettings';
-import DeficitSelect from './components/DeficitSelect';
 import RecipeList from './components/RecipeList';
-import DeficitSummary from './components/DeficitSummary';
 import HomeDashboard from './components/HomeDashboard';
 import MealDetail from './components/MealDetail';
 import BottomTabBar from './components/BottomTabBar';
@@ -13,7 +9,7 @@ import ActivitesScreen from './components/ActivitesScreen';
 import WeightTracker from './components/WeightTracker';
 import WeightReport from './components/WeightReport';
 import MealPlanner from './components/MealPlanner';
-import AccountSettings from './components/AccountSettings';
+import Settings from './components/Settings';
 import AuthScreen from './components/AuthScreen';
 import { useLanguage } from './i18n/LanguageContext';
 import './App.css';
@@ -340,13 +336,16 @@ function MainApp({ onLogout, account }) {
           {view === 'poids-rapport' && <WeightReport onBack={() => setView('journal')} />}
           {view === 'planning' && <MealPlanner recipes={recipes} foods={foods} />}
           {view === 'reglages' && (
-            <>
-              <ProfileForm profile={profile} onSave={handleProfileSave} />
-              <DeficitSelect profile={profile} onSave={handleProfileSave} />
-              <DeficitSummary summary={summary} />
-              <ActivitySettings activityTypes={activityTypes} onUpdate={handleActivityTypeUpdate} />
-              <AccountSettings email={account.email} mustChangePassword={account.mustChangePassword} onLogout={onLogout} />
-            </>
+            <Settings
+              profile={profile}
+              summary={summary}
+              activityTypes={activityTypes}
+              email={account.email}
+              mustChangePassword={account.mustChangePassword}
+              onSaveProfile={handleProfileSave}
+              onUpdateActivityType={handleActivityTypeUpdate}
+              onLogout={onLogout}
+            />
           )}
         </main>
       </div>
