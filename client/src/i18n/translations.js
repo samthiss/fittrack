@@ -324,10 +324,11 @@ export const translations = {
     'meal.recipeDeleted': 'Recette supprimée',
     'meal.ingredients': 'ingrédient(s)',
     'meal.replace': 'Remplacer',
-    'meal.add': '+ Ajouter',
+    'meal.add': 'Ajouter',
     'meal.done': 'Terminé',
     'meal.replaceWith': 'Remplacer par…',
     'meal.close': 'Fermer',
+    'meal.editFood': "Modifier l'aliment",
     'meal.quantity': 'Quantité',
     'meal.ingredientsCount': 'Ingrédients ({count} portion(s))',
     'meal.steps': 'Étapes',
@@ -335,6 +336,8 @@ export const translations = {
     'meal.items': 'Aliments',
     'meal.totalForMeal': 'Total du repas',
     'meal.delete': 'Supprimer',
+    'meal.decrease': 'Diminuer',
+    'meal.increase': 'Augmenter',
 
     // Source list
     'sources.none': 'Aucune source identifiée.',
@@ -885,10 +888,11 @@ export const translations = {
     'meal.recipeDeleted': 'Recipe deleted',
     'meal.ingredients': 'ingredient(s)',
     'meal.replace': 'Replace',
-    'meal.add': '+ Add',
+    'meal.add': 'Add',
     'meal.done': 'Done',
     'meal.replaceWith': 'Replace with…',
     'meal.close': 'Close',
+    'meal.editFood': 'Edit food',
     'meal.quantity': 'Quantity',
     'meal.ingredientsCount': 'Ingredients ({count} portion(s))',
     'meal.steps': 'Steps',
@@ -896,6 +900,8 @@ export const translations = {
     'meal.items': 'Foods',
     'meal.totalForMeal': 'Meal total',
     'meal.delete': 'Delete',
+    'meal.decrease': 'Decrease',
+    'meal.increase': 'Increase',
 
     // Source list
     'sources.none': 'No source identified.',

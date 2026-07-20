@@ -204,18 +204,6 @@ function MainApp({ onLogout, account }) {
     return food;
   }
 
-  async function handleUpdateFoodInline(id, data) {
-    const food = await api.updateFood(id, data);
-    await refreshFoods();
-    return food;
-  }
-
-  async function handleDeleteFood(id) {
-    await api.deleteFood(id);
-    await refreshFoods();
-    await refreshFrequentFoods();
-  }
-
   async function handleAddEntry(sourceType, sourceId, quantity, unit = 'g') {
     await api.addFoodLogEntry({
       date,
@@ -245,16 +233,6 @@ function MainApp({ onLogout, account }) {
     await refreshMeal(selectedMeal);
     await refreshDashboard();
     setWater(await api.getWater(date));
-  }
-
-  async function handleAddFavorite(data) {
-    await api.addMealFavorite({ ...data, meal: selectedMeal });
-    await refreshMealFavorites(selectedMeal);
-  }
-
-  async function handleRemoveFavorite(id) {
-    await api.deleteMealFavorite(id);
-    await refreshMealFavorites(selectedMeal);
   }
 
   function handlePrevDay() {
@@ -318,13 +296,8 @@ function MainApp({ onLogout, account }) {
               onLookupBarcode={api.lookupFood}
               onSearchOnline={api.searchFoodsOnline}
               onCreateFood={handleCreateFoodInline}
-              onUpdateFood={handleUpdateFoodInline}
-              onDeleteFood={handleDeleteFood}
-              onDeleteRecipe={handleDeleteRecipe}
               onParseText={api.parseFoodText}
               onParsePhoto={api.parseFoodPhoto}
-              onAddFavorite={handleAddFavorite}
-              onRemoveFavorite={handleRemoveFavorite}
             />
           )}
           {view === 'recettes' && (

@@ -68,23 +68,17 @@ export default function AddFoodToMeal({
   onLookupBarcode,
   onSearchOnline,
   onCreateFood,
-  onUpdateFood,
-  onDeleteFood,
-  onDeleteRecipe,
   onParseText,
   onParsePhoto,
-  onAddFavorite,
-  onRemoveFavorite,
 }) {
   const { t } = useLanguage();
   const TOOLS = [
-    { key: 'search', icon: 'search', label: t('addFood.toolSearch') },
     { key: 'write', icon: 'sparkles', label: t('addFood.toolWrite') },
     { key: 'manual', icon: 'pencil-line', label: t('addFood.toolManual') },
     { key: 'photo', icon: 'camera', label: t('addFood.toolPhoto') },
   ];
   const photoInputRef = useRef(null);
-  const [activeTool, setActiveTool] = useState('search');
+  const [activeTool, setActiveTool] = useState(null);
   const [search, setSearch] = useState('');
   const [itemKind, setItemKind] = useState('food');
   const [listMode, setListMode] = useState('frequent');
@@ -102,10 +96,6 @@ export default function AddFoodToMeal({
   const [manualForm, setManualForm] = useState(EMPTY_FOOD);
   const [textInput, setTextInput] = useState('');
   const [textLoading, setTextLoading] = useState(false);
-  const [editingFood, setEditingFood] = useState(null);
-  const [editForm, setEditForm] = useState(null);
-  const [editPortion, setEditPortion] = useState(100);
-  const [editSaving, setEditSaving] = useState(false);
   const [onlineResults, setOnlineResults] = useState(null);
   const [onlineLoading, setOnlineLoading] = useState(false);
   const [onlineError, setOnlineError] = useState(null);
@@ -117,13 +107,18 @@ export default function AddFoodToMeal({
       id: f.id,
       name: f.name,
       subtitle: `${Math.round(f.kcal_per_100g)} kcal / 100 g`,
+      macros: { protein: f.protein_per_100g, carbs: f.carbs_per_100g, fat: f.fat_per_100g },
     }));
-    const recipeItems = recipes.map((r) => ({
-      type: 'recipe',
-      id: r.id,
-      name: r.title,
-      subtitle: '1 portion',
-    }));
+    const recipeItems = recipes.map((r) => {
+      const perPortion = recipeMacrosPerPortion(r);
+      return {
+        type: 'recipe',
+        id: r.id,
+        name: r.title,
+        subtitle: '1 portion',
+        macros: { protein: perPortion.protein, carbs: perPortion.carbs, fat: perPortion.fat },
+      };
+    });
     return [...foodItems, ...recipeItems];
   }, [foods, recipes]);
 
@@ -151,11 +146,6 @@ export default function AddFoodToMeal({
       .map((f) => allItems.find((item) => item.type === f.source_type && item.id === f.source_id))
       .filter(Boolean);
   }, [frequentForKind, allItems]);
-
-  const favoriteKeySet = useMemo(
-    () => new Set(favorites.map((f) => `${f.source_type}-${f.source_id}`)),
-    [favorites]
-  );
 
   const favoriteDisplayItems = useMemo(() => {
     return favorites
@@ -294,16 +284,6 @@ export default function AddFoodToMeal({
     };
   }, [scanResult, scanQty]);
 
-  function handleToggleFavorite(item) {
-    const key = `${item.type}-${item.id}`;
-    if (favoriteKeySet.has(key)) {
-      const fav = favorites.find((f) => f.source_type === item.type && f.source_id === item.id);
-      if (fav) onRemoveFavorite(fav.id);
-    } else {
-      onAddFavorite({ source_type: item.type, source_id: item.id, label: item.name });
-    }
-  }
-
   async function handleBarcodeDetected(code) {
     setScanStatus({ text: t('addFood.searchingProduct') });
     setScanResult(null);
@@ -418,83 +398,30 @@ export default function AddFoodToMeal({
     setManualForm(EMPTY_FOOD);
   }
 
-  function openEditFood(item) {
-    const food = foods.find((f) => f.id === item.id);
-    if (!food) return;
-    setEditingFood(food);
-    setEditPortion(100);
-    setEditForm({
-      name: food.name,
-      kcal_per_100g: food.kcal_per_100g,
-      protein_per_100g: food.protein_per_100g,
-      carbs_per_100g: food.carbs_per_100g,
-      fat_per_100g: food.fat_per_100g,
-      ...Object.fromEntries(MICRO_FIELDS.map((f) => [`${f.key}_per_100g`, food[`${f.key}_per_100g`] || 0])),
-    });
-  }
-
-  // editForm always stores canonical per-100g values — the form displays/edits them scaled to
-  // whatever "reference portion" is picked (e.g. 30g), so you can type "80mg caffeine for my
-  // 30g shot" directly instead of doing the per-100g math yourself.
-  function editDisplayValue(field) {
-    const per100 = Number(editForm[field]) || 0;
-    const val = (per100 * editPortion) / 100;
-    return Math.round(val * 100) / 100;
-  }
-
-  function handleEditFieldChange(field, displayVal) {
-    const portion = editPortion || 100;
-    const per100 = (Number(displayVal) || 0) * 100 / portion;
-    setEditForm((prev) => ({ ...prev, [field]: per100 }));
-  }
-
-  async function handleSaveEditFood(e) {
-    e.preventDefault();
-    setEditSaving(true);
-    try {
-      await onUpdateFood(editingFood.id, editForm);
-      setEditingFood(null);
-      setEditForm(null);
-    } finally {
-      setEditSaving(false);
-    }
-  }
-
   function renderItemRow(item) {
-    const isFavorite = favoriteKeySet.has(`${item.type}-${item.id}`);
     return (
       <div className="result-row" key={`${item.type}-${item.id}`}>
         <div className="result-row-body" onClick={() => openItemDetail(item)}>
           <div className="result-row-name">{item.name}</div>
           <div className="result-row-sub">{item.subtitle}</div>
+          {item.macros && (
+            <div className="entry-card-macros">
+              <span>
+                <i style={{ background: 'var(--macro-protein)' }} />
+                {Math.round(item.macros.protein)}g
+              </span>
+              <span>
+                <i style={{ background: 'var(--macro-carb)' }} />
+                {Math.round(item.macros.carbs)}g
+              </span>
+              <span>
+                <i style={{ background: 'var(--macro-fat)' }} />
+                {Math.round(item.macros.fat)}g
+              </span>
+            </div>
+          )}
         </div>
         <div className="result-row-actions">
-          <button
-            type="button"
-            className={isFavorite ? 'star-btn active' : 'star-btn'}
-            title={t('addFood.addToFavorites')}
-            onClick={() => handleToggleFavorite(item)}
-          >
-            <Icon name="star" size={16} />
-          </button>
-          {item.type === 'food' && (
-            <button
-              type="button"
-              className="star-btn"
-              title={t('addFood.editNutrition')}
-              onClick={() => openEditFood(item)}
-            >
-              <Icon name="pencil-line" size={16} />
-            </button>
-          )}
-          <button
-            type="button"
-            className="star-btn"
-            title={item.type === 'food' ? t('addFood.deleteFood') : t('addFood.deleteRecipe')}
-            onClick={() => (item.type === 'food' ? onDeleteFood(item.id) : onDeleteRecipe(item.id))}
-          >
-            <Icon name="trash-2" size={16} />
-          </button>
           <button type="button" className="result-add-btn" onClick={() => openItemDetail(item)}>
             <Icon name="plus" size={19} />
           </button>
@@ -509,13 +436,30 @@ export default function AddFoodToMeal({
     <div>
       <h2>{t('addFood.title')}</h2>
       <div className="card">
+        <div className="type-list-row">
+          <button
+            type="button"
+            className={itemKind === 'food' ? 'type-pill active' : 'type-pill'}
+            onClick={() => setItemKind('food')}
+          >
+            {t('addFood.kindFood')}
+          </button>
+          <button
+            type="button"
+            className={itemKind === 'recipe' ? 'type-pill active' : 'type-pill'}
+            onClick={() => setItemKind('recipe')}
+          >
+            {t('addFood.kindRecipe')}
+          </button>
+        </div>
+
         <div className="tool-menu-row">
           {TOOLS.map((tool) => (
             <button
               key={tool.key}
               type="button"
               className={tool.key === activeTool ? 'tool-tile active' : 'tool-tile'}
-              onClick={() => setActiveTool(tool.key)}
+              onClick={() => setActiveTool(tool.key === activeTool ? null : tool.key)}
             >
               <Icon name={tool.icon} size={20} />
               <span className="tool-tile-label">{tool.label}</span>
@@ -525,7 +469,7 @@ export default function AddFoodToMeal({
 
         {activeTool === 'barcode' && (
           <>
-            <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setActiveTool('search')} />
+            <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setActiveTool(null)} />
             {scanStatus && <p className={scanStatus.error ? 'hint error' : 'hint'}>{scanStatus.text}</p>}
           </>
         )}
@@ -632,7 +576,7 @@ export default function AddFoodToMeal({
           </form>
         )}
 
-        {activeTool === 'search' && (
+        {activeTool === null && (
           <>
             <div className="search-input-row">
               <Icon name="search" size={18} color="var(--text-muted)" />
@@ -695,22 +639,6 @@ export default function AddFoodToMeal({
               )
             ) : (
               <>
-                <div className="type-list-row">
-                  <button
-                    type="button"
-                    className={itemKind === 'food' ? 'type-pill active' : 'type-pill'}
-                    onClick={() => setItemKind('food')}
-                  >
-                    {t('addFood.kindFood')}
-                  </button>
-                  <button
-                    type="button"
-                    className={itemKind === 'recipe' ? 'type-pill active' : 'type-pill'}
-                    onClick={() => setItemKind('recipe')}
-                  >
-                    {t('addFood.kindRecipe')}
-                  </button>
-                </div>
                 <div className="filter-pill-row">
                   {[
                     ['frequent', t('addFood.modeFrequent')],
@@ -878,115 +806,6 @@ export default function AddFoodToMeal({
         </div>
       )}
 
-      {editingFood && editForm && (
-        <div className="modal-overlay" onClick={() => setEditingFood(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{t('addFood.editTitle').replace('{name}', editingFood.name)}</h2>
-            <form onSubmit={handleSaveEditFood}>
-              <div className="row">
-                <label>{t('addFood.name')}</label>
-                <div className="field">
-                  <input
-                    type="text"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="row">
-                <label>{t('addFood.referencePortion')}</label>
-                <div className="field">
-                  <input
-                    type="number"
-                    min="1"
-                    step="any"
-                    value={editPortion}
-                    onChange={(e) => setEditPortion(Number(e.target.value) || 100)}
-                  />
-                  <span className="unit">g</span>
-                </div>
-              </div>
-              <p className="hint">{t('addFood.referenceHint')}</p>
-              <div className="row">
-                <label>{t('addFood.kcalPer100g').replace('100g', `${editPortion}g`)}</label>
-                <div className="field">
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={editDisplayValue('kcal_per_100g')}
-                    onChange={(e) => handleEditFieldChange('kcal_per_100g', e.target.value)}
-                  />
-                  <span className="unit">kcal</span>
-                </div>
-              </div>
-              <div className="row">
-                <label>{t('addFood.proteinPer100g').replace('100g', `${editPortion}g`)}</label>
-                <div className="field">
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={editDisplayValue('protein_per_100g')}
-                    onChange={(e) => handleEditFieldChange('protein_per_100g', e.target.value)}
-                  />
-                  <span className="unit">g</span>
-                </div>
-              </div>
-              <div className="row">
-                <label>{t('addFood.carbsPer100g').replace('100g', `${editPortion}g`)}</label>
-                <div className="field">
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={editDisplayValue('carbs_per_100g')}
-                    onChange={(e) => handleEditFieldChange('carbs_per_100g', e.target.value)}
-                  />
-                  <span className="unit">g</span>
-                </div>
-              </div>
-              <div className="row">
-                <label>{t('addFood.fatPer100g').replace('100g', `${editPortion}g`)}</label>
-                <div className="field">
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={editDisplayValue('fat_per_100g')}
-                    onChange={(e) => handleEditFieldChange('fat_per_100g', e.target.value)}
-                  />
-                  <span className="unit">g</span>
-                </div>
-              </div>
-
-              <h4 className="section-label">{t('addFood.micronutrientsFor').replace('{portion}', editPortion)}</h4>
-              {MICRO_FIELDS.map((f) => (
-                <div className="row" key={f.key}>
-                  <label>{t(f.labelKey)}</label>
-                  <div className="field">
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={editDisplayValue(`${f.key}_per_100g`)}
-                      onChange={(e) => handleEditFieldChange(`${f.key}_per_100g`, e.target.value)}
-                    />
-                    <span className="unit">{f.unit}</span>
-                  </div>
-                </div>
-              ))}
-
-              <button type="submit" className="btn btn-block" disabled={editSaving}>
-                {editSaving ? t('addFood.saving') : t('addFood.save')}
-              </button>
-            </form>
-            <button type="button" className="done-btn" onClick={() => setEditingFood(null)}>
-              {t('addFood.close')}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import Icon from './Icon';
 // g/ml unit toggle for foods), a live 4-tile macro breakdown that rescales with the stepper, and
 // the recurring-meal toggle. Used for both a plain food entry and a recipe's portions.
 function EditEntrySheet({
+  headerLabel,
   title,
   subtitle,
   icon,
@@ -45,6 +46,16 @@ function EditEntrySheet({
           if (dx > 80 && Math.abs(dy) < 60) onClose();
         }}
       >
+        <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+          <button type="button" className="meal-detail-back-btn" onClick={onClose} aria-label={t('meal.close')}>
+            <Icon name="x" size={20} />
+          </button>
+          <div className="meal-detail-heading">
+            {headerLabel && <div className="day-nav-subtitle">{headerLabel}</div>}
+            <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('meal.editFood')}</div>
+          </div>
+        </div>
+
         <div className="edit-entry-header-card">
           <span className="edit-entry-header-icon">
             <Icon name={icon} size={22} />
@@ -178,13 +189,8 @@ export default function MealDetail({
   onLookupBarcode,
   onSearchOnline,
   onCreateFood,
-  onUpdateFood,
-  onDeleteFood,
-  onDeleteRecipe,
   onParseText,
   onParsePhoto,
-  onAddFavorite,
-  onRemoveFavorite,
 }) {
   const { t } = useLanguage();
   const [showAdd, setShowAdd] = useState(false);
@@ -399,6 +405,9 @@ export default function MealDetail({
 
               const recipe = recipes.find((r) => r.id === g.recipeId);
               const groupKcal = g.entries.reduce((s, e) => s + e.kcal, 0);
+              const groupProtein = g.entries.reduce((s, e) => s + e.protein, 0);
+              const groupCarbs = g.entries.reduce((s, e) => s + e.carbs, 0);
+              const groupFat = g.entries.reduce((s, e) => s + e.fat, 0);
               const ids = g.entries.map((e) => e.id);
 
               return (
@@ -414,6 +423,20 @@ export default function MealDetail({
                       <div className="entry-card-sub">
                         {g.entries.length} {t('meal.ingredients')} · {Math.round(groupKcal)} kcal
                       </div>
+                      <div className="entry-card-macros">
+                        <span>
+                          <i style={{ background: 'var(--macro-protein)' }} />
+                          {Math.round(groupProtein)}g
+                        </span>
+                        <span>
+                          <i style={{ background: 'var(--macro-carb)' }} />
+                          {Math.round(groupCarbs)}g
+                        </span>
+                        <span>
+                          <i style={{ background: 'var(--macro-fat)' }} />
+                          {Math.round(groupFat)}g
+                        </span>
+                      </div>
                     </div>
                     <div className="entry-card-actions">
                       <button type="button" className="entry-icon-btn entry-delete-btn" onClick={() => handleDeleteGroup(ids)}>
@@ -424,9 +447,25 @@ export default function MealDetail({
                   <div className="entry-sub-list">
                     {g.entries.map((e) => (
                       <div className="entry-sub-row" key={e.id}>
-                        <span className="entry-card-name clickable" onClick={() => openViewingEntry(e)}>
-                          {e.label}
-                        </span>
+                        <div>
+                          <span className="entry-card-name clickable" onClick={() => openViewingEntry(e)}>
+                            {e.label}
+                          </span>
+                          <div className="entry-card-macros">
+                            <span>
+                              <i style={{ background: 'var(--macro-protein)' }} />
+                              {Math.round(e.protein)}g
+                            </span>
+                            <span>
+                              <i style={{ background: 'var(--macro-carb)' }} />
+                              {Math.round(e.carbs)}g
+                            </span>
+                            <span>
+                              <i style={{ background: 'var(--macro-fat)' }} />
+                              {Math.round(e.fat)}g
+                            </span>
+                          </div>
+                        </div>
                         <span className="entry-card-sub" style={{ margin: 0 }}>
                           {Math.round(e.quantity)} g · {Math.round(e.kcal)} kcal
                         </span>
@@ -458,13 +497,8 @@ export default function MealDetail({
               onLookupBarcode={onLookupBarcode}
               onSearchOnline={onSearchOnline}
               onCreateFood={onCreateFood}
-              onUpdateFood={onUpdateFood}
-              onDeleteFood={onDeleteFood}
-              onDeleteRecipe={onDeleteRecipe}
               onParseText={onParseText}
               onParsePhoto={onParsePhoto}
-              onAddFavorite={onAddFavorite}
-              onRemoveFavorite={onRemoveFavorite}
             />
           </div>
           <button type="button" className="done-btn" onClick={() => setShowAdd(false)}>
@@ -478,6 +512,7 @@ export default function MealDetail({
         const factor = viewingEntry.quantity > 0 ? entryQty / viewingEntry.quantity : 1;
         return (
           <EditEntrySheet
+            headerLabel={t(`mealName.${mealKey}`)}
             title={viewingEntry.label}
             subtitle={food ? `${Math.round(food.kcal_per_100g)} kcal / 100 g` : null}
             icon="utensils"
@@ -518,6 +553,7 @@ export default function MealDetail({
         const factor = groupPortions / basePortions;
         return (
           <EditEntrySheet
+            headerLabel={t(`mealName.${mealKey}`)}
             title={recipe.title}
             subtitle={`${g.entries.length} ${t('meal.ingredients')}`}
             icon="utensils"
@@ -539,15 +575,45 @@ export default function MealDetail({
             saving={savingGroupPortions}
           >
             {recipe.description && <p className="hint">{recipe.description}</p>}
-            <h4 className="section-label">{t('meal.ingredientsCount').replace('{count}', recipe.portions)}</h4>
-            {recipe.ingredients.map((ing, i) => (
-              <div className="ingredient-row" key={i}>
-                <span className="ingredient-name">{ing.nom}</span>
-                <span className="ingredient-kcal">
-                  {ing.qte} {ing.unite || 'g'}
-                </span>
-              </div>
-            ))}
+            <h4 className="section-label">{t('meal.ingredients')} · {g.entries.length}</h4>
+            <div className="entry-list">
+              {g.entries.map((ing) => (
+                <div className="entry-card" key={ing.id}>
+                  <div className="entry-card-body" style={{ cursor: 'default' }}>
+                    <div className="entry-card-name">{ing.label}</div>
+                    <div className="entry-card-sub">
+                      {Math.round(ing.quantity)} g · {Math.round(ing.kcal)} kcal
+                    </div>
+                  </div>
+                  <div className="row" style={{ gap: 6 }}>
+                    <button
+                      type="button"
+                      className="entry-icon-btn"
+                      onClick={() => onUpdateEntry(ing.id, Math.max(5, Math.round(ing.quantity) - 10), 'g')}
+                      aria-label={t('meal.decrease')}
+                    >
+                      <Icon name="minus" size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className="entry-icon-btn"
+                      onClick={() => onUpdateEntry(ing.id, Math.round(ing.quantity) + 10, 'g')}
+                      aria-label={t('meal.increase')}
+                    >
+                      <Icon name="plus" size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className="entry-icon-btn entry-delete-btn"
+                      onClick={() => onDeleteEntry(ing.id)}
+                      aria-label={t('meal.delete')}
+                    >
+                      <Icon name="trash-2" size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
             {recipe.steps.length > 0 && (
               <>
                 <h4 className="section-label">{t('meal.steps')}</h4>
