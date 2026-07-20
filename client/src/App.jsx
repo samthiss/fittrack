@@ -11,6 +11,7 @@ import WeightReport from './components/WeightReport';
 import MealPlanner from './components/MealPlanner';
 import Settings from './components/Settings';
 import AuthScreen from './components/AuthScreen';
+import Onboarding from './components/Onboarding';
 import { useLanguage } from './i18n/LanguageContext';
 import './App.css';
 
@@ -373,6 +374,13 @@ function App() {
 
   if (account === undefined) return null;
   if (!account) return <AuthScreen onAuthenticated={setAccount} />;
+  if (!account.onboardingCompleted) {
+    return (
+      <Onboarding
+        onDone={() => setAccount((a) => ({ ...a, onboardingCompleted: true }))}
+      />
+    );
+  }
   return <MainApp account={account} onLogout={handleLogout} />;
 }
 

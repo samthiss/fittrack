@@ -31,6 +31,7 @@ export const api = {
     request('/auth/claim-legacy', { method: 'POST', body: JSON.stringify({ email, password }) }),
   changePassword: (currentPassword, newPassword) =>
     request('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) }),
+  completeOnboarding: () => request('/auth/complete-onboarding', { method: 'POST' }),
 
   getActivityTypes: () => request('/activity-types'),
   updateActivityType: (type, data) =>

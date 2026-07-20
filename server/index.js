@@ -128,11 +128,11 @@ app.post('/api/auth/register', (req, res) => {
     return res.status(409).json({ error: 'Cet email est déjà utilisé.' });
   }
   const result = db
-    .prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)')
+    .prepare('INSERT INTO users (email, password_hash, onboarding_completed) VALUES (?, ?, 0)')
     .run(email, hashPassword(password));
   seedDefaultUserData(result.lastInsertRowid);
   req.session.userId = result.lastInsertRowid;
-  res.status(201).json({ id: result.lastInsertRowid, email });
+  res.status(201).json({ id: result.lastInsertRowid, email, onboardingCompleted: false });
 });
 
 app.post('/api/auth/login', (req, res) => {
@@ -143,7 +143,7 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
   }
   req.session.userId = user.id;
-  res.json({ id: user.id, email: user.email, mustChangePassword: !!user.must_change_password });
+  res.json({ id: user.id, email: user.email, mustChangePassword: !!user.must_change_password, onboardingCompleted: !!user.onboarding_completed });
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -152,9 +152,14 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/auth/me', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Non authentifié' });
-  const user = db.prepare('SELECT id, email, must_change_password FROM users WHERE id = ?').get(req.session.userId);
+  const user = db.prepare('SELECT id, email, must_change_password, onboarding_completed FROM users WHERE id = ?').get(req.session.userId);
   if (!user) return res.status(401).json({ error: 'Non authentifié' });
-  res.json({ id: user.id, email: user.email, mustChangePassword: !!user.must_change_password });
+  res.json({ id: user.id, email: user.email, mustChangePassword: !!user.must_change_password, onboardingCompleted: !!user.onboarding_completed });
+});
+
+app.post('/api/auth/complete-onboarding', requireAuth, (req, res) => {
+  db.prepare('UPDATE users SET onboarding_completed = 1 WHERE id = ?').run(req.session.userId);
+  res.status(204).end();
 });
 
 // One-time claim of the pre-auth "legacy" account (id 1, seeded in db.js — see LEGACY_MARKER)
@@ -181,7 +186,8 @@ app.post('/api/auth/claim-legacy', (req, res) => {
   );
   seedDefaultUserData(1); // no-op via INSERT OR IGNORE — the legacy account already has these from the migration
   req.session.userId = 1;
-  res.json({ id: 1, email });
+  const user = db.prepare('SELECT onboarding_completed FROM users WHERE id = 1').get();
+  res.json({ id: 1, email, onboardingCompleted: !!user.onboarding_completed });
 });
 
 app.get('/api/auth/legacy-status', (req, res) => {
@@ -224,11 +230,16 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function computeMacroTargets(targetIntake) {
+// profile.protein_pct/carbs_pct (set via the onboarding "Ajuster les macros" step or Réglages)
+// override the 30/35/35 default split when present; fat is always the remainder.
+function computeMacroTargets(targetIntake, profile) {
+  const proteinPct = profile?.protein_pct ?? MACRO_SHARES.protein * 100;
+  const carbsPct = profile?.carbs_pct ?? MACRO_SHARES.carbs * 100;
+  const fatPct = Math.max(0, 100 - proteinPct - carbsPct);
   return {
-    carbs: (targetIntake * MACRO_SHARES.carbs) / 4,
-    protein: (targetIntake * MACRO_SHARES.protein) / 4,
-    fat: (targetIntake * MACRO_SHARES.fat) / 9,
+    carbs: (targetIntake * carbsPct) / 100 / 4,
+    protein: (targetIntake * proteinPct) / 100 / 4,
+    fat: (targetIntake * fatPct) / 100 / 9,
   };
 }
 
@@ -307,7 +318,7 @@ app.get('/api/profile', (req, res) => {
 const SEX_OPTIONS = ['male', 'female', 'other'];
 
 app.put('/api/profile', (req, res) => {
-  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal } = req.body;
+  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct } = req.body;
 
   if (goal !== undefined && !GOALS.includes(goal)) {
     return res.status(400).json({ error: 'goal invalide' });
@@ -329,11 +340,16 @@ app.put('/api/profile', (req, res) => {
     height_cm: height_cm !== undefined ? height_cm : current.height_cm,
     body_fat_pct: body_fat_pct !== undefined ? body_fat_pct : current.body_fat_pct,
     manual_target_kcal: manual_target_kcal !== undefined ? manual_target_kcal : current.manual_target_kcal,
+    target_weight_kg: target_weight_kg !== undefined ? target_weight_kg : current.target_weight_kg,
+    steps_per_day: steps_per_day !== undefined ? steps_per_day : current.steps_per_day,
+    protein_pct: protein_pct !== undefined ? protein_pct : current.protein_pct,
+    carbs_pct: carbs_pct !== undefined ? carbs_pct : current.carbs_pct,
   };
 
   db.prepare(
     `UPDATE profile SET bmr = ?, daily_movement_kcal = ?, digestion_kcal = ?, weight_kg = ?, goal = ?, goal_kcal = ?,
-     sex = ?, birthdate = ?, height_cm = ?, body_fat_pct = ?, manual_target_kcal = ?
+     sex = ?, birthdate = ?, height_cm = ?, body_fat_pct = ?, manual_target_kcal = ?, target_weight_kg = ?, steps_per_day = ?,
+     protein_pct = ?, carbs_pct = ?
      WHERE user_id = ?`
   ).run(
     next.bmr,
@@ -347,6 +363,10 @@ app.put('/api/profile', (req, res) => {
     next.height_cm,
     next.body_fat_pct,
     next.manual_target_kcal,
+    next.target_weight_kg,
+    next.steps_per_day,
+    next.protein_pct,
+    next.carbs_pct,
     req.userId
   );
 
@@ -1647,7 +1667,7 @@ app.get('/api/dashboard', (req, res) => {
     consumed.fat += l.fat;
   }
 
-  const macroTargets = computeMacroTargets(summary.targetIntake);
+  const macroTargets = computeMacroTargets(summary.targetIntake, summary.profile);
   const weeklyAvg = weeklyAvgNutrients(req.userId, date);
   const micros = buildMicroList(NUTRIENT_KEYS, (key) =>
     MICRO_REFERENCE[key]?.weeklyAvg ? weeklyAvg[key] : consumed[key]
@@ -1835,7 +1855,7 @@ app.get('/api/meals/:key', (req, res) => {
     { kcal: 0, protein: 0, carbs: 0, fat: 0 }
   );
 
-  const dayMacroTargets = computeMacroTargets(summary.targetIntake);
+  const dayMacroTargets = computeMacroTargets(summary.targetIntake, summary.profile);
   const macroTargets = {
     carbs: dayMacroTargets.carbs * mealDef.share,
     protein: dayMacroTargets.protein * mealDef.share,
@@ -2520,8 +2540,9 @@ const upsertPlanEntry = () =>
 
 app.get('/api/meal-plan', (req, res) => {
   const rows = db.prepare('SELECT * FROM meal_plan_entries WHERE user_id = ?').all(req.userId);
-  const targetIntake = computeSummary(req.userId, todayStr()).targetIntake;
-  const dayMacroTargets = computeMacroTargets(targetIntake);
+  const planSummary = computeSummary(req.userId, todayStr());
+  const targetIntake = planSummary.targetIntake;
+  const dayMacroTargets = computeMacroTargets(targetIntake, planSummary.profile);
   const meals = MEALS.map((m) => ({
     key: m.key,
     label: m.label,

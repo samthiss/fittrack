@@ -293,6 +293,14 @@ if (!weightLogColumns.includes('waist_cm')) {
   db.exec(`ALTER TABLE weight_logs ADD COLUMN waist_cm REAL`);
 }
 
+// DEFAULT 1 so every account that existed before this feature shipped (including the legacy
+// account) is treated as "already onboarded" — only a genuinely new /api/auth/register signup
+// explicitly starts at 0 and sees the onboarding wizard.
+const userColumns = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+if (!userColumns.includes('onboarding_completed')) {
+  db.exec(`ALTER TABLE users ADD COLUMN onboarding_completed INTEGER NOT NULL DEFAULT 1`);
+}
+
 const weightPhotoColumns = db.prepare('PRAGMA table_info(weight_photos)').all().map((c) => c.name);
 if (!weightPhotoColumns.includes('angle')) {
   db.exec(`ALTER TABLE weight_photos ADD COLUMN angle TEXT NOT NULL DEFAULT 'front'`);
@@ -525,6 +533,21 @@ if (!profileCols2.includes('body_fat_pct')) {
 // number regardless of activity, until cleared back to NULL.
 if (!profileCols2.includes('manual_target_kcal')) {
   db.exec(`ALTER TABLE profile ADD COLUMN manual_target_kcal REAL`);
+}
+if (!profileCols2.includes('target_weight_kg')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN target_weight_kg REAL`);
+}
+if (!profileCols2.includes('steps_per_day')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN steps_per_day REAL`);
+}
+// NULL means "use the 30% protein / 35% carbs / 35% fat default" (see computeMacroTargets) —
+// set via the onboarding "Ajuster les macros" step to override the day's macro split everywhere
+// (dashboard, journal, weekly targets), not just as a one-off preview.
+if (!profileCols2.includes('protein_pct')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN protein_pct REAL`);
+}
+if (!profileCols2.includes('carbs_pct')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN carbs_pct REAL`);
 }
 
 // Seed one history row from the current profile if none exists yet, so profileAsOf() in
