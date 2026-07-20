@@ -2658,6 +2658,149 @@ textarea.wide {
   cursor: pointer;
 }
 
+/* "Modifier aliment" style edit sheet — shared by food entries and recipe entries */
+.edit-entry-header-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 13px 15px;
+  margin-bottom: 4px;
+}
+
+.edit-entry-header-icon {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--acc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-entry-header-name {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.edit-entry-header-sub {
+  font-size: 12px;
+  color: var(--text-muted, var(--dim));
+  margin-top: 2px;
+}
+
+.qty-stepper-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 8px 12px;
+}
+
+.qty-stepper-value {
+  text-align: center;
+}
+
+.qty-stepper-plus {
+  border: 0;
+  background: var(--gradient-brand, var(--acc));
+  color: var(--text-on-accent, #fff);
+}
+
+.portion-tile-row {
+  display: flex;
+  gap: 8px;
+}
+
+.portion-tile {
+  flex: 1;
+  text-align: center;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 13px;
+  padding: 11px 4px;
+}
+
+.portion-tile b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.portion-tile span {
+  font-size: 10.5px;
+  color: var(--text-muted, var(--dim));
+}
+
+.recurring-feature-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 13px 15px;
+  cursor: pointer;
+}
+
+.recurring-feature-row.active {
+  background: var(--accent-soft);
+  border-color: var(--acc);
+}
+
+.recurring-feature-icon {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 12px;
+  background: var(--surface-card);
+  color: var(--acc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recurring-feature-body {
+  flex: 1;
+}
+
+.recurring-feature-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.recurring-feature-desc {
+  font-size: 12px;
+  color: var(--text-muted, var(--dim));
+  margin-top: 2px;
+}
+
+.recurring-feature-check {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong, var(--line));
+  color: transparent;
+}
+
+.recurring-feature-check.checked {
+  border: 0;
+  background: var(--gradient-brand, var(--acc));
+  color: var(--text-on-accent, #fff);
+}
+
 .manual-ingredient-row {
   padding: 10px 0;
   border-bottom: 1px solid var(--line);

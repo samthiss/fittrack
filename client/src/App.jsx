@@ -247,11 +247,6 @@ function MainApp({ onLogout, account }) {
     setWater(await api.getWater(date));
   }
 
-  async function handleReplaceEntry(oldEntryIds, sourceType, sourceId, quantity) {
-    for (const id of oldEntryIds) await api.deleteFoodLogEntry(id);
-    await handleAddEntry(sourceType, sourceId, quantity);
-  }
-
   async function handleAddFavorite(data) {
     await api.addMealFavorite({ ...data, meal: selectedMeal });
     await refreshMealFavorites(selectedMeal);
@@ -320,7 +315,6 @@ function MainApp({ onLogout, account }) {
               onAddEntry={handleAddEntry}
               onDeleteEntry={handleDeleteEntry}
               onUpdateEntry={handleUpdateEntry}
-              onReplaceEntry={handleReplaceEntry}
               onLookupBarcode={api.lookupFood}
               onSearchOnline={api.searchFoodsOnline}
               onCreateFood={handleCreateFoodInline}
@@ -328,6 +322,7 @@ function MainApp({ onLogout, account }) {
               onDeleteFood={handleDeleteFood}
               onDeleteRecipe={handleDeleteRecipe}
               onParseText={api.parseFoodText}
+              onParsePhoto={api.parseFoodPhoto}
               onAddFavorite={handleAddFavorite}
               onRemoveFavorite={handleRemoveFavorite}
             />

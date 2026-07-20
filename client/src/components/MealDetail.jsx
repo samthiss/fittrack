@@ -5,41 +5,141 @@ import { api } from '../api';
 import { useLanguage } from '../i18n/LanguageContext';
 import Icon from './Icon';
 
-function EntryQuantityEditor({ entry, allowUnitToggle, onUpdateEntry, onSaved }) {
+// Shared "Modifier aliment"-style edit sheet: icon+name header, a +/- quantity stepper (with a
+// g/ml unit toggle for foods), a live 4-tile macro breakdown that rescales with the stepper, and
+// the recurring-meal toggle. Used for both a plain food entry and a recipe's portions.
+function EditEntrySheet({
+  title,
+  subtitle,
+  icon,
+  quantity,
+  onQuantityChange,
+  step,
+  unit,
+  unitOptions,
+  onUnitChange,
+  macros,
+  showRecurring,
+  recurring,
+  onToggleRecurring,
+  onClose,
+  onSave,
+  saving,
+  swipeRef,
+  children,
+}) {
   const { t } = useLanguage();
-  const [unit, setUnit] = useState(allowUnitToggle ? entry.unit || 'g' : 'portion(s)');
-  // Grams/ml are shown as whole numbers (nobody weighs food to the decimal gram); portions keep
-  // their precision since fractional portions (e.g. 1.5) are meaningful.
-  const displayValue = unit === 'portion(s)' ? entry.quantity : Math.round(entry.quantity);
-  const [value, setValue] = useState(displayValue);
-
-  function handleSave() {
-    const next = Number(value);
-    if (next > 0 && (next !== entry.quantity || unit !== entry.unit)) onUpdateEntry(entry.id, next, unit);
-    onSaved();
-  }
-
   return (
-    <div className="qty-editor">
-      <div className="qty-editor-row">
-        <input
-          type="number"
-          min="0"
-          step={unit === 'portion(s)' ? 'any' : '1'}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-        />
-        {allowUnitToggle ? (
-          <select className="qty-editor-unit-select" value={unit} onChange={(e) => setUnit(e.target.value)}>
-            <option value="g">g</option>
-            <option value="ml">ml</option>
-          </select>
-        ) : (
-          <span className="qty-editor-unit">{unit}</span>
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="modal-content"
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => {
+          if (swipeRef) swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }}
+        onTouchEnd={(e) => {
+          if (!swipeRef?.current) return;
+          const dx = e.changedTouches[0].clientX - swipeRef.current.x;
+          const dy = e.changedTouches[0].clientY - swipeRef.current.y;
+          swipeRef.current = null;
+          if (dx > 80 && Math.abs(dy) < 60) onClose();
+        }}
+      >
+        <div className="edit-entry-header-card">
+          <span className="edit-entry-header-icon">
+            <Icon name={icon} size={22} />
+          </span>
+          <div>
+            <div className="edit-entry-header-name">{title}</div>
+            {subtitle && <div className="edit-entry-header-sub">{subtitle}</div>}
+          </div>
+        </div>
+
+        <h4 className="section-label">{t('meal.quantity')}</h4>
+        <div className="qty-stepper-row">
+          <button type="button" className="weight-minus-btn" onClick={() => onQuantityChange(Math.max(step, quantity - step))}>
+            <Icon name="minus" size={18} />
+          </button>
+          <div className="qty-stepper-value">
+            <span className="weight-value">{unit === 'portion(s)' ? quantity : Math.round(quantity)}</span>{' '}
+            <span className="rate">{unit}</span>
+          </div>
+          <button type="button" className="weight-plus-btn qty-stepper-plus" onClick={() => onQuantityChange(quantity + step)}>
+            <Icon name="plus" size={18} />
+          </button>
+        </div>
+        {unitOptions && (
+          <div className="type-list-row" style={{ marginTop: 10 }}>
+            {unitOptions.map((u) => (
+              <button
+                key={u}
+                type="button"
+                className={unit === u ? 'type-pill active' : 'type-pill'}
+                onClick={() => onUnitChange(u)}
+              >
+                {u}
+              </button>
+            ))}
+          </div>
         )}
+
+        {macros && (
+          <>
+            <h4 className="section-label">{t('addFood.forThisPortion')}</h4>
+            <div className="portion-tile-row">
+              <div className="portion-tile">
+                <b>{Math.round(macros.kcal)}</b>
+                <span>kcal</span>
+              </div>
+              <div className="portion-tile">
+                <b style={{ color: 'var(--macro-protein)' }}>{Math.round(macros.protein)}</b>
+                <span>{t('nutrient.protein')}</span>
+              </div>
+              <div className="portion-tile">
+                <b style={{ color: 'var(--macro-carb)' }}>{Math.round(macros.carbs)}</b>
+                <span>{t('nutrient.carbs')}</span>
+              </div>
+              <div className="portion-tile">
+                <b style={{ color: 'var(--macro-fat)' }}>{Math.round(macros.fat)}</b>
+                <span>{t('nutrient.fat')}</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {showRecurring && (
+          <>
+            <h4 className="section-label">{t('addFood.recurringSection')}</h4>
+            <div
+              className={recurring ? 'recurring-feature-row active' : 'recurring-feature-row'}
+              onClick={() => onToggleRecurring(!recurring)}
+            >
+              <span className="recurring-feature-icon">
+                <Icon name="repeat" size={20} />
+              </span>
+              <div className="recurring-feature-body">
+                <div className="recurring-feature-title">{t('addFood.markRecurring')}</div>
+                <div className="recurring-feature-desc">{t('addFood.markRecurringDesc')}</div>
+              </div>
+              <span className={recurring ? 'recurring-feature-check checked' : 'recurring-feature-check'}>
+                <Icon name="check" size={16} />
+              </span>
+            </div>
+          </>
+        )}
+
+        {children}
       </div>
-      <button type="button" className="btn btn-block" onClick={handleSave}>
-        {t('meal.save')}
+      <button
+        type="button"
+        className="done-btn done-btn-primary"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSave();
+        }}
+        disabled={saving}
+      >
+        {saving ? t('addFood.saving') : t('meal.save')}
       </button>
     </div>
   );
@@ -75,7 +175,6 @@ export default function MealDetail({
   onAddEntry,
   onDeleteEntry,
   onUpdateEntry,
-  onReplaceEntry,
   onLookupBarcode,
   onSearchOnline,
   onCreateFood,
@@ -83,16 +182,18 @@ export default function MealDetail({
   onDeleteFood,
   onDeleteRecipe,
   onParseText,
+  onParsePhoto,
   onAddFavorite,
   onRemoveFavorite,
 }) {
   const { t } = useLanguage();
   const [showAdd, setShowAdd] = useState(false);
-  const [replaceTargetIds, setReplaceTargetIds] = useState(null);
-  const [viewingRecipeId, setViewingRecipeId] = useState(null);
   const [viewingEntryId, setViewingEntryId] = useState(null);
+  const [entryQty, setEntryQty] = useState(0);
+  const [entryUnit, setEntryUnit] = useState('g');
+  const [savingEntry, setSavingEntry] = useState(false);
   const [editingGroupId, setEditingGroupId] = useState(null);
-  const [groupPortions, setGroupPortions] = useState('1');
+  const [groupPortions, setGroupPortions] = useState(1);
   const [savingGroupPortions, setSavingGroupPortions] = useState(false);
   const [recurringKeys, setRecurringKeys] = useState(new Set());
   const swipeRef = useRef(null);
@@ -114,17 +215,7 @@ export default function MealDetail({
   if (!meal) return null;
   const { key: mealKey, budgetKcal, consumed, macroTargets, entries } = meal;
   const groups = groupEntries(entries);
-  const viewingRecipe = viewingRecipeId ? recipes.find((r) => r.id === viewingRecipeId) : null;
   const viewingEntry = viewingEntryId ? entries.find((e) => e.id === viewingEntryId) : null;
-
-  function openReplace(ids) {
-    setReplaceTargetIds(ids);
-  }
-
-  async function handlePickReplacement(recipe) {
-    await onReplaceEntry(replaceTargetIds, 'recipe', recipe.id, 1);
-    setReplaceTargetIds(null);
-  }
 
   async function handleDeleteGroup(ids) {
     for (const id of ids) await onDeleteEntry(id);
@@ -141,18 +232,36 @@ export default function MealDetail({
     return Math.round(ratio * (recipe.portions || 1) * 100) / 100;
   }
 
+  function openViewingEntry(e) {
+    setViewingEntryId(e.id);
+    setEntryQty(e.source_type === 'recipe' ? e.quantity : Math.round(e.quantity));
+    setEntryUnit(e.source_type === 'food' ? e.unit || 'g' : 'portion(s)');
+  }
+
+  async function handleSaveEntry() {
+    if (savingEntry || !viewingEntry || entryQty <= 0) return;
+    setSavingEntry(true);
+    try {
+      if (entryQty !== viewingEntry.quantity || entryUnit !== viewingEntry.unit) {
+        await onUpdateEntry(viewingEntry.id, entryQty, entryUnit);
+      }
+      setViewingEntryId(null);
+    } finally {
+      setSavingEntry(false);
+    }
+  }
+
   function openEditGroup(g, recipe) {
     setEditingGroupId(g.recipeId);
-    setGroupPortions(String(currentPortionsForGroup(g, recipe)));
+    setGroupPortions(currentPortionsForGroup(g, recipe));
   }
 
   async function handleSaveGroupPortions(g) {
-    const next = Number(groupPortions);
-    if (!next || next <= 0) return;
+    if (savingGroupPortions || !groupPortions || groupPortions <= 0) return;
     setSavingGroupPortions(true);
     try {
       await handleDeleteGroup(g.entries.map((e) => e.id));
-      await onAddEntry('recipe', g.recipeId, next);
+      await onAddEntry('recipe', g.recipeId, groupPortions);
       setEditingGroupId(null);
     } finally {
       setSavingGroupPortions(false);
@@ -249,7 +358,7 @@ export default function MealDetail({
                 const e = g.entry;
                 return (
                   <div className="entry-card" key={e.id}>
-                    <div className="entry-card-body" onClick={() => setViewingEntryId(e.id)}>
+                    <div className="entry-card-body" onClick={() => openViewingEntry(e)}>
                       <div className="entry-card-name-row">
                         <span className="entry-card-name">{e.label}</span>
                         {recurringKeys.has(`${e.source_type}-${e.source_id}`) && (
@@ -295,7 +404,7 @@ export default function MealDetail({
               return (
                 <div className="entry-group-card" key={`recipe-${g.recipeId}`}>
                   <div className="entry-group-header-row">
-                    <div className="entry-card-body" onClick={() => recipe && setViewingRecipeId(g.recipeId)}>
+                    <div className="entry-card-body" onClick={() => recipe && openEditGroup(g, recipe)}>
                       <div className="entry-card-name-row">
                         <span className="entry-card-name">{recipe ? recipe.title : t('meal.recipeDeleted')}</span>
                         {recurringKeys.has(`recipe-${g.recipeId}`) && (
@@ -307,14 +416,6 @@ export default function MealDetail({
                       </div>
                     </div>
                     <div className="entry-card-actions">
-                      <button type="button" className="entry-icon-btn" onClick={() => openReplace(ids)} aria-label={t('meal.replace')}>
-                        <Icon name="repeat" size={16} />
-                      </button>
-                      {recipe && (
-                        <button type="button" className="entry-icon-btn" onClick={() => openEditGroup(g, recipe)} aria-label={t('meal.edit')}>
-                          <Icon name="pencil-line" size={16} />
-                        </button>
-                      )}
                       <button type="button" className="entry-icon-btn entry-delete-btn" onClick={() => handleDeleteGroup(ids)}>
                         <Icon name="trash-2" size={16} />
                       </button>
@@ -323,7 +424,7 @@ export default function MealDetail({
                   <div className="entry-sub-list">
                     {g.entries.map((e) => (
                       <div className="entry-sub-row" key={e.id}>
-                        <span className="entry-card-name clickable" onClick={() => setViewingEntryId(e.id)}>
+                        <span className="entry-card-name clickable" onClick={() => openViewingEntry(e)}>
                           {e.label}
                         </span>
                         <span className="entry-card-sub" style={{ margin: 0 }}>
@@ -361,6 +462,7 @@ export default function MealDetail({
               onDeleteFood={onDeleteFood}
               onDeleteRecipe={onDeleteRecipe}
               onParseText={onParseText}
+              onParsePhoto={onParsePhoto}
               onAddFavorite={onAddFavorite}
               onRemoveFavorite={onRemoveFavorite}
             />
@@ -371,158 +473,74 @@ export default function MealDetail({
         </div>
       )}
 
-      {replaceTargetIds && (
-        <div className="modal-overlay" onClick={() => setReplaceTargetIds(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{t('meal.replaceWith')}</h2>
-            <div className="replace-grid">
-              {recipes.map((r) => (
-                <button
-                  type="button"
-                  key={r.id}
-                  className="replace-card"
-                  onClick={() => handlePickReplacement(r)}
-                >
-                  {r.image ? (
-                    <img src={r.image} alt="" />
-                  ) : (
-                    <div className="replace-card-noimg">🍽️</div>
-                  )}
-                  <span>{r.title}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <button type="button" className="done-btn" onClick={() => setReplaceTargetIds(null)}>
-            {t('meal.close')}
-          </button>
-        </div>
-      )}
-
-      {viewingEntry && (
-        <div className="modal-overlay" onClick={() => setViewingEntryId(null)}>
-          <div
-            className="modal-content"
-            onClick={(e) => e.stopPropagation()}
-            onTouchStart={(e) => {
-              swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      {viewingEntry && (() => {
+        const food = viewingEntry.source_type === 'food' ? foods.find((f) => f.id === viewingEntry.source_id) : null;
+        const factor = viewingEntry.quantity > 0 ? entryQty / viewingEntry.quantity : 1;
+        return (
+          <EditEntrySheet
+            title={viewingEntry.label}
+            subtitle={food ? `${Math.round(food.kcal_per_100g)} kcal / 100 g` : null}
+            icon="utensils"
+            quantity={entryQty}
+            onQuantityChange={setEntryQty}
+            step={entryUnit === 'portion(s)' ? 0.5 : 10}
+            unit={entryUnit}
+            unitOptions={viewingEntry.source_type === 'food' ? ['g', 'ml'] : null}
+            onUnitChange={setEntryUnit}
+            macros={{
+              kcal: viewingEntry.kcal * factor,
+              protein: viewingEntry.protein * factor,
+              carbs: viewingEntry.carbs * factor,
+              fat: viewingEntry.fat * factor,
             }}
-            onTouchEnd={(e) => {
-              if (!swipeRef.current) return;
-              const dx = e.changedTouches[0].clientX - swipeRef.current.x;
-              const dy = e.changedTouches[0].clientY - swipeRef.current.y;
-              swipeRef.current = null;
-              if (dx > 80 && Math.abs(dy) < 60) setViewingEntryId(null);
-            }}
-          >
-            <h2>{viewingEntry.label}</h2>
-            <div className="tile-grid">
-              <div className="tile">
-                <b style={{ fontSize: 16 }}>{Math.round(viewingEntry.kcal)}</b>
-                <span>kcal</span>
-              </div>
-              <div className="tile">
-                <b>{viewingEntry.carbs.toFixed(1)} g</b>
-                <span>{t('nutrient.carbs')}</span>
-              </div>
-              <div className="tile">
-                <b>{viewingEntry.protein.toFixed(1)} g</b>
-                <span>{t('nutrient.protein')}</span>
-              </div>
-              <div className="tile">
-                <b>{viewingEntry.fat.toFixed(1)} g</b>
-                <span>{t('nutrient.fat')}</span>
-              </div>
-            </div>
-            <h4 className="section-label">{t('meal.quantity')}</h4>
-            <EntryQuantityEditor
-              key={viewingEntry.id}
-              entry={viewingEntry}
-              allowUnitToggle={viewingEntry.source_type === 'food'}
-              onUpdateEntry={onUpdateEntry}
-              onSaved={() => setViewingEntryId(null)}
-            />
-            {viewingEntry.source_type === 'food' && (
-              <label className="recurring-toggle-row">
-                <input
-                  type="checkbox"
-                  checked={recurringKeys.has(`${viewingEntry.source_type}-${viewingEntry.source_id}`)}
-                  onChange={(e) =>
-                    handleToggleRecurring(
-                      viewingEntry.source_type,
-                      viewingEntry.source_id,
-                      viewingEntry.quantity,
-                      e.target.checked
-                    )
-                  }
-                />
-                <span>{t('addFood.recurringMeal')}</span>
-              </label>
-            )}
-          </div>
-        </div>
-      )}
+            showRecurring={viewingEntry.source_type === 'food'}
+            recurring={recurringKeys.has(`${viewingEntry.source_type}-${viewingEntry.source_id}`)}
+            onToggleRecurring={(checked) =>
+              handleToggleRecurring(viewingEntry.source_type, viewingEntry.source_id, entryQty, checked)
+            }
+            onClose={() => setViewingEntryId(null)}
+            onSave={handleSaveEntry}
+            saving={savingEntry}
+            swipeRef={swipeRef}
+          />
+        );
+      })()}
 
       {editingGroupId != null && (() => {
         const g = groups.find((gr) => gr.kind === 'recipe' && gr.recipeId === editingGroupId);
         const recipe = g && recipes.find((r) => r.id === g.recipeId);
         if (!g || !recipe) return null;
         const groupKcal = g.entries.reduce((s, e) => s + e.kcal, 0);
+        const groupProtein = g.entries.reduce((s, e) => s + e.protein, 0);
+        const groupCarbs = g.entries.reduce((s, e) => s + e.carbs, 0);
+        const groupFat = g.entries.reduce((s, e) => s + e.fat, 0);
+        const basePortions = currentPortionsForGroup(g, recipe) || 1;
+        const factor = groupPortions / basePortions;
         return (
-          <div className="modal-overlay" onClick={() => setEditingGroupId(null)}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <h2>{recipe.title}</h2>
-              <div className="tile-grid">
-                <div className="tile">
-                  <b style={{ fontSize: 16 }}>{Math.round(groupKcal)}</b>
-                  <span>kcal</span>
-                </div>
-              </div>
-              <h4 className="section-label">{t('meal.quantity')}</h4>
-              <div className="qty-editor">
-                <div className="qty-editor-row">
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={groupPortions}
-                    onChange={(e) => setGroupPortions(e.target.value)}
-                  />
-                  <span className="qty-editor-unit">{t('addFood.portion')}</span>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-block"
-                  onClick={() => handleSaveGroupPortions(g)}
-                  disabled={savingGroupPortions}
-                >
-                  {savingGroupPortions ? t('addFood.saving') : t('meal.save')}
-                </button>
-              </div>
-              <label className="recurring-toggle-row">
-                <input
-                  type="checkbox"
-                  checked={recurringKeys.has(`recipe-${g.recipeId}`)}
-                  onChange={(e) =>
-                    handleToggleRecurring('recipe', g.recipeId, Number(groupPortions) || 1, e.target.checked)
-                  }
-                />
-                <span>{t('addFood.recurringMeal')}</span>
-              </label>
-            </div>
-          </div>
-        );
-      })()}
-
-      {viewingRecipe && (
-        <div className="modal-overlay" onClick={() => setViewingRecipeId(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            {viewingRecipe.image && <img src={viewingRecipe.image} alt="" className="recipe-image-full" />}
-            <h2>{viewingRecipe.title}</h2>
-            {viewingRecipe.description && <p className="hint">{viewingRecipe.description}</p>}
-
-            <h4 className="section-label">{t('meal.ingredientsCount').replace('{count}', viewingRecipe.portions)}</h4>
-            {viewingRecipe.ingredients.map((ing, i) => (
+          <EditEntrySheet
+            title={recipe.title}
+            subtitle={`${g.entries.length} ${t('meal.ingredients')}`}
+            icon="utensils"
+            quantity={groupPortions}
+            onQuantityChange={setGroupPortions}
+            step={0.5}
+            unit="portion(s)"
+            macros={{
+              kcal: groupKcal * factor,
+              protein: groupProtein * factor,
+              carbs: groupCarbs * factor,
+              fat: groupFat * factor,
+            }}
+            showRecurring
+            recurring={recurringKeys.has(`recipe-${g.recipeId}`)}
+            onToggleRecurring={(checked) => handleToggleRecurring('recipe', g.recipeId, groupPortions, checked)}
+            onClose={() => setEditingGroupId(null)}
+            onSave={() => handleSaveGroupPortions(g)}
+            saving={savingGroupPortions}
+          >
+            {recipe.description && <p className="hint">{recipe.description}</p>}
+            <h4 className="section-label">{t('meal.ingredientsCount').replace('{count}', recipe.portions)}</h4>
+            {recipe.ingredients.map((ing, i) => (
               <div className="ingredient-row" key={i}>
                 <span className="ingredient-name">{ing.nom}</span>
                 <span className="ingredient-kcal">
@@ -530,11 +548,10 @@ export default function MealDetail({
                 </span>
               </div>
             ))}
-
-            {viewingRecipe.steps.length > 0 && (
+            {recipe.steps.length > 0 && (
               <>
                 <h4 className="section-label">{t('meal.steps')}</h4>
-                {viewingRecipe.steps.map((step, i) => (
+                {recipe.steps.map((step, i) => (
                   <div className="step-row" key={i}>
                     <span className="step-num">{i + 1}</span>
                     <span>{step}</span>
@@ -542,12 +559,9 @@ export default function MealDetail({
                 ))}
               </>
             )}
-          </div>
-          <button type="button" className="done-btn" onClick={() => setViewingRecipeId(null)}>
-            {t('meal.close')}
-          </button>
-        </div>
-      )}
+          </EditEntrySheet>
+        );
+      })()}
 
     </div>
   );

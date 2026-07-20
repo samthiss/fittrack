@@ -74,6 +74,25 @@ export const api = {
   searchFoodsOnline: (query) => request(`/foods/search-online?q=${encodeURIComponent(query)}`),
   parseFoodText: (text) =>
     request('/foods/parse-text', { method: 'POST', body: JSON.stringify({ text }) }),
+  parseFoodPhoto: async (file) => {
+    const formData = new FormData();
+    formData.append('photo', file);
+    const res = await fetch(`${BASE}/foods/parse-photo`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+    if (res.status === 401) {
+      const err = new Error('Non authentifié');
+      err.isAuthError = true;
+      throw err;
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Erreur ${res.status}`);
+    }
+    return res.json();
+  },
   addFood: (data) => request('/foods', { method: 'POST', body: JSON.stringify(data) }),
   updateFood: (id, data) => request(`/foods/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteFood: (id) => request(`/foods/${id}`, { method: 'DELETE' }),

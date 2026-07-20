@@ -11,6 +11,7 @@ import { SqliteSessionStore, LEGACY_MARKER, hashPassword, verifyPassword, requir
 import { importRecipeFromText, generateRecipeForTarget } from './recipeImport.js';
 import { lookupBarcode, searchFoodsOnline } from './foodLookup.js';
 import { parseFoodText } from './foodTextParse.js';
+import { parseFoodPhoto } from './foodPhotoParse.js';
 import { buildMicroList, MICRO_REFERENCE, NUTRIENT_SUGGESTIONS, SUPPLEMENT_SUGGESTIONS, hasDailyGoal } from './nutrientReference.js';
 import { estimateMissingNutrients, estimateNutrientsForFood } from './nutrientEstimation.js';
 import { classifyFoodsBatch, classifyFood, classifyIngredientsBatch } from './microbiomeClassification.js';
@@ -31,6 +32,9 @@ const weightPhotoStorage = multer.diskStorage({
   },
 });
 const uploadWeightPhotos = multer({ storage: weightPhotoStorage });
+// Food photos are only ever sent to the vision model for analysis, never persisted — memory
+// storage keeps them out of the disk/volume entirely.
+const uploadFoodPhoto = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Maps a recipe ingredient's French field name to the canonical nutrient key.
 const INGREDIENT_NUTRIENT_FIELDS = {
@@ -891,6 +895,36 @@ app.post('/api/foods/parse-text', async (req, res) => {
 
   try {
     const parsed = await parseFoodText(text);
+    const factor = 100 / parsed.quantite_g;
+
+    const result = {
+      name: parsed.nom,
+      suggestedQuantity: parsed.quantite_g,
+      kcal_per_100g: parsed.kcal * factor,
+      protein_per_100g: parsed.proteines * factor,
+      carbs_per_100g: parsed.glucides * factor,
+      fat_per_100g: parsed.lipides * factor,
+    };
+    for (const key of NUTRIENT_KEYS) {
+      result[`${key}_per_100g`] = (parsed[INGREDIENT_NUTRIENT_FIELDS[key]] || 0) * factor;
+    }
+
+    res.json(result);
+  } catch (err) {
+    res.status(422).json({ error: err.message || "Échec de l'analyse" });
+  }
+});
+
+const SUPPORTED_PHOTO_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+
+app.post('/api/foods/parse-photo', uploadFoodPhoto.single('photo'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'photo requise' });
+  }
+  const mediaType = SUPPORTED_PHOTO_MIME_TYPES.has(req.file.mimetype) ? req.file.mimetype : 'image/jpeg';
+
+  try {
+    const parsed = await parseFoodPhoto(req.file.buffer.toString('base64'), mediaType);
     const factor = 100 / parsed.quantite_g;
 
     const result = {

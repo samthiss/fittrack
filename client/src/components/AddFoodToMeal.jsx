@@ -72,16 +72,18 @@ export default function AddFoodToMeal({
   onDeleteFood,
   onDeleteRecipe,
   onParseText,
+  onParsePhoto,
   onAddFavorite,
   onRemoveFavorite,
 }) {
   const { t } = useLanguage();
   const TOOLS = [
     { key: 'search', icon: 'search', label: t('addFood.toolSearch') },
-    { key: 'barcode', icon: 'scan-barcode', label: t('addFood.toolBarcode') },
     { key: 'write', icon: 'sparkles', label: t('addFood.toolWrite') },
     { key: 'manual', icon: 'pencil-line', label: t('addFood.toolManual') },
+    { key: 'photo', icon: 'camera', label: t('addFood.toolPhoto') },
   ];
+  const photoInputRef = useRef(null);
   const [activeTool, setActiveTool] = useState('search');
   const [search, setSearch] = useState('');
   const [itemKind, setItemKind] = useState('food');
@@ -355,6 +357,25 @@ export default function AddFoodToMeal({
     }
   }
 
+  async function handlePhotoSelected(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !onParsePhoto) return;
+    setTextLoading(true);
+    setScanStatus({ text: t('addFood.analyzing') });
+    setScanResult(null);
+    try {
+      const result = await onParsePhoto(file);
+      setScanResult(result);
+      setScanQty(String(Math.round(result.suggestedQuantity || 100)));
+      setScanStatus(null);
+    } catch (err) {
+      setScanStatus({ text: err.message || t('addFood.analysisFailed'), error: true });
+    } finally {
+      setTextLoading(false);
+    }
+  }
+
   async function handleAddScanResult() {
     // Guards against the double/triple-tap that happens when the request is slow and the button
     // gives no feedback in the meantime — each extra tap used to fire its own insertFoodLog and
@@ -520,6 +541,28 @@ export default function AddFoodToMeal({
             />
             <button type="button" className="btn btn-block" onClick={handleParseText} disabled={textLoading}>
               {textLoading ? t('addFood.analyzingAction') : t('addFood.analyzeAction')}
+            </button>
+            {scanStatus && <p className={scanStatus.error ? 'hint error' : 'hint'}>{scanStatus.text}</p>}
+          </>
+        )}
+
+        {activeTool === 'photo' && (
+          <>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={handlePhotoSelected}
+            />
+            <button
+              type="button"
+              className="btn btn-block"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={textLoading}
+            >
+              {textLoading ? t('addFood.analyzingAction') : t('addFood.takePhoto')}
             </button>
             {scanStatus && <p className={scanStatus.error ? 'hint error' : 'hint'}>{scanStatus.text}</p>}
           </>
