@@ -32,6 +32,7 @@ function MainApp({ onLogout, account }) {
   const { t } = useLanguage();
   const [view, setView] = useState('journal');
   const [selectedMeal, setSelectedMeal] = useState(null);
+  const [autoOpenAdd, setAutoOpenAdd] = useState(false);
   const [profile, setProfile] = useState(null);
   const [activityTypes, setActivityTypes] = useState([]);
   const [water, setWater] = useState({ logs: [], totalMl: 0 });
@@ -243,12 +244,14 @@ function MainApp({ onLogout, account }) {
     setDate((d) => shiftDateStr(d, 1));
   }
 
-  function handleSelectMeal(key) {
+  function handleSelectMeal(key, openAdd = false) {
     setSelectedMeal(key);
+    setAutoOpenAdd(openAdd);
   }
 
   function handleBackFromMeal() {
     setSelectedMeal(null);
+    setAutoOpenAdd(false);
     setMealData(null);
     setMealFavorites([]);
   }
@@ -285,6 +288,7 @@ function MainApp({ onLogout, account }) {
           {view === 'journal' && selectedMeal && (
             <MealDetail
               meal={mealData}
+              autoOpenAdd={autoOpenAdd}
               foods={foods}
               recipes={recipes}
               favorites={mealFavorites}

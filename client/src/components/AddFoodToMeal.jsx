@@ -70,6 +70,7 @@ export default function AddFoodToMeal({
   onCreateFood,
   onParseText,
   onParsePhoto,
+  onAddedRecipe,
 }) {
   const { t } = useLanguage();
   const TOOLS = [
@@ -243,6 +244,11 @@ export default function AddFoodToMeal({
       await onAddEntry(viewingItem.type, viewingItem.id, qty, viewingItem.type === 'food' ? modalUnit : 'g');
       await syncRecurring(viewingItem.type, viewingItem.id, qty, modalRecurring);
       setViewingItem(null);
+      // Straight into the ingredient list so a specific ingredient can be trimmed/adjusted
+      // before this is really "done" — rather than a silent add with no way to tweak it.
+      if (viewingItem.type === 'recipe' && onAddedRecipe) {
+        onAddedRecipe(viewingItem.id, qty);
+      }
     } finally {
       setSavingModal(false);
     }
@@ -691,70 +697,110 @@ export default function AddFoodToMeal({
               if (dx > 80 && Math.abs(dy) < 60) setViewingItem(null);
             }}
           >
-            <h2>{viewingItem.name}</h2>
-            {viewingItemMacros && (
-              <div className="tile-grid">
-                <div className="tile">
-                  <b style={{ fontSize: 16 }}>{Math.round(viewingItemMacros.kcal)}</b>
-                  <span>kcal</span>
-                </div>
-                <div className="tile">
-                  <b>{viewingItemMacros.carbs.toFixed(1)} g</b>
-                  <span>{t('nutrient.carbs')}</span>
-                </div>
-                <div className="tile">
-                  <b>{viewingItemMacros.protein.toFixed(1)} g</b>
-                  <span>{t('nutrient.protein')}</span>
-                </div>
-                <div className="tile">
-                  <b>{viewingItemMacros.fat.toFixed(1)} g</b>
-                  <span>{t('nutrient.fat')}</span>
-                </div>
+            <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+              <button type="button" className="meal-detail-back-btn" onClick={() => setViewingItem(null)} aria-label={t('meal.close')}>
+                <Icon name="x" size={20} />
+              </button>
+              <div className="meal-detail-heading">
+                {mealKey && <div className="day-nav-subtitle">{t(`mealName.${mealKey}`)}</div>}
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>{viewingItem.name}</div>
               </div>
-            )}
+            </div>
+
             <h4 className="section-label">{t('addFood.quantity')}</h4>
-            <div className="qty-editor">
-              <div className="qty-editor-row">
-                <input
-                  type="number"
-                  min="0"
-                  step={viewingItem.type === 'food' ? '1' : 'any'}
-                  value={modalQty}
-                  onChange={(e) => setModalQty(e.target.value)}
-                />
-                {viewingItem.type === 'food' ? (
-                  <select
-                    className="qty-editor-unit-select"
-                    value={modalUnit}
-                    onChange={(e) => setModalUnit(e.target.value)}
-                  >
-                    <option value="g">g</option>
-                    <option value="ml">ml</option>
-                  </select>
-                ) : (
-                  <span className="qty-editor-unit">{t('addFood.portion')}</span>
-                )}
+            <div className="qty-stepper-row">
+              <button
+                type="button"
+                className="weight-minus-btn"
+                onClick={() => setModalQty(String(Math.max(viewingItem.type === 'food' ? 5 : 0.5, Number(modalQty) - (viewingItem.type === 'food' ? 10 : 0.5))))}
+              >
+                <Icon name="minus" size={18} />
+              </button>
+              <div className="qty-stepper-value">
+                <span className="weight-value">{modalQty}</span>{' '}
+                <span className="rate">{viewingItem.type === 'food' ? modalUnit : t('addFood.portion')}</span>
               </div>
-              {viewingItem.type === 'food' && modalUnit === 'ml' && (
-                <p className="hint">{t('addFood.waterNote')}</p>
-              )}
-              {mealKey && (
-                <label className="recurring-toggle-row">
-                  <input
-                    type="checkbox"
-                    checked={modalRecurring}
-                    onChange={(e) => setModalRecurring(e.target.checked)}
-                  />
-                  <span>{t('addFood.recurringMeal')}</span>
-                </label>
-              )}
-              <button type="button" className="btn btn-block" onClick={handleModalSave} disabled={savingModal}>
-                {savingModal ? t('addFood.saving') : t('addFood.save')}
+              <button
+                type="button"
+                className="weight-plus-btn qty-stepper-plus"
+                onClick={() => setModalQty(String(Number(modalQty) + (viewingItem.type === 'food' ? 10 : 0.5)))}
+              >
+                <Icon name="plus" size={18} />
               </button>
             </div>
+            {viewingItem.type === 'food' && (
+              <div className="type-list-row" style={{ marginTop: 10 }}>
+                {['g', 'ml'].map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    className={modalUnit === u ? 'type-pill active' : 'type-pill'}
+                    onClick={() => setModalUnit(u)}
+                  >
+                    {u}
+                  </button>
+                ))}
+              </div>
+            )}
+            {viewingItem.type === 'food' && modalUnit === 'ml' && (
+              <p className="hint">{t('addFood.waterNote')}</p>
+            )}
+
+            {viewingItemMacros && (
+              <>
+                <h4 className="section-label">{t('addFood.forThisPortion')}</h4>
+                <div className="portion-tile-row">
+                  <div className="portion-tile">
+                    <b>{Math.round(viewingItemMacros.kcal)}</b>
+                    <span>kcal</span>
+                  </div>
+                  <div className="portion-tile">
+                    <b style={{ color: 'var(--macro-protein)' }}>{Math.round(viewingItemMacros.protein)}</b>
+                    <span>{t('nutrient.protein')}</span>
+                  </div>
+                  <div className="portion-tile">
+                    <b style={{ color: 'var(--macro-carb)' }}>{Math.round(viewingItemMacros.carbs)}</b>
+                    <span>{t('nutrient.carbs')}</span>
+                  </div>
+                  <div className="portion-tile">
+                    <b style={{ color: 'var(--macro-fat)' }}>{Math.round(viewingItemMacros.fat)}</b>
+                    <span>{t('nutrient.fat')}</span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {mealKey && (
+              <>
+                <h4 className="section-label">{t('addFood.recurringSection')}</h4>
+                <div
+                  className={modalRecurring ? 'recurring-feature-row active' : 'recurring-feature-row'}
+                  onClick={() => setModalRecurring((r) => !r)}
+                >
+                  <span className="recurring-feature-icon">
+                    <Icon name="repeat" size={20} />
+                  </span>
+                  <div className="recurring-feature-body">
+                    <div className="recurring-feature-title">{t('addFood.markRecurring')}</div>
+                    <div className="recurring-feature-desc">{t('addFood.markRecurringDesc')}</div>
+                  </div>
+                  <span className={modalRecurring ? 'recurring-feature-check checked' : 'recurring-feature-check'}>
+                    <Icon name="check" size={16} />
+                  </span>
+                </div>
+              </>
+            )}
           </div>
-          <button type="button" className="done-btn" onClick={() => setViewingItem(null)}>
-            {t('addFood.close')}
+          <button
+            type="button"
+            className="done-btn done-btn-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleModalSave();
+            }}
+            disabled={savingModal}
+          >
+            {savingModal ? t('addFood.saving') : t('addFood.save')}
           </button>
         </div>
       )}

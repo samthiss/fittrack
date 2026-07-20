@@ -280,7 +280,7 @@ export default function HomeDashboard({
               className="meal-add-btn"
               onClick={(e) => {
                 e.stopPropagation();
-                onSelectMeal(m.key);
+                onSelectMeal(m.key, true);
               }}
             >
               <Icon name="plus" size={22} color="var(--text-on-accent)" />

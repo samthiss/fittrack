@@ -191,9 +191,10 @@ export default function MealDetail({
   onCreateFood,
   onParseText,
   onParsePhoto,
+  autoOpenAdd,
 }) {
   const { t } = useLanguage();
-  const [showAdd, setShowAdd] = useState(false);
+  const [showAdd, setShowAdd] = useState(!!autoOpenAdd);
   const [viewingEntryId, setViewingEntryId] = useState(null);
   const [entryQty, setEntryQty] = useState(0);
   const [entryUnit, setEntryUnit] = useState('g');
@@ -499,6 +500,11 @@ export default function MealDetail({
               onCreateFood={onCreateFood}
               onParseText={onParseText}
               onParsePhoto={onParsePhoto}
+              onAddedRecipe={(recipeId, portions) => {
+                setShowAdd(false);
+                setEditingGroupId(recipeId);
+                setGroupPortions(portions);
+              }}
             />
           </div>
           <button type="button" className="done-btn" onClick={() => setShowAdd(false)}>
