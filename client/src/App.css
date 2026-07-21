@@ -2046,6 +2046,28 @@ textarea.wide {
   color: var(--dim);
 }
 
+/* Smaller variant so 3 stat tiles fit on one row instead of wrapping (e.g. activity detail's
+   kcal/durée/exercices row) — same info, less vertical space. */
+.tile-grid-compact {
+  gap: 8px;
+}
+
+.tile-grid-compact .tile {
+  padding: 10px 8px;
+  gap: 2px;
+  align-items: center;
+  text-align: center;
+}
+
+.tile-grid-compact .tile b {
+  font-size: 15px;
+}
+
+.tile-grid-compact .tile span {
+  font-size: 10.5px;
+  line-height: 1.2;
+}
+
 .nutrition-row {
   padding: 10px 0;
 }
@@ -2654,16 +2676,6 @@ textarea.wide {
 .star-btn.active {
   border-color: var(--warn);
   color: var(--warn);
-}
-
-.recurring-toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 4px 0 14px;
-  font-size: 14px;
-  color: var(--txt);
-  cursor: pointer;
 }
 
 /* "Modifier aliment" style edit sheet — shared by food entries and recipe entries */

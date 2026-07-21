@@ -130,39 +130,35 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
 
   return (
     <div>
-      <div className="activity-detail-hero">
-        <span className="activity-detail-hero-icon">
-          <Icon name={isForce ? 'dumbbell' : 'activity'} size={32} />
-        </span>
-        <button type="button" className="activity-detail-hero-btn activity-detail-hero-btn-back" onClick={onBack} aria-label={t('meal.back')}>
+      <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+        <button type="button" className="meal-detail-back-btn" onClick={onBack} aria-label={t('meal.back')}>
           <Icon name="chevron-left" size={20} />
         </button>
-        {isForce && (
-          <button
-            type="button"
-            className="activity-detail-hero-btn activity-detail-hero-btn-add"
-            onClick={() => setShowPicker(true)}
-            aria-label={t('activityLog.addExercise')}
-          >
-            <Icon name="plus" size={20} />
-          </button>
-        )}
-      </div>
-
-      <div style={{ padding: '18px 0 0' }}>
-        <div className="day-nav-subtitle">{activity.duration_minutes} min</div>
-        <div className="row" style={{ alignItems: 'center', gap: 8 }}>
-          <h1 style={{ lineHeight: 1.15, marginTop: 2 }}>{label || t(`activityType.${activity.type}`)}</h1>
+        <div style={{ flex: 1 }} />
+        {isForce && exercises.length > 0 && (
           <button
             type="button"
             className="entry-icon-btn"
-            onClick={() => setShowEdit(true)}
-            aria-label={t('activityLog.editName')}
+            onClick={() => {
+              setTemplateName(label || t(`activityType.${activity.type}`));
+              setShowSaveTemplate(true);
+            }}
+            aria-label={t('activityLog.saveAsTemplate')}
           >
-            <Icon name="pencil" size={16} />
+            <Icon name="bookmark" size={17} />
           </button>
-        </div>
-        {label && <p className="hint" style={{ marginTop: 2 }}>{t(`activityType.${activity.type}`)}</p>}
+        )}
+        <button
+          type="button"
+          className="entry-icon-btn"
+          onClick={() => setShowEdit(true)}
+          aria-label={t('activityLog.editName')}
+        >
+          <Icon name="pencil" size={17} />
+        </button>
+        <button type="button" className="entry-icon-btn entry-delete-btn" onClick={handleDeleteActivity} aria-label={t('activityLog.delete')}>
+          <Icon name="trash-2" size={17} />
+        </button>
       </div>
 
       {recurringDays.length > 0 && (
@@ -181,7 +177,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
         </div>
       )}
 
-      <div className="tile-grid" style={{ marginTop: 16 }}>
+      <div className="tile-grid tile-grid-compact" style={{ marginTop: 16, gridTemplateColumns: `repeat(${isForce ? 3 : 2}, 1fr)` }}>
         <div className="tile">
           <b style={{ color: 'var(--warning)' }}>{Math.round(activity.kcal)}</b>
           <span>{t('activityLog.kcalBurned')}</span>
@@ -202,20 +198,6 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
         <>
           <div className="row" style={{ alignItems: 'center', marginTop: 8 }}>
             <h2 style={{ margin: 0 }}>{t('activityLog.exercises')}</h2>
-            {exercises.length > 0 && (
-              <button
-                type="button"
-                className="report-link"
-                style={{ marginLeft: 'auto' }}
-                onClick={() => {
-                  setTemplateName(label || t(`activityType.${activity.type}`));
-                  setShowSaveTemplate(true);
-                }}
-              >
-                <Icon name="bookmark" size={14} />
-                {t('activityLog.saveAsTemplate')}
-              </button>
-            )}
           </div>
           {templateSaved && <p className="hint success">{t('activityLog.templateSaved')}</p>}
           {loading ? (
@@ -259,15 +241,6 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
           </div>
         </>
       )}
-
-      <div className="row" style={{ gap: 10, marginTop: 16 }}>
-        <button type="button" className="weight-minus-btn" style={{ color: 'var(--danger)' }} onClick={handleDeleteActivity} aria-label={t('activityLog.delete')}>
-          <Icon name="trash-2" size={18} />
-        </button>
-        {!isForce && (
-          <span className="hint" style={{ margin: 0 }}>{t('activityLog.delete')}</span>
-        )}
-      </div>
 
       {showEdit && (
         <div className="modal-overlay" onClick={() => setShowEdit(false)}>
@@ -321,10 +294,21 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
             </div>
 
             <h4 className="section-label">{t('activityLog.recurrence')}</h4>
-            <label className="recurring-toggle-row">
-              <input type="checkbox" checked={editRecurring} onChange={(e) => setEditRecurring(e.target.checked)} />
-              <span>{t('activityLog.recurringActivity')}</span>
-            </label>
+            <div
+              className={editRecurring ? 'recurring-feature-row active' : 'recurring-feature-row'}
+              onClick={() => setEditRecurring((v) => !v)}
+            >
+              <span className="recurring-feature-icon">
+                <Icon name="repeat" size={20} />
+              </span>
+              <div className="recurring-feature-body">
+                <div className="recurring-feature-title">{t('activityLog.recurringActivity')}</div>
+                <div className="recurring-feature-desc">{t('activityLog.recurringActivityDesc')}</div>
+              </div>
+              <span className={editRecurring ? 'recurring-feature-check checked' : 'recurring-feature-check'}>
+                <Icon name="check" size={16} />
+              </span>
+            </div>
             {editRecurring && (
               <div className="day-chip-row" style={{ marginTop: 10 }}>
                 {DAY_ORDER.map((key) => (

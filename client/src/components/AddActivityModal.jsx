@@ -241,10 +241,21 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
         </div>
 
         <h4 className="section-label">{t('activityLog.recurrence')}</h4>
-        <label className="recurring-toggle-row">
-          <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
-          <span>{t('activityLog.recurringActivity')}</span>
-        </label>
+        <div
+          className={recurring ? 'recurring-feature-row active' : 'recurring-feature-row'}
+          onClick={() => setRecurring((v) => !v)}
+        >
+          <span className="recurring-feature-icon">
+            <Icon name="repeat" size={20} />
+          </span>
+          <div className="recurring-feature-body">
+            <div className="recurring-feature-title">{t('activityLog.recurringActivity')}</div>
+            <div className="recurring-feature-desc">{t('activityLog.recurringActivityDesc')}</div>
+          </div>
+          <span className={recurring ? 'recurring-feature-check checked' : 'recurring-feature-check'}>
+            <Icon name="check" size={16} />
+          </span>
+        </div>
         {recurring && (
           <div className="day-chip-row" style={{ marginTop: 10 }}>
             {DAY_ORDER.map((key) => (
