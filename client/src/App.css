@@ -438,6 +438,88 @@
   font-size: 16px;
 }
 
+.bottom-sheet-overlay {
+  background: rgba(0, 0, 0, 0.55);
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.bottom-sheet {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--surface-raised, var(--card));
+  border: 1px solid var(--border-subtle, var(--line));
+  border-bottom: 0;
+  border-radius: 20px 20px 0 0;
+  padding: 10px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  animation: bottomSheetUp 0.2s ease;
+}
+
+@keyframes bottomSheetUp {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.bottom-sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  margin: 0 auto 16px;
+}
+
+.bottom-sheet-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.bottom-sheet-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bottom-sheet-save-link {
+  border: 0;
+  background: none;
+  color: var(--acc);
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.bottom-sheet-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 6px 0 18px;
+}
+
+.bottom-sheet-stepper-value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  min-width: 40px;
+  text-align: center;
+}
+
+.bottom-sheet-actions {
+  display: flex;
+  gap: 10px;
+}
+
 .day-nav-btn {
   background: var(--surface-card, none);
   border: 1px solid var(--border-strong, var(--line));

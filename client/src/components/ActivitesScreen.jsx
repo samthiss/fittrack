@@ -120,13 +120,23 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
       : { mon: 'L', tue: 'M', wed: 'M', thu: 'J', fri: 'V', sat: 'S', sun: 'D' };
 
   if (sessionExercise) {
+    const exIndex = session.exercises.findIndex((e) => e.id === sessionExercise.id);
     return (
       <ExerciseSession
         exercise={sessionExercise}
+        activityLabel={session.activity.label || t(`activityType.${session.activity.type}`)}
+        index={exIndex + 1}
+        total={session.exercises.length}
         onBack={() => setSessionExercise(null)}
         onComplete={(id) => {
           setSession((s) => ({ ...s, doneIds: new Set([...s.doneIds, id]) }));
           setSessionExercise(null);
+        }}
+        onUpdateExercise={(id, patch) => {
+          setSession((s) => ({
+            ...s,
+            exercises: s.exercises.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+          }));
         }}
       />
     );
