@@ -4,8 +4,24 @@ import { useLanguage } from '../i18n/LanguageContext';
 import Icon from './Icon';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-const MEAL_DISPLAY_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
-const MEAL_ICONS = { breakfast: 'sunrise', lunch: 'utensils', dinner: 'moon', snack: 'apple' };
+const MEAL_ICONS = { breakfast: 'sunrise', lunch: 'utensils', dinner: 'moon' };
+const BASE_MEAL_KEYS = ['breakfast', 'snack', 'lunch', 'dinner'];
+
+function mealLabel(key, label, t) {
+  return BASE_MEAL_KEYS.includes(key) ? t(`mealName.${key}`) : label;
+}
+
+function mealShortLabel(key, label, t) {
+  return BASE_MEAL_KEYS.includes(key) ? t(`planner.slotShort.${key}`) : label;
+}
+
+// breakfast, lunch, dinner in that fixed order, then every en-cas slot (the base one plus any
+// extra ones added in Réglages > Repas du jour) in whatever order the server returned them.
+function displayOrder(meals) {
+  const keys = meals.map((m) => m.key);
+  const snacks = keys.filter((k) => k.startsWith('snack'));
+  return ['breakfast', 'lunch', 'dinner', ...snacks].filter((k) => keys.includes(k));
+}
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -174,7 +190,7 @@ export default function MealPlanner({ recipes, foods }) {
     const groups = ['breakfast', 'lunch', 'dinner']
       .filter((k) => !recurringMeals.has(k))
       .map((k) => ({ poolKey: k, mealKeys: [k] }));
-    const independentMeals = plan.meals.filter((m) => m.key === 'snack' && !recurringMeals.has(m.key));
+    const independentMeals = plan.meals.filter((m) => m.key.startsWith('snack') && !recurringMeals.has(m.key));
 
     const independentSlots = [];
     for (const d of plan.days) {
@@ -435,15 +451,15 @@ export default function MealPlanner({ recipes, foods }) {
           <WeekStrip weekStart={weekStart} dayKeys={plan.days.map((d) => d.key)} activeDay={day} onSelect={setDay} t={t} />
 
           <h4 className="section-label">{t('planner.slotLabel')}</h4>
-          <div className="type-list-row" style={{ margin: '0 0 4px' }}>
-            {MEAL_DISPLAY_ORDER.map((key) => (
+          <div className="type-list-row" style={{ margin: '0 0 4px', flexWrap: 'wrap', height: 'auto' }}>
+            {displayOrder(plan.meals).map((key) => (
               <button
                 key={key}
                 type="button"
                 className={addMeal === key ? 'type-pill active' : 'type-pill'}
                 onClick={() => setAddMeal(key)}
               >
-                {t(`planner.slotShort.${key}`)}
+                {mealShortLabel(key, plan.meals.find((m) => m.key === key)?.label, t)}
               </button>
             ))}
           </div>
@@ -707,20 +723,21 @@ export default function MealPlanner({ recipes, foods }) {
       </div>
 
       <div className="meal-card-list" style={{ marginBottom: 18 }}>
-        {MEAL_DISPLAY_ORDER.map((key) => {
+        {displayOrder(plan.meals).map((key) => {
           const m = plan.meals.find((mm) => mm.key === key);
           if (!m) return null;
+          const title = mealLabel(key, m.label, t);
           const mealEntries = entriesForDay.filter((e) => e.meal === key);
           if (mealEntries.length === 0) {
             return (
               <div key={key} className="meal-card empty" onClick={() => openAdd(key)}>
                 <span className="meal-icon-box" style={{ background: 'var(--surface-raised)', color: 'var(--dim)' }}>
-                  <Icon name={MEAL_ICONS[key]} size={21} />
+                  <Icon name={MEAL_ICONS[key] || 'apple'} size={21} />
                 </span>
                 <div className="meal-card-body">
-                  <div className="meal-card-kcal">{t(`mealName.${key}`)}</div>
+                  <div className="meal-card-kcal">{title}</div>
                   <div className="meal-card-title" style={{ color: 'var(--text-secondary)' }}>
-                    {t(`planner.addMealAction.${key}`)}
+                    {BASE_MEAL_KEYS.includes(key) ? t(`planner.addMealAction.${key}`) : t('planner.addMealActionGeneric').replace('{meal}', title)}
                   </div>
                 </div>
                 <Icon name="plus" size={22} color="var(--acc)" />
@@ -732,10 +749,10 @@ export default function MealPlanner({ recipes, foods }) {
           return (
             <div key={key} className="meal-card" onClick={() => openAdd(key)}>
               <span className="meal-icon-box">
-                <Icon name={MEAL_ICONS[key]} size={21} />
+                <Icon name={MEAL_ICONS[key] || 'apple'} size={21} />
               </span>
               <div className="meal-card-body">
-                <div className="meal-card-kcal">{t(`mealName.${key}`)}</div>
+                <div className="meal-card-kcal">{title}</div>
                 <div className="meal-card-title">{label}</div>
               </div>
               <b style={{ fontSize: 13, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>

@@ -60,6 +60,7 @@ const EMPTY_FOOD = {
 
 export default function AddFoodToMeal({
   mealKey,
+  mealLabel,
   foods,
   recipes,
   favorites,
@@ -720,7 +721,7 @@ export default function AddFoodToMeal({
                 <Icon name="x" size={20} />
               </button>
               <div className="meal-detail-heading">
-                {mealKey && <div className="day-nav-subtitle">{t(`mealName.${mealKey}`)}</div>}
+                {mealLabel && <div className="day-nav-subtitle">{mealLabel}</div>}
                 <div className="meal-detail-title" style={{ fontSize: 21 }}>{viewingItem.name}</div>
               </div>
             </div>

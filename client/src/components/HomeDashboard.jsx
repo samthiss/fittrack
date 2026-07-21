@@ -8,6 +8,13 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// The 4 fixed meals have a translated mealName.* key; any extra "en-cas" slot (key starting with
+// "snack_") only has the free-text label the user gave it in Réglages > Repas du jour.
+const BASE_MEAL_KEYS = ['breakfast', 'snack', 'lunch', 'dinner'];
+function mealTitle(key, label, t) {
+  return BASE_MEAL_KEYS.includes(key) ? t(`mealName.${key}`) : label;
+}
+
 function MacroMiniBar({ label, value, max, color }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
   return (
@@ -258,7 +265,7 @@ export default function HomeDashboard({
               <Icon name={MEAL_ICONS[m.key] || 'utensils'} size={21} />
             </span>
             <div className="meal-card-body">
-              <div className="meal-card-title">{t(`mealName.${m.key}`)}</div>
+              <div className="meal-card-title">{mealTitle(m.key, m.label, t)}</div>
               <div className="meal-card-kcal">{Math.round(m.consumedKcal)} kcal</div>
               <div className="meal-card-macros">
                 <span>

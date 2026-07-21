@@ -5,6 +5,13 @@ import { api } from '../api';
 import { useLanguage } from '../i18n/LanguageContext';
 import Icon from './Icon';
 
+// The 4 fixed meals have a translated mealName.* key; any extra "en-cas" slot (key starting with
+// "snack_") only has the free-text label the user gave it when adding it in Réglages.
+const BASE_MEAL_KEYS = ['breakfast', 'snack', 'lunch', 'dinner'];
+function mealLabel(key, label, t) {
+  return BASE_MEAL_KEYS.includes(key) ? t(`mealName.${key}`) : label;
+}
+
 // Shared "Modifier aliment"-style edit sheet: icon+name header, a +/- quantity stepper (with a
 // g/ml unit toggle for foods), a live 4-tile macro breakdown that rescales with the stepper, and
 // the recurring-meal toggle. Used for both a plain food entry and a recipe's portions.
@@ -220,7 +227,8 @@ export default function MealDetail({
   }, [refreshRecurringKeys, meal?.entries]);
 
   if (!meal) return null;
-  const { key: mealKey, budgetKcal, consumed, macroTargets, entries } = meal;
+  const { key: mealKey, label: mealLabelText, budgetKcal, consumed, macroTargets, entries } = meal;
+  const mealTitle = mealLabel(mealKey, mealLabelText, t);
   const groups = groupEntries(entries);
   const viewingEntry = viewingEntryId ? entries.find((e) => e.id === viewingEntryId) : null;
 
@@ -305,7 +313,7 @@ export default function MealDetail({
           <Icon name="chevron-left" size={20} />
         </button>
         <div className="meal-detail-heading">
-          <div className="meal-detail-title">{t(`mealName.${mealKey}`)}</div>
+          <div className="meal-detail-title">{mealTitle}</div>
         </div>
       </div>
 
@@ -490,6 +498,7 @@ export default function MealDetail({
           <div className="modal-content">
             <AddFoodToMeal
               mealKey={meal.key}
+              mealLabel={mealTitle}
               foods={foods}
               recipes={recipes}
               favorites={favorites}
@@ -520,7 +529,7 @@ export default function MealDetail({
         const factor = viewingEntry.quantity > 0 ? entryQty / viewingEntry.quantity : 1;
         return (
           <EditEntrySheet
-            headerLabel={t(`mealName.${mealKey}`)}
+            headerLabel={mealTitle}
             title={viewingEntry.label}
             subtitle={food ? `${Math.round(food.kcal_per_100g)} kcal / 100 g` : null}
             icon="utensils"
@@ -561,7 +570,7 @@ export default function MealDetail({
         const factor = groupPortions / basePortions;
         return (
           <EditEntrySheet
-            headerLabel={t(`mealName.${mealKey}`)}
+            headerLabel={mealTitle}
             title={recipe.title}
             subtitle={`${g.entries.length} ${t('meal.ingredients')}`}
             icon="utensils"

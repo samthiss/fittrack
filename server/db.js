@@ -556,6 +556,12 @@ if (!profileCols2.includes('carbs_pct')) {
 if (!profileCols2.includes('meal_shares')) {
   db.exec(`ALTER TABLE profile ADD COLUMN meal_shares TEXT`);
 }
+// NULL/empty means "just the one base en-cas" — JSON array of extra { key: 'snack_<n>', label,
+// time } slots added via Réglages > Repas du jour ("+ Ajouter un en-cas"), each becoming a real
+// meal key usable everywhere a meal is (Journal, meal plan, favorites...).
+if (!profileCols2.includes('extra_snacks')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN extra_snacks TEXT`);
+}
 
 // Seed one history row from the current profile if none exists yet, so profileAsOf() in
 // index.js always has a fallback for dates before this feature started tracking changes.

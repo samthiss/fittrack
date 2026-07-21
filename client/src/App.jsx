@@ -318,6 +318,7 @@ function MainApp({ onLogout, account }) {
               favorites={recipeFavorites}
               onToggleFavorite={handleToggleRecipeFavorite}
               foods={foods}
+              meals={dashboard?.meals || []}
               onImportRecipe={handleImportRecipe}
               onCreateRecipe={handleCreateRecipe}
               onSetCategories={handleSetRecipeCategories}

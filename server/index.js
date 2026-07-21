@@ -230,18 +230,60 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+const EXTRA_SNACK_TIMES = ['morning', 'afternoon', 'evening'];
+
+// profile.extra_snacks (set via Réglages > Repas du jour) adds more "en-cas" slots beyond the
+// base one — each { key: 'snack_<n>', label, time }. key must not collide with a base MEALS key.
+function parseExtraSnacks(profile) {
+  if (!profile?.extra_snacks) return [];
+  try {
+    const parsed = JSON.parse(profile.extra_snacks);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (s) =>
+        s &&
+        typeof s.key === 'string' &&
+        typeof s.label === 'string' &&
+        s.label.trim() &&
+        !MEALS.some((m) => m.key === s.key)
+    );
+  } catch {
+    return [];
+  }
+}
+
+// The full ordered meal list for this user: the 4 fixed meals plus any extra en-cas slots.
+function mealsFor(profile) {
+  const extra = parseExtraSnacks(profile);
+  const shares = mealSharesFor(profile, extra);
+  return [
+    ...MEALS.map((m) => ({ key: m.key, label: m.label, share: shares[m.key] })),
+    ...extra.map((s) => ({ key: s.key, label: s.label, share: shares[s.key], time: s.time })),
+  ];
+}
+
 // profile.meal_shares (set via Réglages > Repas du jour) overrides each meal's slice of the
-// daily kcal budget when present — falls back to the fixed 15/5/35/45% split otherwise.
-function mealSharesFor(profile) {
+// daily kcal budget when present — falls back to the fixed 15/35/45% split for breakfast/lunch/
+// dinner, with the 5% "en-cas" allocation divided evenly across the base snack + any extra ones.
+function mealSharesFor(profile, extra) {
+  const extraSnacks = extra || parseExtraSnacks(profile);
+  const snackKeys = ['snack', ...extraSnacks.map((s) => s.key)];
+  const allKeys = [...MEALS.map((m) => m.key), ...extraSnacks.map((s) => s.key)];
+
+  let stored = null;
   if (profile?.meal_shares) {
     try {
-      const parsed = JSON.parse(profile.meal_shares);
-      if (MEALS.every((m) => typeof parsed[m.key] === 'number')) return parsed;
+      stored = JSON.parse(profile.meal_shares);
     } catch {
-      // malformed JSON — fall through to the default split
+      stored = null;
     }
   }
-  return Object.fromEntries(MEALS.map((m) => [m.key, m.share]));
+  if (stored && allKeys.every((k) => typeof stored[k] === 'number')) return stored;
+
+  const perSnack = 0.05 / snackKeys.length;
+  const shares = { breakfast: 0.15, lunch: 0.35, dinner: 0.45 };
+  for (const k of snackKeys) shares[k] = perSnack;
+  return shares;
 }
 
 // profile.protein_pct/carbs_pct (set via the onboarding "Ajuster les macros" step or Réglages)
@@ -332,7 +374,7 @@ app.get('/api/profile', (req, res) => {
 const SEX_OPTIONS = ['male', 'female', 'other'];
 
 app.put('/api/profile', (req, res) => {
-  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares } = req.body;
+  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks } = req.body;
 
   if (goal !== undefined && !GOALS.includes(goal)) {
     return res.status(400).json({ error: 'goal invalide' });
@@ -340,11 +382,35 @@ app.put('/api/profile', (req, res) => {
   if (sex !== undefined && sex !== null && !SEX_OPTIONS.includes(sex)) {
     return res.status(400).json({ error: 'sex invalide' });
   }
-  if (meal_shares !== undefined && meal_shares !== null && !MEALS.every((m) => typeof meal_shares[m.key] === 'number')) {
-    return res.status(400).json({ error: 'meal_shares invalide' });
+  if (
+    extra_snacks !== undefined &&
+    extra_snacks !== null &&
+    (!Array.isArray(extra_snacks) ||
+      extra_snacks.length > 4 ||
+      extra_snacks.some(
+        (s) =>
+          !s ||
+          typeof s.key !== 'string' ||
+          !s.key.startsWith('snack_') ||
+          typeof s.label !== 'string' ||
+          !s.label.trim() ||
+          (s.time != null && !EXTRA_SNACK_TIMES.includes(s.time))
+      ) ||
+      new Set(extra_snacks.map((s) => s.key)).size !== extra_snacks.length)
+  ) {
+    return res.status(400).json({ error: 'extra_snacks invalide' });
   }
 
   const current = getProfile(req.userId);
+  const nextExtraSnacksJson = extra_snacks !== undefined ? (extra_snacks === null ? null : JSON.stringify(extra_snacks)) : current.extra_snacks;
+  if (meal_shares !== undefined && meal_shares !== null) {
+    const currentExtra = parseExtraSnacks({ extra_snacks: nextExtraSnacksJson });
+    const allKeys = [...MEALS.map((m) => m.key), ...currentExtra.map((s) => s.key)];
+    if (!allKeys.every((k) => typeof meal_shares[k] === 'number')) {
+      return res.status(400).json({ error: 'meal_shares invalide' });
+    }
+  }
+
   const next = {
     bmr: bmr ?? current.bmr,
     daily_movement_kcal: daily_movement_kcal ?? current.daily_movement_kcal,
@@ -362,12 +428,13 @@ app.put('/api/profile', (req, res) => {
     protein_pct: protein_pct !== undefined ? protein_pct : current.protein_pct,
     carbs_pct: carbs_pct !== undefined ? carbs_pct : current.carbs_pct,
     meal_shares: meal_shares !== undefined ? (meal_shares === null ? null : JSON.stringify(meal_shares)) : current.meal_shares,
+    extra_snacks: nextExtraSnacksJson,
   };
 
   db.prepare(
     `UPDATE profile SET bmr = ?, daily_movement_kcal = ?, digestion_kcal = ?, weight_kg = ?, goal = ?, goal_kcal = ?,
      sex = ?, birthdate = ?, height_cm = ?, body_fat_pct = ?, manual_target_kcal = ?, target_weight_kg = ?, steps_per_day = ?,
-     protein_pct = ?, carbs_pct = ?, meal_shares = ?
+     protein_pct = ?, carbs_pct = ?, meal_shares = ?, extra_snacks = ?
      WHERE user_id = ?`
   ).run(
     next.bmr,
@@ -386,6 +453,7 @@ app.put('/api/profile', (req, res) => {
     next.protein_pct,
     next.carbs_pct,
     next.meal_shares,
+    next.extra_snacks,
     req.userId
   );
 
@@ -1310,7 +1378,7 @@ app.post('/api/food-log', (req, res) => {
   if (!source_type || !source_id || !quantity) {
     return res.status(400).json({ error: 'source_type, source_id et quantity requis' });
   }
-  if (!MEALS.some((m) => m.key === meal)) {
+  if (!mealsFor(getProfile(req.userId)).some((m) => m.key === meal)) {
     return res.status(400).json({ error: 'meal invalide' });
   }
 
@@ -1353,7 +1421,7 @@ app.delete('/api/food-log/:id', (req, res) => {
 
 // --- Meals / dashboard ---
 app.get('/api/meal-types', (req, res) => {
-  res.json(MEALS.map(({ key, label }) => ({ key, label })));
+  res.json(mealsFor(getProfile(req.userId)).map(({ key, label }) => ({ key, label })));
 });
 
 // --- Meal favorites (recurring foods/recipes for a given meal) ---
@@ -1367,7 +1435,7 @@ app.get('/api/meal-favorites', (req, res) => {
 
 app.post('/api/meal-favorites', (req, res) => {
   const { meal, source_type, source_id, label } = req.body;
-  if (!MEALS.some((m) => m.key === meal)) {
+  if (!mealsFor(getProfile(req.userId)).some((m) => m.key === meal)) {
     return res.status(400).json({ error: 'meal invalide' });
   }
   if (!source_type || !source_id || !label) {
@@ -1713,8 +1781,7 @@ app.get('/api/dashboard', (req, res) => {
     microSources.caffeine = [...microSources.caffeine, ...drinkSources].sort((a, b) => b.value - a.value);
   }
 
-  const dashboardMealShares = mealSharesFor(summary.profile);
-  const meals = MEALS.map((m) => {
+  const meals = mealsFor(summary.profile).map((m) => {
     const mealLogs = logs.filter((l) => l.meal === m.key);
     const mealTotals = mealLogs.reduce(
       (acc, l) => ({
@@ -1728,7 +1795,7 @@ app.get('/api/dashboard', (req, res) => {
     return {
       key: m.key,
       label: m.label,
-      budgetKcal: summary.targetIntake * dashboardMealShares[m.key],
+      budgetKcal: summary.targetIntake * m.share,
       consumedKcal: mealTotals.kcal,
       consumedProtein: mealTotals.protein,
       consumedCarbs: mealTotals.carbs,
@@ -1857,10 +1924,10 @@ app.get('/api/today-report', (req, res) => {
 
 app.get('/api/meals/:key', (req, res) => {
   const date = req.query.date || todayStr();
-  const mealDef = MEALS.find((m) => m.key === req.params.key);
+  const summary = computeSummary(req.userId, date);
+  const mealDef = mealsFor(summary.profile).find((m) => m.key === req.params.key);
   if (!mealDef) return res.status(404).json({ error: 'repas inconnu' });
 
-  const summary = computeSummary(req.userId, date);
   const entries = db
     .prepare('SELECT * FROM food_logs WHERE user_id = ? AND date = ? AND meal = ? ORDER BY id')
     .all(req.userId, date, mealDef.key);
@@ -1876,7 +1943,7 @@ app.get('/api/meals/:key', (req, res) => {
   );
 
   const dayMacroTargets = computeMacroTargets(summary.targetIntake, summary.profile);
-  const mealShare = mealSharesFor(summary.profile)[mealDef.key];
+  const mealShare = mealDef.share;
   const macroTargets = {
     carbs: dayMacroTargets.carbs * mealShare,
     protein: dayMacroTargets.protein * mealShare,
@@ -2564,15 +2631,14 @@ app.get('/api/meal-plan', (req, res) => {
   const planSummary = computeSummary(req.userId, todayStr());
   const targetIntake = planSummary.targetIntake;
   const dayMacroTargets = computeMacroTargets(targetIntake, planSummary.profile);
-  const planMealShares = mealSharesFor(planSummary.profile);
-  const meals = MEALS.map((m) => ({
+  const meals = mealsFor(planSummary.profile).map((m) => ({
     key: m.key,
     label: m.label,
-    budgetKcal: targetIntake * planMealShares[m.key],
+    budgetKcal: targetIntake * m.share,
     macroTargets: {
-      carbs: dayMacroTargets.carbs * planMealShares[m.key],
-      protein: dayMacroTargets.protein * planMealShares[m.key],
-      fat: dayMacroTargets.fat * planMealShares[m.key],
+      carbs: dayMacroTargets.carbs * m.share,
+      protein: dayMacroTargets.protein * m.share,
+      fat: dayMacroTargets.fat * m.share,
     },
   }));
   res.json({ days: PLAN_DAYS, meals, entries: rows, targetIntake });
@@ -2615,7 +2681,7 @@ app.delete('/api/meal-plan', (req, res) => {
 app.post('/api/meal-plan/entry', (req, res) => {
   const { day, meal, source_type, source_id, quantity } = req.body;
   if (!PLAN_DAYS.some((d) => d.key === day)) return res.status(400).json({ error: 'day invalide' });
-  if (!MEALS.some((m) => m.key === meal)) return res.status(400).json({ error: 'meal invalide' });
+  if (!mealsFor(getProfile(req.userId)).some((m) => m.key === meal)) return res.status(400).json({ error: 'meal invalide' });
   const macros = macrosForSource(req.userId, source_type, source_id, quantity);
   if (!macros) return res.status(404).json({ error: 'aliment/recette introuvable' });
 
@@ -2632,7 +2698,7 @@ app.post('/api/meal-plan/entry', (req, res) => {
 
 app.post('/api/meal-plan/apply-all', (req, res) => {
   const { meal, source_type, source_id, quantity } = req.body;
-  if (!MEALS.some((m) => m.key === meal)) return res.status(400).json({ error: 'meal invalide' });
+  if (!mealsFor(getProfile(req.userId)).some((m) => m.key === meal)) return res.status(400).json({ error: 'meal invalide' });
   const macros = macrosForSource(req.userId, source_type, source_id, quantity);
   if (!macros) return res.status(404).json({ error: 'aliment/recette introuvable' });
 
@@ -2671,7 +2737,7 @@ app.delete('/api/meal-plan/entry/:id', (req, res) => {
 // something becomes recurring in the first place (one row per day, every day of the week).
 app.delete('/api/meal-plan/by-source', (req, res) => {
   const { meal, source_type, source_id } = req.query;
-  if (!MEALS.some((m) => m.key === meal)) return res.status(400).json({ error: 'meal invalide' });
+  if (!mealsFor(getProfile(req.userId)).some((m) => m.key === meal)) return res.status(400).json({ error: 'meal invalide' });
   db.prepare('DELETE FROM meal_plan_entries WHERE user_id = ? AND meal = ? AND source_type = ? AND source_id = ?').run(
     req.userId,
     meal,
@@ -2746,13 +2812,14 @@ app.post('/api/meal-plan/generate', async (req, res) => {
     excludeIds, // ["recipe:12", "food:3", ...] already used for this meal earlier this run
     avoidTitles, // recipe titles already generated for this meal earlier this run (AI mode)
   } = req.body;
-  const mealDef = MEALS.find((m) => m.key === meal);
-  if (!PLAN_DAYS.some((d) => d.key === day) || !mealDef) {
+  if (!PLAN_DAYS.some((d) => d.key === day)) {
     return res.status(400).json({ error: 'day/meal invalide' });
   }
 
   try {
     const genSummary = computeSummary(req.userId, todayStr());
+    const mealDef = mealsFor(genSummary.profile).find((m) => m.key === meal);
+    if (!mealDef) return res.status(400).json({ error: 'day/meal invalide' });
     const targetIntake = Number(targetIntakeOverride) || genSummary.targetIntake;
     // Custom daily protein/carbs/fat (grams) override the automatic 30/35/35% split when provided.
     const autoMacros = computeMacroTargets(targetIntake, genSummary.profile);
@@ -2761,7 +2828,7 @@ app.post('/api/meal-plan/generate', async (req, res) => {
       carbs: Number(carbsTarget) || autoMacros.carbs,
       fat: Number(fatTarget) || autoMacros.fat,
     };
-    const genMealShare = mealSharesFor(genSummary.profile)[mealDef.key];
+    const genMealShare = mealDef.share;
     const kcalTarget = targetIntake * genMealShare;
     const macroTargets = {
       protein: dayMacroTargets.protein * genMealShare,
@@ -2772,7 +2839,7 @@ app.post('/api/meal-plan/generate', async (req, res) => {
     if (mode === 'library' || mode === 'favorites') {
       // A snack is normally 1-2 simple foods, not a full composed dish — restrict the pool to
       // standalone foods rather than recipes (favorites are the user's own call, left as-is).
-      const restrictToFoods = mode === 'library' && meal === 'snack';
+      const restrictToFoods = mode === 'library' && meal.startsWith('snack');
       // The recipe library is mostly lunch/dinner-style dishes with no inherent "breakfast"
       // tag, so pure macro-ratio matching can hand breakfast a chili con carne. Only consider
       // recipes the user has actually favorited for breakfast; plain foods are always fine.

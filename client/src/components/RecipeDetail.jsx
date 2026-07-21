@@ -3,6 +3,10 @@ import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
 const MEAL_KEYS = ['breakfast', 'snack', 'lunch', 'dinner'];
+const BASE_MEAL_KEYS = MEAL_KEYS;
+function mealLabel(key, label, t) {
+  return BASE_MEAL_KEYS.includes(key) ? t(`mealName.${key}`) : label;
+}
 
 function recipeTotals(recipe) {
   return recipe.ingredients.reduce(
@@ -25,6 +29,7 @@ export default function RecipeDetail({
   onDelete,
   onToggleFavorite,
   onQuickAdd,
+  meals = [],
   categoryGroups,
   activeCategoryKeys,
   onToggleCategory,
@@ -214,14 +219,14 @@ export default function RecipeDetail({
 
             <h4 className="section-label">{t('recipeList.chooseMeal')}</h4>
             <div className="type-list-row" style={{ flexWrap: 'wrap', height: 'auto' }}>
-              {MEAL_KEYS.map((m) => (
+              {(meals.length > 0 ? meals : MEAL_KEYS.map((key) => ({ key, label: key }))).map((m) => (
                 <button
-                  key={m}
+                  key={m.key}
                   type="button"
-                  className={addMeal === m ? 'type-pill active' : 'type-pill'}
-                  onClick={() => setAddMeal(m)}
+                  className={addMeal === m.key ? 'type-pill active' : 'type-pill'}
+                  onClick={() => setAddMeal(m.key)}
                 >
-                  {t(`mealName.${m}`)}
+                  {mealLabel(m.key, m.label, t)}
                 </button>
               ))}
             </div>

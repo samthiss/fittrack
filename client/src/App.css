@@ -3751,3 +3751,43 @@ textarea.wide {
   background: var(--gradient-brand, var(--acc));
   color: var(--text-on-accent, #fff);
 }
+
+/* Réglages > Repas du jour per-meal kcal gauge */
+.gauge-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 5px;
+  outline: none;
+  cursor: pointer;
+  background: var(--ink-700, var(--border-subtle));
+}
+
+.gauge-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--acc);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.gauge-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--acc);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.gauge-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 5px;
+  background: transparent;
+}

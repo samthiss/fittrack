@@ -61,6 +61,7 @@ export default function RecipeList({
   favorites = [],
   onToggleFavorite,
   foods = [],
+  meals = [],
   onImportRecipe,
   onCreateRecipe,
   onSetCategories,
@@ -141,6 +142,7 @@ export default function RecipeList({
         }}
         onToggleFavorite={handleToggleGeneralFavorite}
         onQuickAdd={onQuickAddRecipe}
+        meals={meals}
         categoryGroups={recipeCategoryGroups}
         activeCategoryKeys={activeCategoryKeys}
         onToggleCategory={(g) => onToggleFavorite(g.meals, recipe, activeCategoryKeys.has(g.key))}

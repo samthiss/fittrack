@@ -108,6 +108,10 @@ export const translations = {
     'settings.meals': 'Repas du jour',
     'settings.mealsHint': "Répartis ton objectif calorique quotidien entre les repas — le total doit correspondre à ton objectif.",
     'settings.totalMeals': 'Total repas',
+    'settings.addSnack': 'Ajouter un en-cas',
+    'settings.snackTime.morning': 'Matin',
+    'settings.snackTime.afternoon': 'Après-midi',
+    'settings.snackTime.evening': 'Soir',
     'settings.metabolism': 'Métabolisme',
     'settings.goal': 'Objectif',
     'settings.goalType': "Type d'objectif",
@@ -470,6 +474,7 @@ export const translations = {
     'planner.addMealAction.lunch': 'Ajouter un déjeuner',
     'planner.addMealAction.dinner': 'Ajouter un dîner',
     'planner.addMealAction.snack': 'Ajouter un en-cas',
+    'planner.addMealActionGeneric': 'Ajouter {meal}',
 
     // Recipe import
     'recipeImport.reading': 'Lecture de la recette…',
@@ -774,6 +779,10 @@ export const translations = {
     'settings.meals': "Today's meals",
     'settings.mealsHint': "Split your daily calorie target across meals — the total should match your target.",
     'settings.totalMeals': 'Meals total',
+    'settings.addSnack': 'Add a snack',
+    'settings.snackTime.morning': 'Morning',
+    'settings.snackTime.afternoon': 'Afternoon',
+    'settings.snackTime.evening': 'Evening',
     'settings.metabolism': 'Metabolism',
     'settings.goal': 'Goal',
     'settings.goalType': 'Goal type',
@@ -1135,6 +1144,7 @@ export const translations = {
     'planner.addMealAction.lunch': 'Add a lunch',
     'planner.addMealAction.dinner': 'Add a dinner',
     'planner.addMealAction.snack': 'Add a snack',
+    'planner.addMealActionGeneric': 'Add {meal}',
 
     // Recipe import
     'recipeImport.reading': 'Reading the recipe…',

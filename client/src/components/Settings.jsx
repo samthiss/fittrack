@@ -6,20 +6,47 @@ import { useLanguage } from '../i18n/LanguageContext';
 const GOAL_KEYS = ['lose', 'maintain', 'gain'];
 const PACE_OPTIONS = [500, 750, 1000];
 const SEX_KEYS = ['male', 'female', 'other'];
-const MEAL_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
-const DEFAULT_MEAL_SHARES = { breakfast: 0.15, snack: 0.05, lunch: 0.35, dinner: 0.45 };
-const MEAL_ICONS = { breakfast: 'sunrise', lunch: 'utensils', dinner: 'moon', snack: 'apple' };
+const BASE_MEAL_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
+const MEAL_ICONS = { breakfast: 'sunrise', lunch: 'utensils', dinner: 'moon' };
+const SNACK_TIMES = ['morning', 'afternoon', 'evening'];
 
-function parseMealShares(profile) {
+function parseExtraSnacks(profile) {
+  if (!profile?.extra_snacks) return [];
+  try {
+    const parsed = JSON.parse(profile.extra_snacks);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function defaultShare(key, snackCount) {
+  if (key === 'breakfast') return 0.15;
+  if (key === 'lunch') return 0.35;
+  if (key === 'dinner') return 0.45;
+  return 0.05 / snackCount; // 'snack' + every extra en-cas split the 5% allocation evenly
+}
+
+function parseMealShares(profile, extraSnacks) {
+  const snackKeys = ['snack', ...extraSnacks.map((s) => s.key)];
+  const allKeys = [...BASE_MEAL_ORDER, ...extraSnacks.map((s) => s.key)];
   if (profile?.meal_shares) {
     try {
       const parsed = JSON.parse(profile.meal_shares);
-      if (typeof parsed?.breakfast === 'number') return parsed;
+      if (allKeys.every((k) => typeof parsed[k] === 'number')) return parsed;
     } catch {
       // malformed — fall through to defaults
     }
   }
-  return DEFAULT_MEAL_SHARES;
+  const shares = {};
+  for (const k of ['breakfast', 'lunch', 'dinner']) shares[k] = defaultShare(k, snackKeys.length);
+  for (const k of snackKeys) shares[k] = defaultShare('snack', snackKeys.length);
+  return shares;
+}
+
+function mealLabel(key, extraSnacks, t) {
+  if (BASE_MEAL_ORDER.includes(key)) return t(`mealName.${key}`);
+  return extraSnacks.find((s) => s.key === key)?.label || key;
 }
 
 function iconForActivity(type) {
@@ -126,20 +153,44 @@ export default function Settings({
     }
   }
 
-  // --- Repas du jour screen state (per-meal kcal budget, stored as shares of targetIntake) ---
+  // --- Repas du jour screen state (per-meal kcal budget + extra en-cas slots) ---
   const [mealKcal, setMealKcal] = useState({ breakfast: 0, snack: 0, lunch: 0, dinner: 0 });
+  const [extraSnacks, setExtraSnacks] = useState([]);
+  const mealOrder = [...BASE_MEAL_ORDER, ...extraSnacks.map((s) => s.key)];
 
   useEffect(() => {
     if (profile && summary) {
-      const shares = parseMealShares(profile);
+      const snacks = parseExtraSnacks(profile);
+      const shares = parseMealShares(profile, snacks);
       const target = summary.targetIntake || 0;
       const next = {};
-      for (const key of MEAL_ORDER) next[key] = Math.round(target * (shares[key] ?? 0));
+      for (const key of [...BASE_MEAL_ORDER, ...snacks.map((s) => s.key)]) next[key] = Math.round(target * (shares[key] ?? 0));
+      setExtraSnacks(snacks);
       setMealKcal(next);
     }
   }, [profile, summary]);
 
-  const mealKcalTotal = MEAL_ORDER.reduce((s, k) => s + (Number(mealKcal[k]) || 0), 0);
+  const mealKcalTotal = mealOrder.reduce((s, k) => s + (Number(mealKcal[k]) || 0), 0);
+
+  function addSnack() {
+    const key = `snack_${Date.now()}`;
+    const n = extraSnacks.length + 2; // "En-cas 2", "En-cas 3"...
+    setExtraSnacks((list) => [...list, { key, label: `${t('mealName.snack')} ${n}`, time: null }]);
+    setMealKcal((v) => ({ ...v, [key]: 0 }));
+  }
+
+  function removeSnack(key) {
+    setExtraSnacks((list) => list.filter((s) => s.key !== key));
+    setMealKcal((v) => {
+      const next = { ...v };
+      delete next[key];
+      return next;
+    });
+  }
+
+  function updateSnack(key, patch) {
+    setExtraSnacks((list) => list.map((s) => (s.key === key ? { ...s, ...patch } : s)));
+  }
 
   async function handleSaveMeals() {
     if (saving) return;
@@ -147,8 +198,8 @@ export default function Settings({
     try {
       const target = summary?.targetIntake || 0;
       const shares = {};
-      for (const key of MEAL_ORDER) shares[key] = target > 0 ? (Number(mealKcal[key]) || 0) / target : DEFAULT_MEAL_SHARES[key];
-      await onSaveProfile({ meal_shares: shares });
+      for (const key of mealOrder) shares[key] = target > 0 ? (Number(mealKcal[key]) || 0) / target : 0;
+      await onSaveProfile({ meal_shares: shares, extra_snacks: extraSnacks });
       setScreen('home');
     } finally {
       setSaving(false);
@@ -364,33 +415,75 @@ export default function Settings({
         <SubHeader title={t('settings.meals')} onBack={() => setScreen('home')} t={t} />
         <p className="hint" style={{ marginTop: -4 }}>{t('settings.mealsHint')}</p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {MEAL_ORDER.map((key) => {
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {mealOrder.map((key) => {
+            const isExtra = !BASE_MEAL_ORDER.includes(key);
+            const snack = isExtra ? extraSnacks.find((s) => s.key === key) : null;
             const pct = target > 0 ? (mealKcal[key] / target) * 100 : 0;
             return (
               <div key={key}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14.5, fontWeight: 600 }}>
-                    <Icon name={MEAL_ICONS[key]} size={17} color="var(--acc)" />
-                    {t(`mealName.${key}`)}
+                  {isExtra ? (
+                    <input
+                      type="text"
+                      value={snack.label}
+                      onChange={(e) => updateSnack(key, { label: e.target.value })}
+                      style={{ background: 'none', border: 0, padding: 0, fontSize: 14.5, fontWeight: 600, flex: 1 }}
+                    />
+                  ) : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14.5, fontWeight: 600 }}>
+                      <Icon name={MEAL_ICONS[key] || 'apple'} size={17} color="var(--acc)" />
+                      {mealLabel(key, extraSnacks, t)}
+                    </span>
+                  )}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flex: 'none' }}>
+                    <b style={{ fontSize: 13.5 }}>{Math.round(mealKcal[key] || 0)} kcal</b>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 34, textAlign: 'right' }}>{Math.round(pct)}%</span>
+                    {isExtra && (
+                      <button type="button" className="entry-icon-btn entry-delete-btn" style={{ width: 28, height: 28 }} onClick={() => removeSnack(key)} aria-label={t('planner.remove')}>
+                        <Icon name="x" size={14} />
+                      </button>
+                    )}
                   </span>
-                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{Math.round(pct)}%</span>
                 </div>
-                <div className="search-input-row" style={{ marginTop: 0 }}>
-                  <input
-                    type="number"
-                    min="0"
-                    step="10"
-                    className="search-input"
-                    value={mealKcal[key]}
-                    onChange={(e) => setMealKcal((v) => ({ ...v, [key]: e.target.value }))}
-                  />
-                  <span className="unit">kcal</span>
-                </div>
+                <input
+                  type="range"
+                  className="gauge-slider"
+                  min="0"
+                  max={Math.max(target, 100)}
+                  step="10"
+                  value={mealKcal[key] || 0}
+                  onChange={(e) => setMealKcal((v) => ({ ...v, [key]: e.target.value }))}
+                  style={{ background: `linear-gradient(to right, var(--acc) ${pct}%, var(--ink-700, var(--border-subtle)) ${pct}%)` }}
+                />
+                {isExtra && (
+                  <div className="type-list-row" style={{ marginTop: 8 }}>
+                    {SNACK_TIMES.map((time) => (
+                      <button
+                        key={time}
+                        type="button"
+                        className={snack.time === time ? 'type-pill active' : 'type-pill'}
+                        onClick={() => updateSnack(key, { time: snack.time === time ? null : time })}
+                      >
+                        {t(`settings.snackTime.${time}`)}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
+
+        <button
+          type="button"
+          className="recurring-feature-row"
+          style={{ justifyContent: 'center', width: '100%', marginTop: 16, font: 'inherit', cursor: 'pointer' }}
+          onClick={addSnack}
+        >
+          <Icon name="plus" size={18} color="var(--acc)" />
+          <span className="recurring-feature-title" style={{ color: 'var(--acc)' }}>{t('settings.addSnack')}</span>
+        </button>
 
         <div
           style={{
