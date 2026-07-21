@@ -2013,9 +2013,10 @@ app.get('/api/today-report', (req, res) => {
       plantTarget: 30,
     },
     kcal: {
-      // Same formula as the weekly Rapport's déficit (target − consumed) — target already bakes
-      // in today's activities via computeSummary's tdee, so this stays consistent day vs week.
-      deficit: summary.targetIntake - consumed.kcal,
+      // True energy balance (total kcal expended minus consumed), not the goal-relative
+      // "objectif kcal" — that would always equal exactly goal_kcal regardless of what was
+      // actually eaten, since objectif = tdee − goal_kcal. Same formula as the weekly Rapport.
+      deficit: summary.tdee - consumed.kcal,
       totalBurned: summary.tdee,
       activitiesKcal: summary.activitiesKcal,
     },
@@ -2369,7 +2370,7 @@ app.get('/api/week-report', (req, res) => {
       for (const key of NUTRIENT_KEYS) acc[key] += l[key] || 0;
       return acc;
     }, EMPTY_TOTALS());
-    dayResults.push({ date, consumed: totals, target: summary.targetIntake, activitiesKcal: summary.activitiesKcal });
+    dayResults.push({ date, consumed: totals, target: summary.targetIntake, tdee: summary.tdee, activitiesKcal: summary.activitiesKcal });
     allLogs.push(...logs);
   }
 
@@ -2460,9 +2461,11 @@ app.get('/api/week-report', (req, res) => {
 
   // Average calorie deficit/surplus across logged days, and the weight change over the period
   // (first vs last day, falling back to the profile's weight if nothing was logged that day) —
-  // the two headline tiles at the top of the week/month report.
-  const avgDeficitKcal = dayResults.reduce((s, d) => s + (d.target - d.consumed.kcal), 0) / n;
-  const totalDeficitKcal = dayResults.reduce((s, d) => s + (d.target - d.consumed.kcal), 0);
+  // the two headline tiles at the top of the week/month report. True energy balance (total kcal
+  // expended minus consumed), not the goal-relative "objectif kcal" — that would always show
+  // exactly goal_kcal regardless of what was actually eaten, since objectif = tdee − goal_kcal.
+  const avgDeficitKcal = dayResults.reduce((s, d) => s + (d.tdee - d.consumed.kcal), 0) / n;
+  const totalDeficitKcal = dayResults.reduce((s, d) => s + (d.tdee - d.consumed.kcal), 0);
   const avgActivitiesKcal = dayResults.reduce((s, d) => s + d.activitiesKcal, 0) / n;
   const weightStartKg = weightAsOf(req.userId, dates[0]);
   const weightEndKg = weightAsOf(req.userId, referenceDate);
