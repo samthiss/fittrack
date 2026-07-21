@@ -650,6 +650,19 @@ app.delete('/api/exercises/:id', (req, res) => {
   res.status(204).end();
 });
 
+// Every distinct exercise this user has ever logged (by name, case-insensitive), with its most
+// recent muscle group/sets/reps/weight — powers the "Ajouter un exercice" picker so a past
+// exercise can be reused with one tap instead of retyping it, without inventing a fake catalog.
+app.get('/api/exercise-library', (req, res) => {
+  const rows = db
+    .prepare(
+      `SELECT name, muscle_group, sets, reps, weight_kg, MAX(created_at) AS last_used
+       FROM activity_exercises WHERE user_id = ? GROUP BY LOWER(name) ORDER BY last_used DESC`
+    )
+    .all(req.userId);
+  res.json(rows);
+});
+
 // --- Saved workout templates (reusable exercise lists for a "force" session) ---
 function serializeWorkoutTemplate(row) {
   return { ...row, exercises: JSON.parse(row.exercises) };

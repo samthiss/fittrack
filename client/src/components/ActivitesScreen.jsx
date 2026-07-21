@@ -284,7 +284,7 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         ))}
       </div>
 
-      <button type="button" className="meal-add-cta" onClick={() => setShowAdd(true)}>
+      <button type="button" className="meal-add-cta" style={{ marginTop: 18 }} onClick={() => setShowAdd(true)}>
         <Icon name="plus" size={20} />
         {t('activityLog.addActivity')}
       </button>

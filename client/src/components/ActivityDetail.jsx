@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
+import ExercisePicker from './ExercisePicker';
 import { useLanguage } from '../i18n/LanguageContext';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -12,6 +13,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   const [label, setLabel] = useState(activity.label || '');
   const [showEdit, setShowEdit] = useState(false);
   const [editDuration, setEditDuration] = useState(activity.duration_minutes);
@@ -139,7 +141,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
           <button
             type="button"
             className="activity-detail-hero-btn activity-detail-hero-btn-add"
-            onClick={() => setShowAdd(true)}
+            onClick={() => setShowPicker(true)}
             aria-label={t('activityLog.addExercise')}
           >
             <Icon name="plus" size={20} />
@@ -244,7 +246,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
           )}
 
           <div className="row" style={{ gap: 10, marginTop: 16 }}>
-            <button type="button" className="btn-ghost btn-block" style={{ flex: 1, textAlign: 'center' }} onClick={() => setShowAdd(true)}>
+            <button type="button" className="btn-ghost btn-block" style={{ flex: 1, textAlign: 'center' }} onClick={() => setShowPicker(true)}>
               <Icon name="plus" size={16} /> {t('activityLog.addExercise')}
             </button>
             {exercises.length > 0 && (
@@ -349,6 +351,26 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
             {editSaving ? t('activityLog.saving') : t('activityLog.save')}
           </button>
         </div>
+      )}
+
+      {showPicker && (
+        <ExercisePicker
+          onClose={() => setShowPicker(false)}
+          onPick={async (ex) => {
+            await api.addActivityExercise(activity.id, {
+              name: ex.name,
+              muscle_group: ex.muscle_group,
+              sets: ex.sets,
+              reps: ex.reps,
+              weight_kg: ex.weight_kg,
+            });
+            await refresh();
+          }}
+          onCreateNew={() => {
+            setShowPicker(false);
+            setShowAdd(true);
+          }}
+        />
       )}
 
       {showAdd && (
