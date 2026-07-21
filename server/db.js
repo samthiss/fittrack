@@ -575,6 +575,13 @@ if (!profileCols2.includes('extra_snacks')) {
   db.exec(`ALTER TABLE profile ADD COLUMN extra_snacks TEXT`);
 }
 
+// Free-text muscle/body-part tag per exercise (e.g. "Quadriceps") — shown above the exercise
+// name and rolled up into a pill row on the exercise's saved workout_templates card.
+const activityExerciseColumns = db.prepare('PRAGMA table_info(activity_exercises)').all().map((c) => c.name);
+if (!activityExerciseColumns.includes('muscle_group')) {
+  db.exec(`ALTER TABLE activity_exercises ADD COLUMN muscle_group TEXT`);
+}
+
 // Seed one history row from the current profile if none exists yet, so profileAsOf() in
 // index.js always has a fallback for dates before this feature started tracking changes.
 if (!db.prepare('SELECT 1 FROM profile_history LIMIT 1').get()) {

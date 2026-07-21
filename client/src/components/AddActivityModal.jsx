@@ -174,13 +174,15 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
             {templates.length === 0 ? (
               <p className="hint">{t('activityLog.noSavedWorkouts')}</p>
             ) : (
-              <div className="entry-list" style={{ maxHeight: 220, overflowY: 'auto' }}>
+              <div className="entry-list" style={{ maxHeight: 320, overflowY: 'auto' }}>
                 {templates.map((tpl) => {
                   const isSelected = selectedTemplateId === tpl.id;
+                  const muscleGroups = [...new Set(tpl.exercises.map((e) => e.muscle_group).filter(Boolean))];
                   return (
                     <div
                       key={tpl.id}
                       className={isSelected ? 'entry-card activity-session-exercise current' : 'entry-card'}
+                      style={{ flexWrap: 'wrap', alignItems: muscleGroups.length > 0 ? 'flex-start' : 'center' }}
                       onClick={() => pickTemplate(tpl)}
                     >
                       <span className="meal-icon-box">
@@ -191,6 +193,15 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
                         <div className="entry-card-sub">
                           {tpl.exercises.length} {t('activityLog.exercises')}
                         </div>
+                        {muscleGroups.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                            {muscleGroups.map((g) => (
+                              <span key={g} className="filter-pill" style={{ cursor: 'default', padding: '5px 11px', fontSize: 12 }}>
+                                {g}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       {isSelected && <Icon name="circle-check-big" size={20} color="var(--acc)" />}
                     </div>

@@ -601,7 +601,7 @@ app.get('/api/activities/:id/exercises', (req, res) => {
 });
 
 app.post('/api/activities/:id/exercises', (req, res) => {
-  const { name, sets, reps, weight_kg } = req.body;
+  const { name, sets, reps, weight_kg, muscle_group } = req.body;
   if (!name) return res.status(400).json({ error: 'name requis' });
   const activity = db.prepare('SELECT id FROM activity_logs WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   if (!activity) return res.status(404).json({ error: 'Activité introuvable' });
@@ -612,10 +612,19 @@ app.post('/api/activities/:id/exercises', (req, res) => {
 
   const result = db
     .prepare(
-      `INSERT INTO activity_exercises (user_id, activity_log_id, name, sets, reps, weight_kg, order_index)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO activity_exercises (user_id, activity_log_id, name, sets, reps, weight_kg, muscle_group, order_index)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(req.userId, req.params.id, name, Number(sets) || 3, Number(reps) || 10, weight_kg != null && weight_kg !== '' ? Number(weight_kg) : null, maxOrder + 1);
+    .run(
+      req.userId,
+      req.params.id,
+      name,
+      Number(sets) || 3,
+      Number(reps) || 10,
+      weight_kg != null && weight_kg !== '' ? Number(weight_kg) : null,
+      muscle_group && muscle_group.trim() ? muscle_group.trim() : null,
+      maxOrder + 1
+    );
 
   res.status(201).json(db.prepare('SELECT * FROM activity_exercises WHERE id = ?').get(result.lastInsertRowid));
 });
@@ -623,12 +632,13 @@ app.post('/api/activities/:id/exercises', (req, res) => {
 app.put('/api/exercises/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM activity_exercises WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   if (!existing) return res.status(404).json({ error: 'Exercice introuvable' });
-  const { name, sets, reps, weight_kg } = req.body;
-  db.prepare('UPDATE activity_exercises SET name = ?, sets = ?, reps = ?, weight_kg = ? WHERE id = ? AND user_id = ?').run(
+  const { name, sets, reps, weight_kg, muscle_group } = req.body;
+  db.prepare('UPDATE activity_exercises SET name = ?, sets = ?, reps = ?, weight_kg = ?, muscle_group = ? WHERE id = ? AND user_id = ?').run(
     name ?? existing.name,
     sets != null ? Number(sets) : existing.sets,
     reps != null ? Number(reps) : existing.reps,
     weight_kg !== undefined ? (weight_kg !== '' && weight_kg !== null ? Number(weight_kg) : null) : existing.weight_kg,
+    muscle_group !== undefined ? (muscle_group && muscle_group.trim() ? muscle_group.trim() : null) : existing.muscle_group,
     req.params.id,
     req.userId
   );
@@ -662,6 +672,7 @@ app.post('/api/workout-templates', (req, res) => {
       sets: Number(e.sets) || 3,
       reps: Number(e.reps) || 10,
       weight_kg: e.weight_kg != null && e.weight_kg !== '' ? Number(e.weight_kg) : null,
+      muscle_group: e.muscle_group && String(e.muscle_group).trim() ? String(e.muscle_group).trim() : null,
     }));
   const result = db
     .prepare('INSERT INTO workout_templates (user_id, name, exercises) VALUES (?, ?, ?)')

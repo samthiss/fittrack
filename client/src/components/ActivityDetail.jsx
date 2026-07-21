@@ -23,6 +23,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
   const [sets, setSets] = useState(4);
   const [reps, setReps] = useState(10);
   const [weight, setWeight] = useState('');
+  const [muscleGroup, setMuscleGroup] = useState('');
   const [saving, setSaving] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
@@ -50,11 +51,13 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
         sets: Number(sets) || 3,
         reps: Number(reps) || 10,
         weight_kg: weight === '' ? null : Number(weight),
+        muscle_group: muscleGroup.trim() || null,
       });
       setName('');
       setSets(4);
       setReps(10);
       setWeight('');
+      setMuscleGroup('');
       setShowAdd(false);
       await refresh();
     } finally {
@@ -78,7 +81,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
     try {
       await api.createWorkoutTemplate({
         name: templateName.trim(),
-        exercises: exercises.map((ex) => ({ name: ex.name, sets: ex.sets, reps: ex.reps, weight_kg: ex.weight_kg })),
+        exercises: exercises.map((ex) => ({ name: ex.name, sets: ex.sets, reps: ex.reps, weight_kg: ex.weight_kg, muscle_group: ex.muscle_group })),
       });
       setShowSaveTemplate(false);
       setTemplateSaved(true);
@@ -225,6 +228,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
                     <b style={{ fontSize: 14, fontWeight: 700 }}>{i + 1}</b>
                   </span>
                   <div className="entry-card-body" style={{ cursor: 'default' }}>
+                    {ex.muscle_group && <div className="entry-card-sub" style={{ marginTop: 0, marginBottom: 2 }}>{ex.muscle_group}</div>}
                     <div className="entry-card-name">{ex.name}</div>
                     <div className="entry-card-sub">
                       {ex.sets} {t('activityLog.setsShort')} × {ex.reps} {t('activityLog.repsShort')}
@@ -362,6 +366,19 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
             <h4 className="section-label" style={{ marginTop: 0 }}>{t('activityLog.exerciseName')}</h4>
             <div className="search-input-row">
               <input type="text" className="search-input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('activityLog.exerciseName')} />
+            </div>
+
+            <h4 className="section-label">
+              {t('activityLog.muscleGroup')} <span style={{ textTransform: 'none', fontWeight: 400 }}>({t('profile.optional')})</span>
+            </h4>
+            <div className="search-input-row">
+              <input
+                type="text"
+                className="search-input"
+                value={muscleGroup}
+                onChange={(e) => setMuscleGroup(e.target.value)}
+                placeholder={t('activityLog.muscleGroupPlaceholder')}
+              />
             </div>
 
             <div style={{ display: 'flex', gap: 12 }}>
