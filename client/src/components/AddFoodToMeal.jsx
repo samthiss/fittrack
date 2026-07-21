@@ -77,10 +77,10 @@ export default function AddFoodToMeal({
 }) {
   const { t } = useLanguage();
   const TOOLS = [
-    { key: 'write', icon: 'sparkles', label: t('addFood.toolWrite') },
-    { key: 'manual', icon: 'pencil-line', label: t('addFood.toolManual') },
-    { key: 'photo', icon: 'camera', label: t('addFood.toolPhoto') },
     { key: 'barcode', icon: 'scan-barcode', label: t('addFood.toolBarcode') },
+    { key: 'write', icon: 'sparkles', label: t('addFood.toolWrite') },
+    { key: 'photo', icon: 'camera', label: t('addFood.toolPhoto') },
+    { key: 'manual', icon: 'pencil-line', label: t('addFood.toolManual') },
   ];
   const photoInputRef = useRef(null);
   const [activeTool, setActiveTool] = useState(null);
@@ -373,6 +373,7 @@ export default function AddFoodToMeal({
     setTextLoading(true);
     setScanStatus({ text: t('addFood.analyzing') });
     setScanResult(null);
+    setActiveTool('photo');
     try {
       const result = await onParsePhoto(file);
       setScanResult(result);
@@ -469,6 +470,14 @@ export default function AddFoodToMeal({
   return (
     <div>
       <h2>{t('addFood.title')}</h2>
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        style={{ display: 'none' }}
+        onChange={handlePhotoSelected}
+      />
       <div className="card">
         <div className="type-list-row">
           <button
@@ -493,7 +502,7 @@ export default function AddFoodToMeal({
               key={tool.key}
               type="button"
               className={tool.key === activeTool ? 'tool-tile active' : 'tool-tile'}
-              onClick={() => setActiveTool(tool.key)}
+              onClick={() => (tool.key === 'photo' ? photoInputRef.current?.click() : setActiveTool(tool.key))}
             >
               <Icon name={tool.icon} size={20} />
               <span className="tool-tile-label">{tool.label}</span>
@@ -623,37 +632,18 @@ export default function AddFoodToMeal({
       )}
 
       {activeTool === 'photo' && (
-        <div className="modal-overlay" onClick={() => setActiveTool(null)}>
+        <div className="modal-overlay" onClick={() => !textLoading && setActiveTool(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="meal-detail-header" style={{ marginBottom: 4 }}>
-              <button type="button" className="meal-detail-back-btn" onClick={() => setActiveTool(null)} aria-label={t('meal.close')}>
+              <button type="button" className="meal-detail-back-btn" onClick={() => setActiveTool(null)} aria-label={t('meal.close')} disabled={textLoading}>
                 <Icon name="x" size={20} />
               </button>
               <div className="meal-detail-heading">
                 <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('addFood.toolPhoto')}</div>
               </div>
             </div>
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              style={{ display: 'none' }}
-              onChange={handlePhotoSelected}
-            />
-            {scanStatus && <p className={scanStatus.error ? 'hint error' : 'hint'}>{scanStatus.text}</p>}
+            <p className="hint">{scanStatus ? scanStatus.text : t('addFood.analyzing')}</p>
           </div>
-          <button
-            type="button"
-            className="done-btn done-btn-primary"
-            onClick={(e) => {
-              e.stopPropagation();
-              photoInputRef.current?.click();
-            }}
-            disabled={textLoading}
-          >
-            {textLoading ? t('addFood.analyzingAction') : t('addFood.takePhoto')}
-          </button>
         </div>
       )}
 

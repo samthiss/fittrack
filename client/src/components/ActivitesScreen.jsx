@@ -191,11 +191,6 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         activity={session.activity}
         elapsedSeconds={computeSessionElapsed(session)}
         onCancel={() => setFinishingSession(false)}
-        onKeepOriginal={() => {
-          setFinishingSession(false);
-          setSession(null);
-          refresh();
-        }}
         onConfirm={async ({ duration_minutes, kcal }) => {
           await api.updateActivity(session.activity.id, {
             label: session.activity.label || '',
