@@ -6,62 +6,6 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function MetricChart({ series }) {
-  if (!series || series.length < 2) return null;
-  const width = 320;
-  const height = 90;
-  const values = series.map((d) => d.value);
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const span = max - min || 1;
-  const pad = span * 0.15;
-  const toY = (v) => height - ((v - min + pad) / (span + pad * 2)) * height;
-  const stepX = series.length > 1 ? width / (series.length - 1) : 0;
-  const points = series.map((d, i) => `${i * stepX},${toY(d.value)}`).join(' ');
-
-  return (
-    <svg width="100%" viewBox={`0 0 ${width} ${height}`} className="mini-chart">
-      <polyline points={points} fill="none" stroke="var(--acc)" strokeWidth="2" />
-    </svg>
-  );
-}
-
-function MetricBlock({ title, unit, stats, decimals = 1, t }) {
-  if (!stats) return null;
-  return (
-    <div className="result">
-      <h2>{title}</h2>
-      <div className="res-line">
-        <span>{t('weight.lastValue')}</span>
-        <b>
-          {stats.last.toFixed(decimals)} {unit}
-        </b>
-      </div>
-      <div className="res-line">
-        <span>{t('weight.periodEvolution')}</span>
-        <b>
-          {stats.delta >= 0 ? '+' : ''}
-          {stats.delta.toFixed(decimals)} {unit}
-        </b>
-      </div>
-      <div className="res-line">
-        <span>{t('weight.minMax')}</span>
-        <b>
-          {stats.min.toFixed(decimals)} / {stats.max.toFixed(decimals)} {unit}
-        </b>
-      </div>
-      <div className="res-line total">
-        <span>{t('weight.avgRate')}</span>
-        <b>
-          {stats.weeklyRate >= 0 ? '+' : ''}
-          {stats.weeklyRate.toFixed(2)} {unit}{t('weight.perWeek')}
-        </b>
-      </div>
-      <MetricChart series={stats.series} />
-    </div>
-  );
-}
-
 function PhotoCompare({ photos, angle, label, t }) {
   const list = photos.filter((p) => p.angle === angle);
   if (list.length === 0) return null;
@@ -115,7 +59,6 @@ export default function WeightTracker() {
   ];
   const [range, setRange] = useState('30');
   const [logs, setLogs] = useState([]);
-  const [report, setReport] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [date, setDate] = useState(todayStr());
   const [weight, setWeight] = useState('');
@@ -135,13 +78,8 @@ export default function WeightTracker() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const [logsData, reportData, photosData] = await Promise.all([
-      api.getWeightLogs(range),
-      api.getWeightReport(range),
-      api.getWeightPhotos(range),
-    ]);
+    const [logsData, photosData] = await Promise.all([api.getWeightLogs(range), api.getWeightPhotos(range)]);
     setLogs(logsData);
-    setReport(reportData);
     setPhotos(photosData);
     setLoading(false);
   }, [range]);
@@ -287,23 +225,6 @@ export default function WeightTracker() {
       </div>
 
       {loading && <p className="hint">{t('weight.loading')}</p>}
-
-      {!loading && report?.insufficientData && (
-        <div className="card">
-          <p className="hint">
-            {t('weight.needMoreEntries')}
-            {report.daysLogged > 0 ? t('weight.soFar').replace('{count}', report.daysLogged) : ''}.
-          </p>
-        </div>
-      )}
-
-      {!loading && report && !report.insufficientData && (
-        <>
-          <MetricBlock title={t('weight.weight')} unit="kg" stats={report.weight} t={t} />
-          <MetricBlock title={t('weight.bodyFat')} unit="%" stats={report.bodyFat} t={t} />
-          <MetricBlock title={t('weight.waist')} unit="cm" stats={report.waist} t={t} />
-        </>
-      )}
 
       {logs.length > 0 && (
         <>

@@ -49,17 +49,25 @@ export default function WeightReport({ onBack }) {
   const { t } = useLanguage();
   const [range, setRange] = useState('30');
   const [report, setReport] = useState(null);
+  const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    setReport(await api.getWeightReport(range));
+    const [reportData, logsData] = await Promise.all([api.getWeightReport(range), api.getWeightLogs(range)]);
+    setReport(reportData);
+    setLogs(logsData);
     setLoading(false);
   }, [range]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  async function handleDeleteLog(id) {
+    await api.deleteWeightLog(id);
+    await refresh();
+  }
 
   if (loading || !report) return <p className="hint">{t('weight.loading')}</p>;
 
@@ -165,6 +173,33 @@ export default function WeightReport({ onBack }) {
           <div className="weight-report-mini-value">{weightCurrent != null ? `${fmt1(weightCurrent)} kg` : '—'}</div>
         </div>
       </div>
+
+      {logs.length > 0 && (
+        <>
+          <h2>{t('weight.history')}</h2>
+          <div className="entry-list">
+            {logs
+              .slice()
+              .reverse()
+              .map((l) => (
+                <div className="entry-card" key={l.id}>
+                  <div className="entry-card-body" style={{ cursor: 'default' }}>
+                    <div className="entry-card-name">{l.date}</div>
+                    <div className="entry-card-sub">
+                      {l.body_fat_pct != null ? `${l.body_fat_pct}% ${t('weight.bodyFatShort')}` : ''}
+                      {l.body_fat_pct != null && l.waist_cm != null ? ' · ' : ''}
+                      {l.waist_cm != null ? `${l.waist_cm} cm` : ''}
+                    </div>
+                  </div>
+                  <span className="activites-row-kcal">{l.weight_kg.toFixed(1)} kg</span>
+                  <button type="button" className="entry-icon-btn entry-delete-btn" onClick={() => handleDeleteLog(l.id)} aria-label={t('weight.delete')}>
+                    <Icon name="trash-2" size={16} />
+                  </button>
+                </div>
+              ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
