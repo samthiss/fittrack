@@ -632,7 +632,7 @@ export const translations = {
     'week.improvements': 'Améliorations',
     'week.avgDeficit': 'Déficit moyen',
     'week.totalDeficit': 'Déficit total',
-    'week.avgBurned': 'Brûlées via activités',
+    'week.avgBurned': 'Moyenne brûlée via activités',
     'week.goalShort': 'Objectif',
 
     // Weight tracker
@@ -1305,7 +1305,7 @@ export const translations = {
     'week.improvements': 'Improvements',
     'week.avgDeficit': 'Average deficit',
     'week.totalDeficit': 'Total deficit',
-    'week.avgBurned': 'Burned via activities',
+    'week.avgBurned': 'Average burned via activities',
     'week.goalShort': 'Goal',
 
     // Weight tracker
