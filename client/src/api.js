@@ -128,20 +128,6 @@ export const api = {
     request('/weight-logs', { method: 'POST', body: JSON.stringify(data) }),
   deleteWeightLog: (id) => request(`/weight-logs/${id}`, { method: 'DELETE' }),
   getWeightReport: (range) => request(`/weight-report?range=${range}`),
-  getWeightPhotos: (range) => request(`/weight-photos?range=${range}`),
-  uploadWeightPhotos: async (files, date, angle) => {
-    const formData = new FormData();
-    for (const file of files) formData.append('photos', file);
-    formData.append('date', date);
-    formData.append('angle', angle);
-    const res = await fetch(`${BASE}/weight-photos`, { method: 'POST', body: formData, credentials: 'include' });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || `Erreur ${res.status}`);
-    }
-    return res.json();
-  },
-  deleteWeightPhoto: (id) => request(`/weight-photos/${id}`, { method: 'DELETE' }),
   getMealPlan: () => request('/meal-plan'),
   clearMealPlan: () => request('/meal-plan', { method: 'DELETE' }),
   setMealPlanEntry: (data) =>
