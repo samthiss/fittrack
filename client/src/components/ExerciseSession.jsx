@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useReducer } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -47,6 +47,17 @@ function RestRing({ restLeft, restTarget, size = 176 }) {
   );
 }
 
+// Rest countdown derived from wall-clock timestamps (Date.now()), not counted ticks — iOS
+// suspends setInterval while the screen is locked or the app is backgrounded, so a tick-counted
+// timer silently loses time. Recomputing from a real start timestamp self-corrects the moment the
+// screen unlocks, whether that was 2 seconds or 2 minutes later.
+function computeRestLeft({ resting, restPaused, restTarget, restRemainingFrozen, restStartedAt }) {
+  if (!resting) return restTarget;
+  if (restPaused || !restStartedAt) return restRemainingFrozen;
+  const elapsed = Math.floor((Date.now() - restStartedAt) / 1000);
+  return Math.max(0, restRemainingFrozen - elapsed);
+}
+
 export default function ExerciseSession({ exercise, activityLabel, index, total, onBack, onComplete, onUpdateExercise }) {
   const { t } = useLanguage();
   const [completedSets, setCompletedSets] = useState(0);
@@ -57,7 +68,12 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   const [resting, setResting] = useState(false);
   const [restPaused, setRestPaused] = useState(false);
   const [restTarget, setRestTarget] = useState(REST_SECONDS);
-  const [restLeft, setRestLeft] = useState(REST_SECONDS);
+  // Remaining seconds as of restStartedAt (or the frozen value itself while paused/idle); actual
+  // displayed value is computeRestLeft(...), recomputed live from Date.now().
+  const [restRemainingFrozen, setRestRemainingFrozen] = useState(REST_SECONDS);
+  const [restStartedAt, setRestStartedAt] = useState(null);
+  const [, forceRender] = useReducer((x) => x + 1, 0);
+  const restLeft = computeRestLeft({ resting, restPaused, restTarget, restRemainingFrozen, restStartedAt });
   const [sets, setSets] = useState(exercise.sets);
   const [weight, setWeight] = useState(exercise.weight_kg ?? 0);
   const [reps, setReps] = useState(exercise.reps);
@@ -68,17 +84,27 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   const [sheetUnit, setSheetUnit] = useState('kg');
   const [sheetWeight, setSheetWeight] = useState(exercise.weight_kg ?? 0);
   const [sheetRestTarget, setSheetRestTarget] = useState(REST_SECONDS);
-  const intervalRef = useRef(null);
 
   useEffect(() => {
-    if (!resting || restPaused) return undefined;
-    if (restLeft <= 0) {
-      setResting(false);
-      return undefined;
+    if (!resting || restPaused || !restStartedAt) return undefined;
+    function tick() {
+      const left = computeRestLeft({ resting, restPaused, restTarget, restRemainingFrozen, restStartedAt });
+      if (left <= 0) {
+        setResting(false);
+      } else {
+        forceRender();
+      }
     }
-    intervalRef.current = setInterval(() => setRestLeft((s) => s - 1), 1000);
-    return () => clearInterval(intervalRef.current);
-  }, [resting, restPaused, restLeft]);
+    const id = setInterval(tick, 1000);
+    function onVisible() {
+      if (document.visibilityState === 'visible') tick();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [resting, restPaused, restStartedAt, restTarget, restRemainingFrozen]);
 
   function persist(patch) {
     api.updateActivityExercise(exercise.id, patch).catch(() => {});
@@ -94,7 +120,8 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
       onComplete(exercise.id);
       return;
     }
-    setRestLeft(restTarget);
+    setRestRemainingFrozen(restTarget);
+    setRestStartedAt(Date.now());
     setRestPaused(false);
     setResting(true);
   }
@@ -109,7 +136,7 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
 
   function confirmRestTarget() {
     setRestTarget(sheetRestTarget);
-    if (!resting) setRestLeft(sheetRestTarget);
+    if (!resting) setRestRemainingFrozen(sheetRestTarget);
     setSheet(null);
   }
 
@@ -151,14 +178,23 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
       <div className="activity-session-timer-card">
         <span className="activity-session-timer-label">{t('activityLog.restTimer')}</span>
         <div className="activity-session-ring-wrap">
-          <RestRing restLeft={resting ? restLeft : restTarget} restTarget={restTarget} />
+          <RestRing restLeft={restLeft} restTarget={restTarget} />
           <div className="activity-session-ring-center">
-            <div className="activity-session-timer-value">{formatRest(resting ? restLeft : restTarget)}</div>
+            <div className="activity-session-timer-value">{formatRest(restLeft)}</div>
             <span className="activity-session-timer-unit">{t('activityLog.restOf').replace('{time}', formatRest(restTarget))}</span>
           </div>
         </div>
         <div className="activity-session-timer-controls">
-          <button type="button" className="weight-minus-btn" onClick={() => setRestLeft(restTarget)} disabled={!resting} aria-label={t('activityLog.resetTimer')}>
+          <button
+            type="button"
+            className="weight-minus-btn"
+            onClick={() => {
+              setRestRemainingFrozen(restTarget);
+              setRestStartedAt(restPaused ? null : Date.now());
+            }}
+            disabled={!resting}
+            aria-label={t('activityLog.resetTimer')}
+          >
             <Icon name="rotate-ccw" size={18} />
           </button>
           <button
@@ -166,7 +202,16 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
             className="meal-add-cta"
             style={{ width: 'auto', padding: '13px 26px', opacity: resting ? 1 : 0.5 }}
             disabled={!resting}
-            onClick={() => setRestPaused((p) => !p)}
+            onClick={() => {
+              if (restPaused) {
+                setRestStartedAt(Date.now());
+                setRestPaused(false);
+              } else {
+                setRestRemainingFrozen(restLeft);
+                setRestStartedAt(null);
+                setRestPaused(true);
+              }
+            }}
           >
             <Icon name={restPaused ? 'play' : 'pause'} size={18} />
             {restPaused ? t('activityLog.resume') : t('activityLog.pause')}

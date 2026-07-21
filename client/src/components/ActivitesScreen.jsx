@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useReducer } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import ActivityDetail from './ActivityDetail';
@@ -43,6 +43,29 @@ function shiftDateStr(dateStr, delta) {
   return d.toISOString().slice(0, 10);
 }
 
+// Elapsed time derived from a wall-clock start timestamp, not counted ticks — iOS suspends
+// setInterval while the screen is locked or the app is backgrounded, so a tick-counted timer
+// silently loses time. Recomputing from Date.now() self-corrects the moment the app is active
+// again, whether that was 2 seconds or 2 minutes later.
+function computeSessionElapsed(session) {
+  if (!session) return 0;
+  if (!session.running || !session.runStartedAt) return session.baseElapsed;
+  return session.baseElapsed + Math.floor((Date.now() - session.runStartedAt) / 1000);
+}
+
+function toggleSessionRunning(session) {
+  if (!session) return session;
+  if (session.running) {
+    return { ...session, running: false, baseElapsed: computeSessionElapsed(session), runStartedAt: null };
+  }
+  return { ...session, running: true, runStartedAt: Date.now() };
+}
+
+function resetSessionElapsed(session) {
+  if (!session) return session;
+  return { ...session, baseElapsed: 0, runStartedAt: session.running ? Date.now() : null };
+}
+
 // Data (activityTypes/activities/planEntries/date) is owned by App.jsx and passed in as props —
 // same pattern as the Journal dashboard — so switching tabs and back doesn't remount this
 // component's state to empty and flash "0 kcal" while it refetches from scratch.
@@ -55,6 +78,7 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
   const [finishingSession, setFinishingSession] = useState(false);
   const [sessionExercise, setSessionExercise] = useState(null);
   const [openPlanGroup, setOpenPlanGroup] = useState(null);
+  const [, forceRender] = useReducer((x) => x + 1, 0);
   const refresh = onRefresh;
 
   const weekDays = useMemo(() => {
@@ -67,11 +91,16 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
   // ActivitySession, which would reset a local timer state back to 0 on the way back.
   useEffect(() => {
     if (!session || !session.running) return undefined;
-    const id = setInterval(() => {
-      setSession((s) => (s ? { ...s, elapsed: s.elapsed + 1 } : s));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [session?.running, !!session]);
+    const id = setInterval(forceRender, 1000);
+    function onVisible() {
+      if (document.visibilityState === 'visible') forceRender();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [session?.running, session?.runStartedAt]);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,7 +189,7 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
     return (
       <SessionFinish
         activity={session.activity}
-        elapsedSeconds={session.elapsed}
+        elapsedSeconds={computeSessionElapsed(session)}
         onCancel={() => setFinishingSession(false)}
         onKeepOriginal={() => {
           setFinishingSession(false);
@@ -185,10 +214,10 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
     return (
       <CardioSession
         activity={session.activity}
-        elapsed={session.elapsed}
+        elapsed={computeSessionElapsed(session)}
         running={session.running}
-        onToggleRunning={() => setSession((s) => ({ ...s, running: !s.running }))}
-        onResetElapsed={() => setSession((s) => ({ ...s, elapsed: 0 }))}
+        onToggleRunning={() => setSession((s) => toggleSessionRunning(s))}
+        onResetElapsed={() => setSession((s) => resetSessionElapsed(s))}
         onExit={() => setFinishingSession(true)}
       />
     );
@@ -200,10 +229,10 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         activity={session.activity}
         exercises={session.exercises}
         doneExerciseIds={session.doneIds}
-        elapsed={session.elapsed}
+        elapsed={computeSessionElapsed(session)}
         running={session.running}
-        onToggleRunning={() => setSession((s) => ({ ...s, running: !s.running }))}
-        onResetElapsed={() => setSession((s) => ({ ...s, elapsed: 0 }))}
+        onToggleRunning={() => setSession((s) => toggleSessionRunning(s))}
+        onResetElapsed={() => setSession((s) => resetSessionElapsed(s))}
         onOpenExercise={setSessionExercise}
         onAddExercise={(ex) => setSession((s) => ({ ...s, exercises: [...s.exercises, ex] }))}
         onExit={() => setFinishingSession(true)}
@@ -221,7 +250,7 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         recurringDays={recurringDays}
         onBack={() => setOpenActivity(null)}
         onStart={(exercises) => {
-          setSession({ activity: openActivity, exercises, doneIds: new Set(), elapsed: 0, running: true });
+          setSession({ activity: openActivity, exercises, doneIds: new Set(), baseElapsed: 0, runStartedAt: Date.now(), running: true });
           setOpenActivity(null);
         }}
         onDeleted={() => {
