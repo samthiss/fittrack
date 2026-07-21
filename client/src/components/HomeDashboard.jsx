@@ -196,7 +196,7 @@ export default function HomeDashboard({
           <CircularGauge
             value={remainingKcal}
             max={targetIntake}
-            label={remainingKcal < 0 ? t('home.over') : t('home.remaining')}
+            label={t('home.remaining')}
           />
           <div className="gauge-stat">
             <Icon name="flame" size={22} color="var(--warning)" />
