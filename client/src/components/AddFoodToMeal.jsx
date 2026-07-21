@@ -1078,16 +1078,6 @@ export default function AddFoodToMeal({
               </button>
             </div>
           </div>
-          <button
-            type="button"
-            className="done-btn"
-            onClick={() => {
-              setScanResult(null);
-              setEditingResult(false);
-            }}
-          >
-            {t('addFood.close')}
-          </button>
         </div>
       )}
 

@@ -345,7 +345,6 @@ export const translations = {
     'addFood.micronutrientsFor': 'Micronutriments / {portion}g',
     'addFood.micronutrientsPer100g': 'Micronutriments / 100g (optionnel)',
     'addFood.autoEstimate': 'auto',
-    'addFood.close': 'Fermer',
 
     // Micronutrient list
     'micro.limitTag': ' (seuil max)',
@@ -1049,7 +1048,6 @@ export const translations = {
     'addFood.micronutrientsFor': 'Micronutrients / {portion}g',
     'addFood.micronutrientsPer100g': 'Micronutrients / 100g (optional)',
     'addFood.autoEstimate': 'auto',
-    'addFood.close': 'Close',
 
     // Micronutrient list
     'micro.limitTag': ' (upper limit)',
