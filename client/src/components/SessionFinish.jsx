@@ -5,7 +5,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 // Shown after tapping "Terminer" on either session (Force or Cardio) — pre-fills duration/kcal
 // from the session's actual elapsed timer (kcal scaled off the activity's original kcal/minute
 // estimate), but always lets the user review and adjust before it's actually saved.
-export default function SessionFinish({ activity, elapsedSeconds, onCancel, onConfirm }) {
+export default function SessionFinish({ activity, elapsedSeconds, onCancel, onConfirm, onKeepOriginal }) {
   const { t } = useLanguage();
   const elapsedMinutes = elapsedSeconds / 60;
   const rate = activity.duration_minutes > 0 ? activity.kcal / activity.duration_minutes : 0;
@@ -61,10 +61,15 @@ export default function SessionFinish({ activity, elapsedSeconds, onCancel, onCo
         </button>
       </div>
 
-      <button type="button" className="meal-add-cta" style={{ marginTop: 20 }} onClick={handleConfirm} disabled={saving}>
-        <Icon name="check" size={20} />
-        {saving ? t('activityLog.saving') : t('activityLog.validate')}
-      </button>
+      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+        <button type="button" className="meal-add-cta meal-add-cta-white" style={{ flex: 1 }} onClick={onKeepOriginal} disabled={saving}>
+          {t('activityLog.keepOriginal')}
+        </button>
+        <button type="button" className="meal-add-cta" style={{ flex: 1 }} onClick={handleConfirm} disabled={saving}>
+          <Icon name="check" size={20} />
+          {saving ? t('activityLog.saving') : t('activityLog.validate')}
+        </button>
+      </div>
     </div>
   );
 }

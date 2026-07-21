@@ -50,6 +50,10 @@ function RestRing({ restLeft, restTarget, size = 176 }) {
 export default function ExerciseSession({ exercise, activityLabel, index, total, onBack, onComplete, onUpdateExercise }) {
   const { t } = useLanguage();
   const [completedSets, setCompletedSets] = useState(0);
+  // Weight/reps used for each already-validated set, frozen at the moment it was validated —
+  // adjusting the weight pill afterward must only affect the current/upcoming sets, not rewrite
+  // history for sets already done.
+  const [setHistory, setSetHistory] = useState([]);
   const [resting, setResting] = useState(false);
   const [restPaused, setRestPaused] = useState(false);
   const [restTarget, setRestTarget] = useState(REST_SECONDS);
@@ -83,6 +87,7 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
 
   function validateSet() {
     const next = completedSets + 1;
+    setSetHistory((h) => [...h, { weight, reps: Number(currentReps) || reps }]);
     setCompletedSets(next);
     setCurrentReps(reps);
     if (next >= sets) {
@@ -217,6 +222,10 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
                     onChange={(e) => setCurrentReps(e.target.value)}
                     style={{ width: 40, background: 'var(--ink-900)', border: '1px solid var(--border-strong, var(--line))', borderRadius: 8, color: 'var(--txt)', textAlign: 'center', padding: '4px 2px' }}
                   />
+                </span>
+              ) : done ? (
+                <span className="activites-row-kcal">
+                  {setHistory[i]?.weight ?? weight} kg × {setHistory[i]?.reps ?? reps}
                 </span>
               ) : (
                 <span className="activites-row-kcal">

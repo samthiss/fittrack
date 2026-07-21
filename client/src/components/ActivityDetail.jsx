@@ -93,6 +93,18 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
     }
   }
 
+  // Keeps kcal proportional to duration (same kcal/min rate) instead of leaving it stuck at
+  // whatever it was — scales off the current values each step so a prior manual kcal edit still
+  // holds its own ratio rather than snapping back to the activity's original rate.
+  function adjustEditDuration(delta) {
+    setEditDuration((d) => {
+      const prevDuration = Number(d) || 1;
+      const nextDuration = Math.max(5, prevDuration + delta);
+      setEditKcal((k) => Math.round((Number(k) / prevDuration) * nextDuration));
+      return nextDuration;
+    });
+  }
+
   function toggleEditDay(key) {
     setEditDays((prev) => {
       const next = new Set(prev);
@@ -270,13 +282,13 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
 
             <h4 className="section-label">{t('activityLog.duration')}</h4>
             <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
-              <button type="button" className="weight-minus-btn" onClick={() => setEditDuration((d) => Math.max(5, Number(d) - 5))}>
+              <button type="button" className="weight-minus-btn" onClick={() => adjustEditDuration(-5)}>
                 <Icon name="minus" size={18} />
               </button>
               <div style={{ textAlign: 'center', minWidth: 70 }}>
                 <span className="weight-value">{editDuration}</span> <span className="rate">min</span>
               </div>
-              <button type="button" className="weight-plus-btn" onClick={() => setEditDuration((d) => Number(d) + 5)}>
+              <button type="button" className="weight-plus-btn" onClick={() => adjustEditDuration(5)}>
                 <Icon name="plus" size={18} />
               </button>
             </div>
