@@ -114,7 +114,7 @@ export default function TodayReport({ date } = {}) {
     <div>
       {kcal && (
         <>
-          <div className="report-stat-row">
+          <div className="report-stat-row" style={{ marginTop: 18 }}>
             <div className="report-stat-tile">
               <div className="report-stat-tile-label">
                 <Icon name={kcal.deficit >= 0 ? 'trending-down' : 'trending-up'} size={16} color="var(--success)" />
