@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
+import { api } from '../api';
 import Icon from './Icon';
+import ExercisePicker from './ExercisePicker';
 import { useLanguage } from '../i18n/LanguageContext';
 
 function formatElapsed(totalSeconds) {
@@ -44,17 +46,39 @@ function TimerRing({ elapsed, plannedSeconds, size = 176 }) {
   );
 }
 
-export default function ActivitySession({ activity, exercises, onExit, onOpenExercise, doneExerciseIds }) {
+export default function ActivitySession({ activity, exercises, onExit, onOpenExercise, onAddExercise, doneExerciseIds, elapsed, running, onToggleRunning, onResetElapsed }) {
   const { t } = useLanguage();
-  const [elapsed, setElapsed] = useState(0);
-  const [running, setRunning] = useState(true);
-  const intervalRef = useRef(null);
+  const [showPicker, setShowPicker] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [name, setName] = useState('');
+  const [sets, setSets] = useState(4);
+  const [reps, setReps] = useState(10);
+  const [weight, setWeight] = useState('');
+  const [muscleGroup, setMuscleGroup] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!running) return undefined;
-    intervalRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
-    return () => clearInterval(intervalRef.current);
-  }, [running]);
+  async function handleAddExercise() {
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    try {
+      const created = await api.addActivityExercise(activity.id, {
+        name: name.trim(),
+        sets: Number(sets) || 3,
+        reps: Number(reps) || 10,
+        weight_kg: weight === '' ? null : Number(weight),
+        muscle_group: muscleGroup.trim() || null,
+      });
+      onAddExercise(created);
+      setName('');
+      setSets(4);
+      setReps(10);
+      setWeight('');
+      setMuscleGroup('');
+      setShowAdd(false);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const elapsedMinutes = elapsed / 60;
   const estimatedKcal = activity.duration_minutes > 0 ? Math.min(activity.kcal, Math.round((activity.kcal * elapsedMinutes) / activity.duration_minutes)) : 0;
@@ -85,10 +109,10 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
           </div>
         </div>
         <div className="activity-session-timer-controls">
-          <button type="button" className="weight-minus-btn" onClick={() => setElapsed(0)} aria-label={t('activityLog.resetTimer')}>
+          <button type="button" className="weight-minus-btn" onClick={onResetElapsed} aria-label={t('activityLog.resetTimer')}>
             <Icon name="rotate-ccw" size={18} />
           </button>
-          <button type="button" className="meal-add-cta" style={{ width: 'auto', padding: '13px 26px' }} onClick={() => setRunning((r) => !r)}>
+          <button type="button" className="meal-add-cta" style={{ width: 'auto', padding: '13px 26px' }} onClick={onToggleRunning}>
             <Icon name={running ? 'pause' : 'play'} size={18} />
             {running ? t('activityLog.pause') : t('activityLog.resume')}
           </button>
@@ -135,10 +159,101 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
         })}
       </div>
 
-      <button type="button" className="meal-add-cta" onClick={onExit}>
-        <Icon name="check" size={20} />
-        {t('activityLog.finishSession')}
-      </button>
+      <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+        <button type="button" className="meal-add-cta meal-add-cta-white" style={{ flex: 1 }} onClick={() => setShowPicker(true)}>
+          <Icon name="plus" size={18} />
+          {t('activityLog.add')}
+        </button>
+        <button type="button" className="meal-add-cta" style={{ flex: 1 }} onClick={onExit}>
+          <Icon name="check" size={20} />
+          {t('activityLog.finishSession')}
+        </button>
+      </div>
+
+      {showPicker && (
+        <ExercisePicker
+          onClose={() => setShowPicker(false)}
+          onPick={async (ex) => {
+            const created = await api.addActivityExercise(activity.id, {
+              name: ex.name,
+              muscle_group: ex.muscle_group,
+              sets: ex.sets,
+              reps: ex.reps,
+              weight_kg: ex.weight_kg,
+            });
+            onAddExercise(created);
+          }}
+          onCreateNew={() => {
+            setShowPicker(false);
+            setShowAdd(true);
+          }}
+        />
+      )}
+
+      {showAdd && (
+        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+              <button type="button" className="meal-detail-back-btn" onClick={() => setShowAdd(false)} aria-label={t('meal.close')}>
+                <Icon name="x" size={20} />
+              </button>
+              <div className="meal-detail-heading">
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('activityLog.addExercise')}</div>
+              </div>
+            </div>
+
+            <h4 className="section-label" style={{ marginTop: 0 }}>{t('activityLog.exerciseName')}</h4>
+            <div className="search-input-row">
+              <input type="text" className="search-input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('activityLog.exerciseName')} />
+            </div>
+
+            <h4 className="section-label">
+              {t('activityLog.muscleGroup')} <span style={{ textTransform: 'none', fontWeight: 400 }}>({t('profile.optional')})</span>
+            </h4>
+            <div className="search-input-row">
+              <input
+                type="text"
+                className="search-input"
+                value={muscleGroup}
+                onChange={(e) => setMuscleGroup(e.target.value)}
+                placeholder={t('activityLog.muscleGroupPlaceholder')}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <h4 className="section-label">{t('activityLog.sets')}</h4>
+                <div className="search-input-row">
+                  <input type="number" min="1" className="search-input" value={sets} onChange={(e) => setSets(e.target.value)} />
+                </div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <h4 className="section-label">{t('activityLog.reps')}</h4>
+                <div className="search-input-row">
+                  <input type="number" min="1" className="search-input" value={reps} onChange={(e) => setReps(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            <h4 className="section-label">{t('activityLog.weightKg')}</h4>
+            <div className="search-input-row">
+              <input type="number" min="0" step="0.5" className="search-input" value={weight} onChange={(e) => setWeight(e.target.value)} />
+              <span className="unit">kg</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="done-btn done-btn-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddExercise();
+            }}
+            disabled={saving || !name.trim()}
+          >
+            {saving ? t('activityLog.saving') : t('activityLog.add')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -59,6 +59,17 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
     return DAY_ORDER.map((key, i) => ({ key, date: shiftDateStr(monday, i) }));
   }, [date]);
 
+  // The session's elapsed time lives here (not inside ActivitySession) because ActivitesScreen
+  // renders either ActivitySession or ExerciseSession, never both — opening an exercise unmounts
+  // ActivitySession, which would reset a local timer state back to 0 on the way back.
+  useEffect(() => {
+    if (!session || !session.running) return undefined;
+    const id = setInterval(() => {
+      setSession((s) => (s ? { ...s, elapsed: s.elapsed + 1 } : s));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [session?.running, !!session]);
+
   useEffect(() => {
     let cancelled = false;
     Promise.all(weekDays.map((d) => api.getActivities(d.date).then((logs) => [d.date, logs.length > 0]))).then(
@@ -148,7 +159,12 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         activity={session.activity}
         exercises={session.exercises}
         doneExerciseIds={session.doneIds}
+        elapsed={session.elapsed}
+        running={session.running}
+        onToggleRunning={() => setSession((s) => ({ ...s, running: !s.running }))}
+        onResetElapsed={() => setSession((s) => ({ ...s, elapsed: 0 }))}
         onOpenExercise={setSessionExercise}
+        onAddExercise={(ex) => setSession((s) => ({ ...s, exercises: [...s.exercises, ex] }))}
         onExit={() => {
           setSession(null);
           refresh();
@@ -167,7 +183,7 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         recurringDays={recurringDays}
         onBack={() => setOpenActivity(null)}
         onStart={(exercises) => {
-          setSession({ activity: openActivity, exercises, doneIds: new Set() });
+          setSession({ activity: openActivity, exercises, doneIds: new Set(), elapsed: 0, running: true });
           setOpenActivity(null);
         }}
         onDeleted={() => {

@@ -438,7 +438,7 @@
   font-size: 16px;
 }
 
-.bottom-sheet-overlay {
+.modal-overlay.bottom-sheet-overlay {
   background: rgba(0, 0, 0, 0.55);
   justify-content: flex-end;
   padding: 0;
