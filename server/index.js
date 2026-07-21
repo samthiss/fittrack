@@ -628,6 +628,40 @@ app.delete('/api/exercises/:id', (req, res) => {
   res.status(204).end();
 });
 
+// --- Saved workout templates (reusable exercise lists for a "force" session) ---
+function serializeWorkoutTemplate(row) {
+  return { ...row, exercises: JSON.parse(row.exercises) };
+}
+
+app.get('/api/workout-templates', (req, res) => {
+  const rows = db.prepare('SELECT * FROM workout_templates WHERE user_id = ? ORDER BY id DESC').all(req.userId);
+  res.json(rows.map(serializeWorkoutTemplate));
+});
+
+app.post('/api/workout-templates', (req, res) => {
+  const { name, exercises } = req.body;
+  if (!name || !name.trim() || !Array.isArray(exercises) || exercises.length === 0) {
+    return res.status(400).json({ error: 'name et exercises requis' });
+  }
+  const cleanExercises = exercises
+    .filter((e) => e && e.name && String(e.name).trim())
+    .map((e) => ({
+      name: String(e.name).trim(),
+      sets: Number(e.sets) || 3,
+      reps: Number(e.reps) || 10,
+      weight_kg: e.weight_kg != null && e.weight_kg !== '' ? Number(e.weight_kg) : null,
+    }));
+  const result = db
+    .prepare('INSERT INTO workout_templates (user_id, name, exercises) VALUES (?, ?, ?)')
+    .run(req.userId, name.trim(), JSON.stringify(cleanExercises));
+  res.status(201).json(serializeWorkoutTemplate(db.prepare('SELECT * FROM workout_templates WHERE id = ?').get(result.lastInsertRowid)));
+});
+
+app.delete('/api/workout-templates/:id', (req, res) => {
+  db.prepare('DELETE FROM workout_templates WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
+  res.status(204).end();
+});
+
 // --- Recurring activity plan (day-of-week template, e.g. "Course à pied" every mon/wed/fri) ---
 app.get('/api/activity-plan', (req, res) => {
   const rows = db.prepare('SELECT * FROM activity_plan WHERE user_id = ? ORDER BY id').all(req.userId);

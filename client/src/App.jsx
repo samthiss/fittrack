@@ -42,6 +42,9 @@ function MainApp({ onLogout, account }) {
   const [frequentFoods, setFrequentFoods] = useState([]);
   const [summary, setSummary] = useState(null);
   const [date, setDate] = useState(todayStr());
+  const [activitesDate, setActivitesDate] = useState(todayStr());
+  const [activites, setActivites] = useState([]);
+  const [activitesPlan, setActivitesPlan] = useState([]);
 
   const refreshCore = useCallback(async () => {
     // Today's recurring activities flow in automatically, same idea as the meal plan auto-apply.
@@ -110,6 +113,21 @@ function MainApp({ onLogout, account }) {
     setRecipeFavorites(await api.getAllMealFavorites());
   }, []);
 
+  // Owned here (not in ActivitesScreen) so switching tabs and back doesn't remount the screen's
+  // state to empty and flash "0 kcal" while it refetches — same reasoning as refreshDashboard.
+  const refreshActivites = useCallback(async () => {
+    if (activitesDate === todayStr()) {
+      try {
+        await api.applyActivityPlanToLog(activitesDate);
+      } catch {
+        // no plan yet, or nothing to add — fine either way
+      }
+    }
+    const [logs, plan] = await Promise.all([api.getActivities(activitesDate), api.getActivityPlan()]);
+    setActivites(logs);
+    setActivitesPlan(plan.entries);
+  }, [activitesDate]);
+
   useEffect(() => {
     refreshCore();
     refreshRecipes();
@@ -118,6 +136,10 @@ function MainApp({ onLogout, account }) {
     refreshFrequentFoods();
     refreshRecipeFavorites();
   }, [refreshCore, refreshRecipes, refreshFoods, refreshDashboard, refreshFrequentFoods, refreshRecipeFavorites]);
+
+  useEffect(() => {
+    refreshActivites();
+  }, [refreshActivites]);
 
   useEffect(() => {
     if (selectedMeal) {
@@ -326,7 +348,16 @@ function MainApp({ onLogout, account }) {
             />
           )}
           {view === 'rapport' && <Report />}
-          {view === 'activites' && <ActivitesScreen />}
+          {view === 'activites' && (
+            <ActivitesScreen
+              date={activitesDate}
+              onDateChange={setActivitesDate}
+              activityTypes={activityTypes}
+              activities={activites}
+              planEntries={activitesPlan}
+              onRefresh={refreshActivites}
+            />
+          )}
           {view === 'poids' && (
             <>
               <button type="button" className="btn-ghost back-btn" onClick={() => setView('journal')} aria-label={t('common.back')}>

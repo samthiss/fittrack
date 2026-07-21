@@ -65,6 +65,18 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- A saved, reusable list of exercises (e.g. "Lower Body") the user can pick when starting a
+  -- new force session instead of re-adding every exercise by hand each time. exercises is a JSON
+  -- array of { name, sets, reps, weight_kg }, mirroring activity_exercises' shape but detached
+  -- from any specific day's log — same storage pattern as recipes.ingredients.
+  CREATE TABLE IF NOT EXISTS workout_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    exercises TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS activity_settings (
     type TEXT PRIMARY KEY,
     label TEXT NOT NULL,

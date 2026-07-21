@@ -50,6 +50,9 @@ export const api = {
   updateActivityExercise: (id, data) =>
     request(`/exercises/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteActivityExercise: (id) => request(`/exercises/${id}`, { method: 'DELETE' }),
+  getWorkoutTemplates: () => request('/workout-templates'),
+  createWorkoutTemplate: (data) => request('/workout-templates', { method: 'POST', body: JSON.stringify(data) }),
+  deleteWorkoutTemplate: (id) => request(`/workout-templates/${id}`, { method: 'DELETE' }),
   getActivityPlan: () => request('/activity-plan'),
   addActivityPlan: (data) =>
     request('/activity-plan', { method: 'POST', body: JSON.stringify(data) }),

@@ -24,6 +24,10 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
   const [reps, setReps] = useState(10);
   const [weight, setWeight] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -66,6 +70,22 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
   async function handleDeleteActivity() {
     await api.deleteActivity(activity.id);
     onDeleted();
+  }
+
+  async function handleSaveTemplate() {
+    if (!templateName.trim() || savingTemplate) return;
+    setSavingTemplate(true);
+    try {
+      await api.createWorkoutTemplate({
+        name: templateName.trim(),
+        exercises: exercises.map((ex) => ({ name: ex.name, sets: ex.sets, reps: ex.reps, weight_kg: ex.weight_kg })),
+      });
+      setShowSaveTemplate(false);
+      setTemplateSaved(true);
+      setTimeout(() => setTemplateSaved(false), 3000);
+    } finally {
+      setSavingTemplate(false);
+    }
   }
 
   function toggleEditDay(key) {
@@ -175,26 +195,42 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
 
       {isForce && (
         <>
-          <h2>{t('activityLog.exercises')}</h2>
+          <div className="row" style={{ alignItems: 'center', marginTop: 8 }}>
+            <h2 style={{ margin: 0 }}>{t('activityLog.exercises')}</h2>
+            {exercises.length > 0 && (
+              <button
+                type="button"
+                className="report-link"
+                style={{ marginLeft: 'auto' }}
+                onClick={() => {
+                  setTemplateName(label || t(`activityType.${activity.type}`));
+                  setShowSaveTemplate(true);
+                }}
+              >
+                <Icon name="bookmark" size={14} />
+                {t('activityLog.saveAsTemplate')}
+              </button>
+            )}
+          </div>
+          {templateSaved && <p className="hint success">{t('activityLog.templateSaved')}</p>}
           {loading ? (
             <p className="hint">{t('weight.loading')}</p>
           ) : exercises.length === 0 ? (
             <p className="hint">{t('activityLog.noExercises')}</p>
           ) : (
             <div className="entry-list">
-              {exercises.map((ex) => (
+              {exercises.map((ex, i) => (
                 <div className="entry-card" key={ex.id}>
                   <span className="meal-icon-box">
-                    <Icon name="dumbbell" size={19} />
+                    <b style={{ fontSize: 14, fontWeight: 700 }}>{i + 1}</b>
                   </span>
                   <div className="entry-card-body" style={{ cursor: 'default' }}>
                     <div className="entry-card-name">{ex.name}</div>
                     <div className="entry-card-sub">
-                      {ex.sets} {t('activityLog.setsShort')}
+                      {ex.sets} {t('activityLog.setsShort')} × {ex.reps} {t('activityLog.repsShort')}
                       {ex.weight_kg != null ? ` · ${ex.weight_kg} kg` : ''}
                     </div>
                   </div>
-                  <b className="activites-row-kcal">{ex.reps} {t('activityLog.repsShort')}</b>
                   <button type="button" className="entry-icon-btn entry-delete-btn" onClick={() => handleDeleteExercise(ex.id)}>
                     <Icon name="trash-2" size={16} />
                   </button>
@@ -202,18 +238,27 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
               ))}
             </div>
           )}
+
+          <div className="row" style={{ gap: 10, marginTop: 16 }}>
+            <button type="button" className="btn-ghost btn-block" style={{ flex: 1, textAlign: 'center' }} onClick={() => setShowAdd(true)}>
+              <Icon name="plus" size={16} /> {t('activityLog.addExercise')}
+            </button>
+            {exercises.length > 0 && (
+              <button type="button" className="meal-add-cta" style={{ flex: 1 }} onClick={() => onStart(exercises)}>
+                <Icon name="play" size={18} />
+                {t('activityLog.start')}
+              </button>
+            )}
+          </div>
         </>
       )}
 
-      <div className="row" style={{ gap: 10, marginTop: 22 }}>
+      <div className="row" style={{ gap: 10, marginTop: 16 }}>
         <button type="button" className="weight-minus-btn" style={{ color: 'var(--danger)' }} onClick={handleDeleteActivity} aria-label={t('activityLog.delete')}>
           <Icon name="trash-2" size={18} />
         </button>
-        {isForce && exercises.length > 0 && (
-          <button type="button" className="meal-add-cta" style={{ flex: 1 }} onClick={() => onStart(exercises)}>
-            <Icon name="play" size={18} />
-            {t('activityLog.start')}
-          </button>
+        {!isForce && (
+          <span className="hint" style={{ margin: 0 }}>{t('activityLog.delete')}</span>
         )}
       </div>
 
@@ -305,37 +350,106 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{t('activityLog.addExercise')}</h2>
-            <div className="row">
-              <label>{t('activityLog.exerciseName')}</label>
-              <div className="field">
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('activityLog.exerciseName')} />
+            <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+              <button type="button" className="meal-detail-back-btn" onClick={() => setShowAdd(false)} aria-label={t('meal.close')}>
+                <Icon name="x" size={20} />
+              </button>
+              <div className="meal-detail-heading">
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('activityLog.addExercise')}</div>
               </div>
             </div>
-            <div className="row">
-              <label>{t('activityLog.sets')}</label>
-              <div className="field">
-                <input type="number" min="1" value={sets} onChange={(e) => setSets(e.target.value)} />
+
+            <h4 className="section-label" style={{ marginTop: 0 }}>{t('activityLog.exerciseName')}</h4>
+            <div className="search-input-row">
+              <input type="text" className="search-input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('activityLog.exerciseName')} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <h4 className="section-label">{t('activityLog.sets')}</h4>
+                <div className="search-input-row">
+                  <input type="number" min="1" className="search-input" value={sets} onChange={(e) => setSets(e.target.value)} />
+                </div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <h4 className="section-label">{t('activityLog.reps')}</h4>
+                <div className="search-input-row">
+                  <input type="number" min="1" className="search-input" value={reps} onChange={(e) => setReps(e.target.value)} />
+                </div>
               </div>
             </div>
-            <div className="row">
-              <label>{t('activityLog.reps')}</label>
-              <div className="field">
-                <input type="number" min="1" value={reps} onChange={(e) => setReps(e.target.value)} />
-              </div>
+
+            <h4 className="section-label">{t('activityLog.weightKg')}</h4>
+            <div className="search-input-row">
+              <input type="number" min="0" step="0.5" className="search-input" value={weight} onChange={(e) => setWeight(e.target.value)} />
+              <span className="unit">kg</span>
             </div>
-            <div className="row">
-              <label>{t('activityLog.weightKg')}</label>
-              <div className="field">
-                <input type="number" min="0" step="0.5" value={weight} onChange={(e) => setWeight(e.target.value)} />
-              </div>
-            </div>
-            <button type="button" className="btn btn-block" onClick={handleAddExercise} disabled={saving}>
-              {saving ? t('activityLog.saving') : t('activityLog.add')}
-            </button>
           </div>
-          <button type="button" className="done-btn" onClick={() => setShowAdd(false)}>
-            {t('activityLog.close')}
+          <button
+            type="button"
+            className="done-btn done-btn-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddExercise();
+            }}
+            disabled={saving || !name.trim()}
+          >
+            {saving ? t('activityLog.saving') : t('activityLog.add')}
+          </button>
+        </div>
+      )}
+
+      {showSaveTemplate && (
+        <div className="modal-overlay" onClick={() => setShowSaveTemplate(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+              <button type="button" className="meal-detail-back-btn" onClick={() => setShowSaveTemplate(false)} aria-label={t('meal.close')}>
+                <Icon name="x" size={20} />
+              </button>
+              <div className="meal-detail-heading">
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('activityLog.saveAsTemplate')}</div>
+              </div>
+            </div>
+
+            <h4 className="section-label" style={{ marginTop: 0 }}>{t('activityLog.templateName')}</h4>
+            <div className="search-input-row">
+              <input
+                type="text"
+                className="search-input"
+                autoFocus
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder={t('activityLog.templateNamePlaceholder')}
+              />
+            </div>
+
+            <div className="entry-list">
+              {exercises.map((ex) => (
+                <div className="entry-card" key={ex.id}>
+                  <span className="meal-icon-box">
+                    <Icon name="dumbbell" size={19} />
+                  </span>
+                  <div className="entry-card-body" style={{ cursor: 'default' }}>
+                    <div className="entry-card-name">{ex.name}</div>
+                    <div className="entry-card-sub">
+                      {ex.sets} {t('activityLog.setsShort')} × {ex.reps} {t('activityLog.repsShort')}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="done-btn done-btn-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSaveTemplate();
+            }}
+            disabled={savingTemplate || !templateName.trim()}
+          >
+            <Icon name="check" size={20} />
+            {savingTemplate ? t('activityLog.saving') : t('meal.save')}
           </button>
         </div>
       )}

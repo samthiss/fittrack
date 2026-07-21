@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import ActivityDetail from './ActivityDetail';
@@ -22,10 +22,6 @@ function iconForType(type) {
   return 'activity';
 }
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function isoDayKey(dateStr) {
   const jsDay = new Date(`${dateStr}T00:00:00Z`).getUTCDay(); // 0=Sun..6=Sat
   return DAY_ORDER[(jsDay + 6) % 7];
@@ -45,37 +41,23 @@ function shiftDateStr(dateStr, delta) {
   return d.toISOString().slice(0, 10);
 }
 
-export default function ActivitesScreen() {
+// Data (activityTypes/activities/planEntries/date) is owned by App.jsx and passed in as props —
+// same pattern as the Journal dashboard — so switching tabs and back doesn't remount this
+// component's state to empty and flash "0 kcal" while it refetches from scratch.
+export default function ActivitesScreen({ date, onDateChange, activityTypes, activities, planEntries, onRefresh }) {
   const { t, lang } = useLanguage();
-  const [date, setDate] = useState(todayStr());
-  const [activityTypes, setActivityTypes] = useState([]);
-  const [activities, setActivities] = useState([]);
   const [weekPresence, setWeekPresence] = useState({});
-  const [planEntries, setPlanEntries] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [openActivity, setOpenActivity] = useState(null);
   const [session, setSession] = useState(null);
   const [sessionExercise, setSessionExercise] = useState(null);
   const [openPlanGroup, setOpenPlanGroup] = useState(null);
+  const refresh = onRefresh;
 
   const weekDays = useMemo(() => {
     const monday = mondayOfWeek(date);
     return DAY_ORDER.map((key, i) => ({ key, date: shiftDateStr(monday, i) }));
   }, [date]);
-
-  const refresh = useCallback(async () => {
-    if (date === todayStr()) {
-      await api.applyActivityPlanToLog(date);
-    }
-    const [types, logs, plan] = await Promise.all([api.getActivityTypes(), api.getActivities(date), api.getActivityPlan()]);
-    setActivityTypes(types);
-    setActivities(logs);
-    setPlanEntries(plan.entries);
-  }, [date]);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,10 +179,10 @@ export default function ActivitesScreen() {
           <h1>{t('nav.activities')}</h1>
         </div>
         <div className="activites-header-nav">
-          <button type="button" className="meal-detail-back-btn" onClick={() => setDate((d) => shiftDateStr(d, -1))} aria-label={t('home.prevDay')}>
+          <button type="button" className="meal-detail-back-btn" onClick={() => onDateChange(shiftDateStr(date, -1))} aria-label={t('home.prevDay')}>
             <Icon name="chevron-left" size={20} />
           </button>
-          <button type="button" className="meal-detail-back-btn" onClick={() => setDate((d) => shiftDateStr(d, 1))} aria-label={t('home.nextDay')}>
+          <button type="button" className="meal-detail-back-btn" onClick={() => onDateChange(shiftDateStr(date, 1))} aria-label={t('home.nextDay')}>
             <Icon name="chevron-right" size={20} />
           </button>
         </div>
@@ -227,7 +209,7 @@ export default function ActivitesScreen() {
               type="button"
               key={d.key}
               className={d.date === date ? 'activites-week-day active' : 'activites-week-day'}
-              onClick={() => setDate(d.date)}
+              onClick={() => onDateChange(d.date)}
             >
               <span className="activites-week-letter">{WEEKDAY_LETTERS[d.key]}</span>
               <span className="activites-week-number">{Number(d.date.slice(8, 10))}</span>

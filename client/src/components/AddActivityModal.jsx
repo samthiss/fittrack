@@ -5,7 +5,6 @@ import { useLanguage } from '../i18n/LanguageContext';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const FORCE_TYPES = new Set(['force']);
-const INTENSITY_FACTOR = { light: 0.8, moderate: 1, intense: 1.2 };
 
 const TYPE_ICONS = {
   force: 'dumbbell',
@@ -26,10 +25,18 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   const [selectedType, setSelectedType] = useState(null);
   const [label, setLabel] = useState('');
   const [duration, setDuration] = useState(30);
-  const [intensity, setIntensity] = useState('moderate');
   const [recurring, setRecurring] = useState(false);
   const [days, setDays] = useState(new Set([todayDayKey]));
   const [saving, setSaving] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
+
+  useEffect(() => {
+    if (kind === 'force') {
+      setSelectedType('force');
+      api.getWorkoutTemplates().then(setTemplates);
+    }
+  }, [kind]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -52,7 +59,8 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   }, [filtered]);
 
   const selected = activityTypes.find((at) => at.type === selectedType);
-  const estimatedKcal = selected ? Math.round(selected.kcal_per_hour * (duration / 60) * INTENSITY_FACTOR[intensity]) : null;
+  const estimatedKcal = selected ? Math.round(selected.kcal_per_hour * (duration / 60)) : null;
+  const selectedTemplate = templates.find((tpl) => tpl.id === selectedTemplateId);
 
   function toggleDay(key) {
     setDays((prev) => {
@@ -63,13 +71,18 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     });
   }
 
+  function pickTemplate(tpl) {
+    setSelectedTemplateId((id) => (id === tpl.id ? null : tpl.id));
+    if (!label.trim()) setLabel(tpl.name);
+  }
+
   async function handleSubmit() {
     if (!selectedType || saving) return;
     setSaving(true);
     try {
       const finalLabel = label.trim() || undefined;
       const groupId = recurring && days.size > 0 ? crypto.randomUUID() : undefined;
-      await api.addActivity({
+      const created = await api.addActivity({
         date,
         type: selectedType,
         duration_minutes: duration,
@@ -77,6 +90,11 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
         label: finalLabel,
         recurringGroupId: groupId,
       });
+      if (kind === 'force' && selectedTemplate) {
+        for (const ex of selectedTemplate.exercises) {
+          await api.addActivityExercise(created.id, ex);
+        }
+      }
       if (groupId) {
         await api.addActivityPlan({ days: [...days], type: selectedType, duration_minutes: duration, label: finalLabel, groupId });
       }
@@ -101,18 +119,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
           </div>
         </div>
 
-        <div className="search-input-row">
-          <Icon name="search" size={18} color="var(--text-muted)" />
-          <input
-            type="text"
-            className="search-input"
-            placeholder={t('activityLog.searchActivity')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <h4 className="section-label">{t('activityLog.sessionType')}</h4>
+        <h4 className="section-label" style={{ marginTop: 0 }}>{t('activityLog.sessionType')}</h4>
         <div className="type-list-row">
           <button type="button" className={kind === 'force' ? 'type-pill active' : 'type-pill'} onClick={() => setKind('force')}>
             {t('activityLog.kindForce')}
@@ -122,41 +129,92 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
           </button>
         </div>
 
-        <h4 className="section-label">{t('activityLog.choose')}</h4>
-        <div className="entry-list" style={{ maxHeight: 220, overflowY: 'auto' }}>
-          {filtered.length === 0 && <p className="hint">{t('activityLog.noResults')}</p>}
-          {filtered.map((at) => {
-            const isSelected = selectedType === at.type;
-            return (
-              <div
-                key={at.type}
-                className={isSelected ? 'entry-card activity-session-exercise current' : 'entry-card'}
-                onClick={() => setSelectedType(at.type)}
-              >
-                <span className="meal-icon-box">
-                  <Icon name={iconForType(at.type)} size={19} />
-                </span>
-                <div className="entry-card-body" style={{ cursor: 'pointer' }}>
-                  <div className="entry-card-name">{t(`activityType.${at.type}`)}</div>
-                  <div className="entry-card-sub">≈ {Math.round(at.kcal_per_hour / 2)} kcal / 30 min</div>
-                </div>
-                {isSelected && <Icon name="circle-check-big" size={20} color="var(--acc)" />}
-              </div>
-            );
-          })}
-        </div>
+        {kind === 'cardio' && (
+          <>
+            <div className="search-input-row">
+              <Icon name="search" size={18} color="var(--text-muted)" />
+              <input
+                type="text"
+                className="search-input"
+                placeholder={t('activityLog.searchActivity')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
 
-        <h4 className="section-label">{t('activityLog.workoutName')}</h4>
-        <div className="search-input-row">
-          <Icon name="pencil" size={18} color="var(--text-muted)" />
-          <input
-            type="text"
-            className="search-input"
-            placeholder={t('activityLog.workoutNamePlaceholder')}
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-          />
-        </div>
+            <h4 className="section-label">{t('activityLog.choose')}</h4>
+            <div className="entry-list" style={{ maxHeight: 220, overflowY: 'auto' }}>
+              {filtered.length === 0 && <p className="hint">{t('activityLog.noResults')}</p>}
+              {filtered.map((at) => {
+                const isSelected = selectedType === at.type;
+                return (
+                  <div
+                    key={at.type}
+                    className={isSelected ? 'entry-card activity-session-exercise current' : 'entry-card'}
+                    onClick={() => setSelectedType(at.type)}
+                  >
+                    <span className="meal-icon-box">
+                      <Icon name={iconForType(at.type)} size={19} />
+                    </span>
+                    <div className="entry-card-body" style={{ cursor: 'pointer' }}>
+                      <div className="entry-card-name">{t(`activityType.${at.type}`)}</div>
+                      <div className="entry-card-sub">≈ {Math.round(at.kcal_per_hour / 2)} kcal / 30 min</div>
+                    </div>
+                    {isSelected && <Icon name="circle-check-big" size={20} color="var(--acc)" />}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {kind === 'force' && (
+          <>
+            <h4 className="section-label">{t('activityLog.savedWorkouts')}</h4>
+            {templates.length === 0 ? (
+              <p className="hint">{t('activityLog.noSavedWorkouts')}</p>
+            ) : (
+              <div className="entry-list" style={{ maxHeight: 220, overflowY: 'auto' }}>
+                {templates.map((tpl) => {
+                  const isSelected = selectedTemplateId === tpl.id;
+                  return (
+                    <div
+                      key={tpl.id}
+                      className={isSelected ? 'entry-card activity-session-exercise current' : 'entry-card'}
+                      onClick={() => pickTemplate(tpl)}
+                    >
+                      <span className="meal-icon-box">
+                        <Icon name="dumbbell" size={19} />
+                      </span>
+                      <div className="entry-card-body" style={{ cursor: 'pointer' }}>
+                        <div className="entry-card-name">{tpl.name}</div>
+                        <div className="entry-card-sub">
+                          {tpl.exercises.length} {t('activityLog.exercises')}
+                        </div>
+                      </div>
+                      {isSelected && <Icon name="circle-check-big" size={20} color="var(--acc)" />}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {selectedTemplateId && (
+              <p className="hint">{t('activityLog.savedWorkoutHint')}</p>
+            )}
+
+            <h4 className="section-label">{t('activityLog.workoutName')}</h4>
+            <div className="search-input-row">
+              <Icon name="pencil" size={18} color="var(--text-muted)" />
+              <input
+                type="text"
+                className="search-input"
+                placeholder={t('activityLog.workoutNamePlaceholder')}
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+            </div>
+          </>
+        )}
 
         <h4 className="section-label">{t('activityLog.duration')}</h4>
         <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
@@ -168,19 +226,6 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
           </div>
           <button type="button" className="weight-plus-btn" onClick={() => setDuration((d) => d + 5)}>
             <Icon name="plus" size={18} />
-          </button>
-        </div>
-
-        <h4 className="section-label">{t('activityLog.intensity')}</h4>
-        <div className="type-list-row">
-          <button type="button" className={intensity === 'light' ? 'type-pill active' : 'type-pill'} onClick={() => setIntensity('light')}>
-            {t('activityLog.intensityLight')}
-          </button>
-          <button type="button" className={intensity === 'moderate' ? 'type-pill active' : 'type-pill'} onClick={() => setIntensity('moderate')}>
-            {t('activityLog.intensityModerate')}
-          </button>
-          <button type="button" className={intensity === 'intense' ? 'type-pill active' : 'type-pill'} onClick={() => setIntensity('intense')}>
-            {t('activityLog.intensityIntense')}
           </button>
         </div>
 
