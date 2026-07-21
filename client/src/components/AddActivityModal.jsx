@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
+import WorkoutTemplateEditor from './WorkoutTemplateEditor';
 import { useLanguage } from '../i18n/LanguageContext';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -30,6 +31,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   const [saving, setSaving] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
+  const [editingTemplate, setEditingTemplate] = useState(null);
 
   useEffect(() => {
     if (kind === 'force') {
@@ -203,6 +205,18 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
                           </div>
                         )}
                       </div>
+                      <button
+                        type="button"
+                        className="entry-icon-btn"
+                        style={{ flex: 'none' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingTemplate(tpl);
+                        }}
+                        aria-label={t('activityLog.editTemplate')}
+                      >
+                        <Icon name="pencil" size={15} />
+                      </button>
                       {isSelected && <Icon name="circle-check-big" size={20} color="var(--acc)" />}
                     </div>
                   );
@@ -297,6 +311,22 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
       >
         {saving ? t('activityLog.saving') : t('activityLog.addToJournal')}
       </button>
+
+      {editingTemplate && (
+        <WorkoutTemplateEditor
+          template={editingTemplate}
+          onClose={() => setEditingTemplate(null)}
+          onSaved={(updated) => {
+            setTemplates((list) => list.map((tpl) => (tpl.id === updated.id ? updated : tpl)));
+            setEditingTemplate(null);
+          }}
+          onDeleted={(id) => {
+            setTemplates((list) => list.filter((tpl) => tpl.id !== id));
+            if (selectedTemplateId === id) setSelectedTemplateId(null);
+            setEditingTemplate(null);
+          }}
+        />
+      )}
     </div>
   );
 }

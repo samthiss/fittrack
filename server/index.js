@@ -673,12 +673,8 @@ app.get('/api/workout-templates', (req, res) => {
   res.json(rows.map(serializeWorkoutTemplate));
 });
 
-app.post('/api/workout-templates', (req, res) => {
-  const { name, exercises } = req.body;
-  if (!name || !name.trim() || !Array.isArray(exercises) || exercises.length === 0) {
-    return res.status(400).json({ error: 'name et exercises requis' });
-  }
-  const cleanExercises = exercises
+function cleanTemplateExercises(exercises) {
+  return exercises
     .filter((e) => e && e.name && String(e.name).trim())
     .map((e) => ({
       name: String(e.name).trim(),
@@ -687,10 +683,36 @@ app.post('/api/workout-templates', (req, res) => {
       weight_kg: e.weight_kg != null && e.weight_kg !== '' ? Number(e.weight_kg) : null,
       muscle_group: e.muscle_group && String(e.muscle_group).trim() ? String(e.muscle_group).trim() : null,
     }));
+}
+
+app.post('/api/workout-templates', (req, res) => {
+  const { name, exercises } = req.body;
+  if (!name || !name.trim() || !Array.isArray(exercises) || exercises.length === 0) {
+    return res.status(400).json({ error: 'name et exercises requis' });
+  }
   const result = db
     .prepare('INSERT INTO workout_templates (user_id, name, exercises) VALUES (?, ?, ?)')
-    .run(req.userId, name.trim(), JSON.stringify(cleanExercises));
+    .run(req.userId, name.trim(), JSON.stringify(cleanTemplateExercises(exercises)));
   res.status(201).json(serializeWorkoutTemplate(db.prepare('SELECT * FROM workout_templates WHERE id = ?').get(result.lastInsertRowid)));
+});
+
+app.put('/api/workout-templates/:id', (req, res) => {
+  const existing = db.prepare('SELECT * FROM workout_templates WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
+  if (!existing) return res.status(404).json({ error: 'Modèle introuvable' });
+  const { name, exercises } = req.body;
+  if (name !== undefined && !name.trim()) {
+    return res.status(400).json({ error: 'name requis' });
+  }
+  if (exercises !== undefined && (!Array.isArray(exercises) || exercises.length === 0)) {
+    return res.status(400).json({ error: 'exercises requis' });
+  }
+  db.prepare('UPDATE workout_templates SET name = ?, exercises = ? WHERE id = ? AND user_id = ?').run(
+    name !== undefined ? name.trim() : existing.name,
+    exercises !== undefined ? JSON.stringify(cleanTemplateExercises(exercises)) : existing.exercises,
+    req.params.id,
+    req.userId
+  );
+  res.json(serializeWorkoutTemplate(db.prepare('SELECT * FROM workout_templates WHERE id = ?').get(req.params.id)));
 });
 
 app.delete('/api/workout-templates/:id', (req, res) => {
