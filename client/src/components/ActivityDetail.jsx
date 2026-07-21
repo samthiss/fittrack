@@ -130,7 +130,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
 
   return (
     <div>
-      <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <button type="button" className="meal-detail-back-btn" onClick={onBack} aria-label={t('meal.back')}>
           <Icon name="chevron-left" size={20} />
         </button>
@@ -160,6 +160,8 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
           <Icon name="trash-2" size={17} />
         </button>
       </div>
+
+      <h1 style={{ marginTop: 14 }}>{label || t(`activityType.${activity.type}`)}</h1>
 
       {recurringDays.length > 0 && (
         <div style={{ marginTop: 14 }}>
@@ -192,16 +194,13 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
 
       {isForce && (
         <>
-          <div className="row" style={{ alignItems: 'center', marginTop: 20 }}>
-            <h2 style={{ margin: 0 }}>{t('activityLog.exercises')}</h2>
-          </div>
-          {templateSaved && <p className="hint success">{t('activityLog.templateSaved')}</p>}
+          {templateSaved && <p className="hint success" style={{ marginTop: 8 }}>{t('activityLog.templateSaved')}</p>}
           {loading ? (
-            <p className="hint">{t('weight.loading')}</p>
+            <p className="hint" style={{ marginTop: 8 }}>{t('weight.loading')}</p>
           ) : exercises.length === 0 ? (
-            <p className="hint">{t('activityLog.noExercises')}</p>
+            <p className="hint" style={{ marginTop: 8 }}>{t('activityLog.noExercises')}</p>
           ) : (
-            <div className="entry-list">
+            <div className="entry-list" style={{ marginTop: 8 }}>
               {exercises.map((ex, i) => (
                 <div className="entry-card" key={ex.id}>
                   <span className="meal-icon-box">
