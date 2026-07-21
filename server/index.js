@@ -389,16 +389,13 @@ app.get('/api/profile', (req, res) => {
 const SEX_OPTIONS = ['male', 'female', 'other'];
 
 app.put('/api/profile', (req, res) => {
-  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks, activity_tracking_mode } = req.body;
+  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks } = req.body;
 
   if (goal !== undefined && !GOALS.includes(goal)) {
     return res.status(400).json({ error: 'goal invalide' });
   }
   if (sex !== undefined && sex !== null && !SEX_OPTIONS.includes(sex)) {
     return res.status(400).json({ error: 'sex invalide' });
-  }
-  if (activity_tracking_mode !== undefined && activity_tracking_mode !== null && !['manual', 'auto'].includes(activity_tracking_mode)) {
-    return res.status(400).json({ error: 'activity_tracking_mode invalide' });
   }
   if (
     extra_snacks !== undefined &&
@@ -444,13 +441,12 @@ app.put('/api/profile', (req, res) => {
     carbs_pct: carbs_pct !== undefined ? carbs_pct : current.carbs_pct,
     meal_shares: meal_shares !== undefined ? (meal_shares === null ? null : JSON.stringify(meal_shares)) : current.meal_shares,
     extra_snacks: nextExtraSnacksJson,
-    activity_tracking_mode: activity_tracking_mode !== undefined ? activity_tracking_mode : current.activity_tracking_mode,
   };
 
   db.prepare(
     `UPDATE profile SET bmr = ?, daily_movement_kcal = ?, digestion_kcal = ?, weight_kg = ?, goal = ?, goal_kcal = ?,
      sex = ?, birthdate = ?, height_cm = ?, body_fat_pct = ?, manual_target_kcal = ?, target_weight_kg = ?, steps_per_day = ?,
-     protein_pct = ?, carbs_pct = ?, meal_shares = ?, extra_snacks = ?, activity_tracking_mode = ?
+     protein_pct = ?, carbs_pct = ?, meal_shares = ?, extra_snacks = ?
      WHERE user_id = ?`
   ).run(
     next.bmr,
@@ -470,7 +466,6 @@ app.put('/api/profile', (req, res) => {
     next.carbs_pct,
     next.meal_shares,
     next.extra_snacks,
-    next.activity_tracking_mode,
     req.userId
   );
 

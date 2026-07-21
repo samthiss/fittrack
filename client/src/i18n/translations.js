@@ -132,11 +132,6 @@ export const translations = {
     'activitySettings.hint':
       'Fixe toi-même le nombre de kcal brûlées par heure pour chaque activité, pour que le calcul reste stable et sans mauvaise surprise.',
     'activitySettings.save': 'Enregistrer',
-    'activitySettings.trackingMode': 'Suivi de la séance',
-    'activitySettings.trackingModeHint':
-      "Automatique : à la fin d'une séance de force, la durée et les kcal brûlées sont mises à jour selon le minuteur réel de la séance.",
-    'activitySettings.manual': 'Manuel',
-    'activitySettings.auto': 'Automatique',
 
     // Deficit summary
     'deficitSummary.goalLose': 'Perte de poids',
@@ -228,6 +223,7 @@ export const translations = {
     'activityLog.currentSet': 'Série {n} sur {total}',
     'activityLog.setLabel': 'Série {n}',
     'activityLog.validateSet': 'Valider la série',
+    'activityLog.validate': 'Valider',
     'activityLog.skipExercise': "Passer l'exercice",
     'activityLog.exerciseSettings': "Réglages de l'exercice",
     'activityLog.setsDoneCount': '{done}/{total} faites',
@@ -833,11 +829,6 @@ export const translations = {
     'activitySettings.hint':
       "Set the number of kcal burned per hour for each activity yourself, so the calculation stays stable and predictable.",
     'activitySettings.save': 'Save',
-    'activitySettings.trackingMode': 'Session tracking',
-    'activitySettings.trackingModeHint':
-      "Automatic: finishing a strength session updates its duration and burned kcal from the session's actual timer.",
-    'activitySettings.manual': 'Manual',
-    'activitySettings.auto': 'Automatic',
 
     // Deficit summary
     'deficitSummary.goalLose': 'Weight loss',
@@ -929,6 +920,7 @@ export const translations = {
     'activityLog.currentSet': 'Set {n} of {total}',
     'activityLog.setLabel': 'Set {n}',
     'activityLog.validateSet': 'Validate set',
+    'activityLog.validate': 'Validate',
     'activityLog.skipExercise': 'Skip exercise',
     'activityLog.exerciseSettings': 'Exercise settings',
     'activityLog.setsDoneCount': '{done}/{total} done',

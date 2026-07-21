@@ -356,7 +356,6 @@ function MainApp({ onLogout, account }) {
               activities={activites}
               planEntries={activitesPlan}
               onRefresh={refreshActivites}
-              profile={profile}
             />
           )}
           {view === 'poids' && (

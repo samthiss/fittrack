@@ -670,27 +670,6 @@ export default function Settings({
       <div>
         <SubHeader title={t('activitySettings.title')} onBack={() => setScreen('home')} t={t} />
 
-        <h4 className="section-label" style={{ marginTop: 0 }}>{t('activitySettings.trackingMode')}</h4>
-        <div className="filter-pill-row" style={{ marginTop: 0 }}>
-          <button
-            type="button"
-            className={profile?.activity_tracking_mode !== 'auto' ? 'filter-pill active' : 'filter-pill'}
-            style={{ flex: 1, textAlign: 'center' }}
-            onClick={() => onSaveProfile({ activity_tracking_mode: 'manual' })}
-          >
-            {t('activitySettings.manual')}
-          </button>
-          <button
-            type="button"
-            className={profile?.activity_tracking_mode === 'auto' ? 'filter-pill active' : 'filter-pill'}
-            style={{ flex: 1, textAlign: 'center' }}
-            onClick={() => onSaveProfile({ activity_tracking_mode: 'auto' })}
-          >
-            {t('activitySettings.auto')}
-          </button>
-        </div>
-        <p className="hint">{t('activitySettings.trackingModeHint')}</p>
-
         <p className="hint">{t('activitySettings.hint')}</p>
 
         <div className="search-input-row">

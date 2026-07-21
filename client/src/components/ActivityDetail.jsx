@@ -180,16 +180,22 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
       )}
 
       {!isForce && (
-        <div className="tile-grid tile-grid-compact" style={{ marginTop: 16, gridTemplateColumns: 'repeat(2, 1fr)' }}>
-          <div className="tile">
-            <b style={{ color: 'var(--warning)' }}>{Math.round(activity.kcal)}</b>
-            <span>{t('activityLog.kcalBurned')}</span>
+        <>
+          <div className="tile-grid tile-grid-compact" style={{ marginTop: 16, gridTemplateColumns: 'repeat(2, 1fr)' }}>
+            <div className="tile">
+              <b style={{ color: 'var(--warning)' }}>{Math.round(activity.kcal)}</b>
+              <span>{t('activityLog.kcalBurned')}</span>
+            </div>
+            <div className="tile">
+              <b>{activity.duration_minutes} min</b>
+              <span>{t('activityLog.duration')}</span>
+            </div>
           </div>
-          <div className="tile">
-            <b>{activity.duration_minutes} min</b>
-            <span>{t('activityLog.duration')}</span>
-          </div>
-        </div>
+          <button type="button" className="meal-add-cta" style={{ marginTop: 16 }} onClick={() => onStart([])}>
+            <Icon name="play" size={18} />
+            {t('activityLog.start')}
+          </button>
+        </>
       )}
 
       {isForce && (
