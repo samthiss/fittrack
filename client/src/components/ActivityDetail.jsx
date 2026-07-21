@@ -177,26 +177,22 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
         </div>
       )}
 
-      <div className="tile-grid tile-grid-compact" style={{ marginTop: 16, gridTemplateColumns: `repeat(${isForce ? 3 : 2}, 1fr)` }}>
-        <div className="tile">
-          <b style={{ color: 'var(--warning)' }}>{Math.round(activity.kcal)}</b>
-          <span>{t('activityLog.kcalBurned')}</span>
-        </div>
-        <div className="tile">
-          <b>{activity.duration_minutes} min</b>
-          <span>{t('activityLog.duration')}</span>
-        </div>
-        {isForce && (
+      {!isForce && (
+        <div className="tile-grid tile-grid-compact" style={{ marginTop: 16, gridTemplateColumns: 'repeat(2, 1fr)' }}>
           <div className="tile">
-            <b>{exercises.length}</b>
-            <span>{t('activityLog.exercises')}</span>
+            <b style={{ color: 'var(--warning)' }}>{Math.round(activity.kcal)}</b>
+            <span>{t('activityLog.kcalBurned')}</span>
           </div>
-        )}
-      </div>
+          <div className="tile">
+            <b>{activity.duration_minutes} min</b>
+            <span>{t('activityLog.duration')}</span>
+          </div>
+        </div>
+      )}
 
       {isForce && (
         <>
-          <div className="row" style={{ alignItems: 'center', marginTop: 8 }}>
+          <div className="row" style={{ alignItems: 'center', marginTop: 20 }}>
             <h2 style={{ margin: 0 }}>{t('activityLog.exercises')}</h2>
           </div>
           {templateSaved && <p className="hint success">{t('activityLog.templateSaved')}</p>}
