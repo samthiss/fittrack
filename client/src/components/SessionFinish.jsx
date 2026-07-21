@@ -11,7 +11,7 @@ export default function SessionFinish({ activity, elapsedSeconds, onCancel, onCo
   const { t } = useLanguage();
   const elapsedMinutes = elapsedSeconds / 60;
   const rate = activity.duration_minutes > 0 ? activity.kcal / activity.duration_minutes : 0;
-  const [duration, setDuration] = useState(Math.max(1, Math.round(elapsedMinutes)));
+  const [duration, setDuration] = useState(Math.max(DURATION_STEP, Math.ceil(elapsedMinutes / DURATION_STEP) * DURATION_STEP));
   const [saving, setSaving] = useState(false);
   const kcal = Math.max(0, Math.round(rate * duration));
 
@@ -39,7 +39,7 @@ export default function SessionFinish({ activity, elapsedSeconds, onCancel, onCo
 
       <h4 className="section-label" style={{ marginTop: 8 }}>{t('activityLog.duration')}</h4>
       <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
-        <button type="button" className="weight-minus-btn" onClick={() => setDuration((d) => Math.max(1, d - DURATION_STEP))}>
+        <button type="button" className="weight-minus-btn" onClick={() => setDuration((d) => Math.max(DURATION_STEP, d - DURATION_STEP))}>
           <Icon name="minus" size={18} />
         </button>
         <div style={{ textAlign: 'center', minWidth: 70 }}>
