@@ -271,7 +271,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
           </span>
         </div>
         {recurring && (
-          <div className="day-chip-row" style={{ marginTop: 10 }}>
+          <div className="day-chip-row" style={{ marginTop: 18 }}>
             {DAY_ORDER.map((key) => (
               <button
                 key={key}

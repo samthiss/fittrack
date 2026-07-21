@@ -323,7 +323,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
               </span>
             </div>
             {editRecurring && (
-              <div className="day-chip-row" style={{ marginTop: 10 }}>
+              <div className="day-chip-row" style={{ marginTop: 18 }}>
                 {DAY_ORDER.map((key) => (
                   <button
                     key={key}
