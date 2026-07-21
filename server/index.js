@@ -2315,7 +2315,7 @@ app.get('/api/week-report', (req, res) => {
       for (const key of NUTRIENT_KEYS) acc[key] += l[key] || 0;
       return acc;
     }, EMPTY_TOTALS());
-    dayResults.push({ date, consumed: totals, target: summary.targetIntake });
+    dayResults.push({ date, consumed: totals, target: summary.targetIntake, activitiesKcal: summary.activitiesKcal });
     allLogs.push(...logs);
   }
 
@@ -2408,6 +2408,8 @@ app.get('/api/week-report', (req, res) => {
   // (first vs last day, falling back to the profile's weight if nothing was logged that day) —
   // the two headline tiles at the top of the week/month report.
   const avgDeficitKcal = dayResults.reduce((s, d) => s + (d.target - d.consumed.kcal), 0) / n;
+  const totalDeficitKcal = dayResults.reduce((s, d) => s + (d.target - d.consumed.kcal), 0);
+  const avgActivitiesKcal = dayResults.reduce((s, d) => s + d.activitiesKcal, 0) / n;
   const weightStartKg = weightAsOf(req.userId, dates[0]);
   const weightEndKg = weightAsOf(req.userId, referenceDate);
 
@@ -2432,6 +2434,8 @@ app.get('/api/week-report', (req, res) => {
         : null,
     referenceWeightKg,
     avgDeficitKcal,
+    totalDeficitKcal,
+    avgActivitiesKcal,
     weightStartKg,
     weightEndKg,
     weightDeltaKg: weightEndKg - weightStartKg,

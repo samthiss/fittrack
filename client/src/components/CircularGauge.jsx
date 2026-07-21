@@ -40,7 +40,7 @@ export default function CircularGauge({ value, max, label, size = 190 }) {
         }}
       />
       <text x={center} y={center - 6} textAnchor="middle" className="gauge-value">
-        {value < 0 ? `+${Math.round(-value)}` : Math.round(value)}
+        {Math.max(0, Math.round(value))}
       </text>
       <text x={center} y={center + 22} textAnchor="middle" className="gauge-label">
         {label}

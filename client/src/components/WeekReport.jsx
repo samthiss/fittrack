@@ -47,8 +47,9 @@ export default function WeekReport({ period }) {
     daysLogged,
     lowCoverageWarning,
     avgDeficitKcal,
+    totalDeficitKcal,
+    avgActivitiesKcal,
     weightDeltaKg,
-    dayResults,
     dailyAverageMicros,
     limitAverages,
     weeklyObjectives,
@@ -60,9 +61,6 @@ export default function WeekReport({ period }) {
   function toggle(key) {
     setExpandedKey((prev) => (prev === key ? null : key));
   }
-
-  const WEEKDAY_LETTER = { 0: 'D', 1: 'L', 2: 'M', 3: 'M', 4: 'J', 5: 'V', 6: 'S' };
-  const maxBarKcal = dayResults ? Math.max(...dayResults.map((d) => Math.max(d.consumedKcal, d.targetKcal)), 1) : 1;
 
   return (
     <div>
@@ -94,41 +92,27 @@ export default function WeekReport({ period }) {
         </div>
       </div>
 
-      {dayResults && dayResults.length > 1 && (
-        <>
-          <div className="section-header" style={{ paddingTop: 0 }}>
-            <span className="section-title">{t('week.caloriesVsGoal')}</span>
-            <span className="section-hint">
-              {t('home.goal')} <b>{Math.round(dayResults[0].targetKcal)}</b>
-            </span>
+      <div className="report-stat-row">
+        <div className="report-stat-tile">
+          <div className="report-stat-tile-label">
+            <Icon name={totalDeficitKcal >= 0 ? 'trending-down' : 'trending-up'} size={16} color="var(--success)" />
+            {t('week.totalDeficit')}
           </div>
-          <div className="report-bar-chart-card">
-            <div className="report-bar-chart">
-              {dayResults.map((d) => {
-                const over = d.consumedKcal > d.targetKcal;
-                const pct = Math.min(100, Math.round((d.consumedKcal / maxBarKcal) * 100));
-                const weekday = new Date(`${d.date}T00:00:00Z`).getUTCDay();
-                return (
-                  <div className="report-bar-col" key={d.date}>
-                    <div className={over ? 'report-bar over' : 'report-bar'} style={{ height: `${pct}%` }} />
-                    <span className="report-bar-label">{WEEKDAY_LETTER[weekday]}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="report-bar-chart-legend">
-              <span>
-                <i style={{ background: 'var(--acc)' }} />
-                {t('week.underGoal')}
-              </span>
-              <span>
-                <i style={{ background: 'var(--danger)' }} />
-                {t('week.overGoal')}
-              </span>
-            </div>
+          <div className="report-stat-tile-value">
+            {totalDeficitKcal >= 0 ? '−' : '+'}
+            {Math.round(Math.abs(totalDeficitKcal))} <span>kcal</span>
           </div>
-        </>
-      )}
+        </div>
+        <div className="report-stat-tile">
+          <div className="report-stat-tile-label">
+            <Icon name="flame" size={16} color="var(--warning)" />
+            {t('week.avgBurned')}
+          </div>
+          <div className="report-stat-tile-value">
+            {Math.round(avgActivitiesKcal)} <span>kcal/j</span>
+          </div>
+        </div>
+      </div>
 
       <h2>{t('week.limitsAvgTitle')}</h2>
       <div className="report-card">
