@@ -4,7 +4,7 @@ import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
 const REST_SECONDS = 90;
-const REST_ADD_SECONDS = 15;
+const REST_STEP_SECONDS = 15;
 const LB_PER_KG = 2.20462;
 
 function formatRest(s) {
@@ -52,16 +52,18 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   const [completedSets, setCompletedSets] = useState(0);
   const [resting, setResting] = useState(false);
   const [restPaused, setRestPaused] = useState(false);
+  const [restTarget, setRestTarget] = useState(REST_SECONDS);
   const [restLeft, setRestLeft] = useState(REST_SECONDS);
   const [sets, setSets] = useState(exercise.sets);
   const [weight, setWeight] = useState(exercise.weight_kg ?? 0);
   const [reps, setReps] = useState(exercise.reps);
   const [currentReps, setCurrentReps] = useState(exercise.reps);
-  const [sheet, setSheet] = useState(null); // null | 'sets' | 'weight' | 'reps'
+  const [sheet, setSheet] = useState(null); // null | 'sets' | 'weight' | 'reps' | 'rest'
   const [sheetSets, setSheetSets] = useState(exercise.sets);
   const [sheetReps, setSheetReps] = useState(exercise.reps);
   const [sheetUnit, setSheetUnit] = useState('kg');
   const [sheetWeight, setSheetWeight] = useState(exercise.weight_kg ?? 0);
+  const [sheetRestTarget, setSheetRestTarget] = useState(REST_SECONDS);
   const intervalRef = useRef(null);
 
   useEffect(() => {
@@ -87,7 +89,7 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
       onComplete(exercise.id);
       return;
     }
-    setRestLeft(REST_SECONDS);
+    setRestLeft(restTarget);
     setRestPaused(false);
     setResting(true);
   }
@@ -96,7 +98,14 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
     setSheetSets(sets);
     setSheetReps(reps);
     setSheetWeight(sheetUnit === 'lb' ? Math.round(weight * LB_PER_KG * 10) / 10 : weight);
+    setSheetRestTarget(restTarget);
     setSheet(name);
+  }
+
+  function confirmRestTarget() {
+    setRestTarget(sheetRestTarget);
+    if (!resting) setRestLeft(sheetRestTarget);
+    setSheet(null);
   }
 
   function confirmSets() {
@@ -134,32 +143,36 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
         </div>
       </div>
 
-      {resting && (
-        <div className="activity-session-timer-card">
-          <span className="activity-session-timer-label">{t('activityLog.restTimer')}</span>
-          <div className="activity-session-ring-wrap">
-            <RestRing restLeft={restLeft} restTarget={REST_SECONDS} />
-            <div className="activity-session-ring-center">
-              <div className="activity-session-timer-value">{formatRest(restLeft)}</div>
-              <span className="activity-session-timer-unit">{t('activityLog.restOf').replace('{time}', formatRest(REST_SECONDS))}</span>
-            </div>
-          </div>
-          <div className="activity-session-timer-controls">
-            <button type="button" className="weight-minus-btn" onClick={() => setRestLeft(REST_SECONDS)} aria-label={t('activityLog.resetTimer')}>
-              <Icon name="rotate-ccw" size={18} />
-            </button>
-            <button type="button" className="meal-add-cta" style={{ width: 'auto', padding: '13px 26px' }} onClick={() => setRestPaused((p) => !p)}>
-              <Icon name={restPaused ? 'play' : 'pause'} size={18} />
-              {restPaused ? t('activityLog.resume') : t('activityLog.pause')}
-            </button>
-            <button type="button" className="weight-minus-btn" onClick={() => setRestLeft((s) => s + REST_ADD_SECONDS)} aria-label={t('activityLog.addTime')}>
-              <Icon name="plus" size={18} />
-            </button>
+      <div className="activity-session-timer-card">
+        <span className="activity-session-timer-label">{t('activityLog.restTimer')}</span>
+        <div className="activity-session-ring-wrap">
+          <RestRing restLeft={resting ? restLeft : restTarget} restTarget={restTarget} />
+          <div className="activity-session-ring-center">
+            <div className="activity-session-timer-value">{formatRest(resting ? restLeft : restTarget)}</div>
+            <span className="activity-session-timer-unit">{t('activityLog.restOf').replace('{time}', formatRest(restTarget))}</span>
           </div>
         </div>
-      )}
+        <div className="activity-session-timer-controls">
+          <button type="button" className="weight-minus-btn" onClick={() => setRestLeft(restTarget)} disabled={!resting} aria-label={t('activityLog.resetTimer')}>
+            <Icon name="rotate-ccw" size={18} />
+          </button>
+          <button
+            type="button"
+            className="meal-add-cta"
+            style={{ width: 'auto', padding: '13px 26px', opacity: resting ? 1 : 0.5 }}
+            disabled={!resting}
+            onClick={() => setRestPaused((p) => !p)}
+          >
+            <Icon name={restPaused ? 'play' : 'pause'} size={18} />
+            {restPaused ? t('activityLog.resume') : t('activityLog.pause')}
+          </button>
+          <button type="button" className="weight-minus-btn" onClick={() => openSheet('rest')} aria-label={t('activityLog.editRestTime')}>
+            <Icon name="pencil" size={16} />
+          </button>
+        </div>
+      </div>
 
-      <div style={{ marginTop: resting ? 4 : 18 }}>
+      <div style={{ marginTop: 4 }}>
         <div className="day-nav-subtitle" style={{ marginBottom: 8 }}>
           {t('activityLog.exerciseSettings')}
         </div>
@@ -224,6 +237,34 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
             <Icon name="check" size={20} />
             {t('activityLog.validateSet')}
           </button>
+        </div>
+      )}
+
+      {sheet === 'rest' && (
+        <div className="modal-overlay bottom-sheet-overlay" onClick={() => setSheet(null)}>
+          <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="bottom-sheet-handle" />
+            <div className="bottom-sheet-title">{t('activityLog.editRestTime')}</div>
+            <div className="bottom-sheet-stepper">
+              <button type="button" className="weight-minus-btn" onClick={() => setSheetRestTarget((n) => Math.max(REST_STEP_SECONDS, n - REST_STEP_SECONDS))}>
+                <Icon name="minus" size={18} />
+              </button>
+              <span className="bottom-sheet-stepper-value">{formatRest(sheetRestTarget)}</span>
+              <button type="button" className="weight-plus-btn" onClick={() => setSheetRestTarget((n) => n + REST_STEP_SECONDS)}>
+                <Icon name="plus" size={18} />
+              </button>
+            </div>
+            <div className="bottom-sheet-actions">
+              <button type="button" className="meal-add-cta meal-add-cta-white" style={{ flex: 1 }} onClick={() => setSheet(null)}>
+                <Icon name="x" size={18} />
+                {t('common.cancel')}
+              </button>
+              <button type="button" className="meal-add-cta" style={{ flex: 1 }} onClick={confirmRestTarget}>
+                <Icon name="check" size={18} />
+                {t('activityLog.confirm')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
