@@ -60,11 +60,6 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
   const estimatedKcal = activity.duration_minutes > 0 ? Math.min(activity.kcal, Math.round((activity.kcal * elapsedMinutes) / activity.duration_minutes)) : 0;
   const doneCount = exercises.filter((ex) => doneExerciseIds.has(ex.id)).length;
 
-  function handleStop() {
-    if (!window.confirm(t('activityLog.confirmEndSession'))) return;
-    onExit();
-  }
-
   return (
     <div>
       <div className="meal-detail-header">
@@ -96,9 +91,6 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
           <button type="button" className="meal-add-cta" style={{ width: 'auto', padding: '13px 26px' }} onClick={() => setRunning((r) => !r)}>
             <Icon name={running ? 'pause' : 'play'} size={18} />
             {running ? t('activityLog.pause') : t('activityLog.resume')}
-          </button>
-          <button type="button" className="weight-minus-btn activity-session-stop-btn" onClick={handleStop} aria-label={t('activityLog.stopSession')}>
-            <Icon name="square" size={16} />
           </button>
         </div>
       </div>

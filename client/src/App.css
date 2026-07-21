@@ -363,11 +363,6 @@
   gap: 10px;
 }
 
-.activity-session-stop-btn {
-  border-color: var(--danger) !important;
-  color: var(--danger) !important;
-}
-
 .activity-session-exercise {
   cursor: pointer;
 }
