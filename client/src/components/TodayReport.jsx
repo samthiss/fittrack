@@ -104,7 +104,7 @@ export default function TodayReport({ date } = {}) {
 
   if (loading || !report) return <p className="hint">{t('today.computing')}</p>;
 
-  const { limits, dailyGoals, noGoalMicros, microbiote, microSources } = report;
+  const { limits, dailyGoals, noGoalMicros, microbiote, microSources, kcal } = report;
 
   function toggle(key) {
     setExpandedKey((prev) => (prev === key ? null : key));
@@ -112,6 +112,44 @@ export default function TodayReport({ date } = {}) {
 
   return (
     <div>
+      {kcal && (
+        <>
+          <div className="report-stat-row">
+            <div className="report-stat-tile">
+              <div className="report-stat-tile-label">
+                <Icon name={kcal.deficit >= 0 ? 'trending-down' : 'trending-up'} size={16} color="var(--success)" />
+                {t('today.deficit')}
+              </div>
+              <div className="report-stat-tile-value">
+                {kcal.deficit >= 0 ? '−' : '+'}
+                {Math.round(Math.abs(kcal.deficit))} <span>kcal</span>
+              </div>
+            </div>
+            <div className="report-stat-tile">
+              <div className="report-stat-tile-label">
+                <Icon name="flame" size={16} color="var(--warning)" />
+                {t('today.totalBurned')}
+              </div>
+              <div className="report-stat-tile-value">
+                {Math.round(kcal.totalBurned)} <span>kcal</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="report-stat-row">
+            <div className="report-stat-tile">
+              <div className="report-stat-tile-label">
+                <Icon name="dumbbell" size={16} color="var(--acc)" />
+                {t('today.burnedActivities')}
+              </div>
+              <div className="report-stat-tile-value">
+                {Math.round(kcal.activitiesKcal)} <span>kcal</span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* 1. Seuils à ne pas dépasser */}
       <h2>{t('today.limitsTitle')}</h2>
       <div className="report-card">

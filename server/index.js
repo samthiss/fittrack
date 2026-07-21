@@ -1917,6 +1917,7 @@ app.get('/api/dashboard', (req, res) => {
 // "what can I still eat today" instead of the trend Rapport's "how am I doing over time".
 app.get('/api/today-report', (req, res) => {
   const date = req.query.date || todayStr();
+  const summary = computeSummary(req.userId, date);
   const logs = db.prepare('SELECT * FROM food_logs WHERE user_id = ? AND date = ?').all(req.userId, date);
 
   const consumed = logs.reduce((acc, l) => {
@@ -2010,6 +2011,13 @@ app.get('/api/today-report', (req, res) => {
       plantSuggestionToday,
       plantCount,
       plantTarget: 30,
+    },
+    kcal: {
+      // Same formula as the weekly Rapport's déficit (target − consumed) — target already bakes
+      // in today's activities via computeSummary's tdee, so this stays consistent day vs week.
+      deficit: summary.targetIntake - consumed.kcal,
+      totalBurned: summary.tdee,
+      activitiesKcal: summary.activitiesKcal,
     },
   });
 });
