@@ -80,6 +80,7 @@ export default function AddFoodToMeal({
     { key: 'write', icon: 'sparkles', label: t('addFood.toolWrite') },
     { key: 'manual', icon: 'pencil-line', label: t('addFood.toolManual') },
     { key: 'photo', icon: 'camera', label: t('addFood.toolPhoto') },
+    { key: 'barcode', icon: 'scan-barcode', label: t('addFood.toolBarcode') },
   ];
   const photoInputRef = useRef(null);
   const [activeTool, setActiveTool] = useState(null);
@@ -96,6 +97,7 @@ export default function AddFoodToMeal({
   const [recurringKeys, setRecurringKeys] = useState(new Set());
   const swipeRef = useRef(null);
   const [scanResult, setScanResult] = useState(null);
+  const [editingResult, setEditingResult] = useState(false);
   const [scanQty, setScanQty] = useState('100');
   const [scanStatus, setScanStatus] = useState(null);
   const [scanAdding, setScanAdding] = useState(false);
@@ -317,6 +319,7 @@ export default function AddFoodToMeal({
       setScanResult(result);
       setScanQty(String(Math.round(result.suggestedQuantity || 100)));
       setScanStatus(null);
+      setActiveTool(null);
     } catch (err) {
       setScanStatus({ text: err.message || t('addFood.productNotFound'), error: true });
     }
@@ -355,6 +358,7 @@ export default function AddFoodToMeal({
       setScanQty(String(Math.round(result.suggestedQuantity || 100)));
       setScanStatus(null);
       setTextInput('');
+      setActiveTool(null);
     } catch (err) {
       setScanStatus({ text: err.message || t('addFood.analysisFailed'), error: true });
     } finally {
@@ -374,6 +378,7 @@ export default function AddFoodToMeal({
       setScanResult(result);
       setScanQty(String(Math.round(result.suggestedQuantity || 100)));
       setScanStatus(null);
+      setActiveTool(null);
     } catch (err) {
       setScanStatus({ text: err.message || t('addFood.analysisFailed'), error: true });
     } finally {
@@ -393,6 +398,7 @@ export default function AddFoodToMeal({
       await onAddEntry('food', food.id, qty);
       setScanResult(null);
       setScanQty('100');
+      setEditingResult(false);
     } finally {
       setScanAdding(false);
     }
@@ -402,7 +408,7 @@ export default function AddFoodToMeal({
     setManualForm({ ...manualForm, [e.target.name]: e.target.value });
   }
 
-  async function handleManualSubmit(e) {
+  function handleManualSubmit(e) {
     e.preventDefault();
     if (!manualForm.name.trim() || manualForm.kcal_per_100g === '') return;
     const payload = {
@@ -418,9 +424,12 @@ export default function AddFoodToMeal({
       const key = `${f.key}_per_100g`;
       if (manualForm[key] !== '') payload[key] = Number(manualForm[key]) || 0;
     }
-    const food = await onCreateFood(payload);
-    await onAddEntry('food', food.id, 100);
+    // Same confirm-before-adding step as write/photo/barcode, not an immediate save — manual
+    // entry is exactly as unverified as an AI/scan guess until the user actually confirms it.
+    setScanResult(payload);
+    setScanQty('100');
     setManualForm(EMPTY_FOOD);
+    setActiveTool(null);
   }
 
   function renderItemRow(item) {
@@ -484,7 +493,7 @@ export default function AddFoodToMeal({
               key={tool.key}
               type="button"
               className={tool.key === activeTool ? 'tool-tile active' : 'tool-tile'}
-              onClick={() => setActiveTool(tool.key === activeTool ? null : tool.key)}
+              onClick={() => setActiveTool(tool.key)}
             >
               <Icon name={tool.icon} size={20} />
               <span className="tool-tile-label">{tool.label}</span>
@@ -492,141 +501,22 @@ export default function AddFoodToMeal({
           ))}
         </div>
 
-        {activeTool === 'barcode' && (
-          <>
-            <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setActiveTool(null)} />
-            {scanStatus && <p className={scanStatus.error ? 'hint error' : 'hint'}>{scanStatus.text}</p>}
-          </>
-        )}
+        <div className="search-input-row">
+          <Icon name="search" size={18} color="var(--text-muted)" />
+          <input
+            type="text"
+            className="search-input"
+            placeholder={t('addFood.searchPlaceholder')}
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setOnlineResults(null);
+              setOnlineError(null);
+            }}
+          />
+        </div>
 
-        {activeTool === 'write' && (
-          <>
-            <textarea
-              className="wide"
-              rows={4}
-              placeholder={t('addFood.writePlaceholder')}
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-            />
-            <button type="button" className="btn btn-block" onClick={handleParseText} disabled={textLoading}>
-              {textLoading ? t('addFood.analyzingAction') : t('addFood.analyzeAction')}
-            </button>
-            {scanStatus && <p className={scanStatus.error ? 'hint error' : 'hint'}>{scanStatus.text}</p>}
-          </>
-        )}
-
-        {activeTool === 'photo' && (
-          <>
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              style={{ display: 'none' }}
-              onChange={handlePhotoSelected}
-            />
-            <button
-              type="button"
-              className="btn btn-block"
-              onClick={() => photoInputRef.current?.click()}
-              disabled={textLoading}
-            >
-              {textLoading ? t('addFood.analyzingAction') : t('addFood.takePhoto')}
-            </button>
-            {scanStatus && <p className={scanStatus.error ? 'hint error' : 'hint'}>{scanStatus.text}</p>}
-          </>
-        )}
-
-        {activeTool === 'manual' && (
-          <form onSubmit={handleManualSubmit}>
-            <div className="row">
-              <label>{t('addFood.name')}</label>
-              <div className="field">
-                <input type="text" name="name" value={manualForm.name} onChange={handleManualChange} placeholder={t('addFood.namePlaceholder')} />
-              </div>
-            </div>
-            <div className="row">
-              <label>{t('addFood.kcalPer100g')}</label>
-              <div className="field">
-                <input type="number" name="kcal_per_100g" min="0" step="any" value={manualForm.kcal_per_100g} onChange={handleManualChange} />
-                <span className="unit">kcal</span>
-              </div>
-            </div>
-            <div className="row">
-              <label>{t('addFood.proteinPer100g')}</label>
-              <div className="field">
-                <input type="number" name="protein_per_100g" min="0" step="any" value={manualForm.protein_per_100g} onChange={handleManualChange} />
-                <span className="unit">g</span>
-              </div>
-            </div>
-            <div className="row">
-              <label>{t('addFood.carbsPer100g')}</label>
-              <div className="field">
-                <input type="number" name="carbs_per_100g" min="0" step="any" value={manualForm.carbs_per_100g} onChange={handleManualChange} />
-                <span className="unit">g</span>
-              </div>
-            </div>
-            <div className="row">
-              <label>{t('addFood.fatPer100g')}</label>
-              <div className="field">
-                <input type="number" name="fat_per_100g" min="0" step="any" value={manualForm.fat_per_100g} onChange={handleManualChange} />
-                <span className="unit">g</span>
-              </div>
-            </div>
-
-            <h4 className="section-label">{t('addFood.micronutrientsPer100g')}</h4>
-            {MICRO_FIELDS.map((f) => (
-              <div className="row" key={f.key}>
-                <label>{t(f.labelKey)}</label>
-                <div className="field">
-                  <input
-                    type="number"
-                    name={`${f.key}_per_100g`}
-                    min="0"
-                    step="any"
-                    placeholder={t('addFood.autoEstimate')}
-                    value={manualForm[`${f.key}_per_100g`]}
-                    onChange={handleManualChange}
-                  />
-                  <span className="unit">{f.unit}</span>
-                </div>
-              </div>
-            ))}
-
-            <div className="card-actions">
-              <button type="submit" className="btn">
-                {t('addFood.createAndAdd')}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {activeTool === null && (
-          <>
-            <div className="search-input-row">
-              <Icon name="search" size={18} color="var(--text-muted)" />
-              <input
-                type="text"
-                className="search-input"
-                placeholder={t('addFood.searchPlaceholder')}
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setOnlineResults(null);
-                  setOnlineError(null);
-                }}
-              />
-              <button
-                type="button"
-                className="search-scan-btn"
-                onClick={() => setActiveTool('barcode')}
-                aria-label={t('addFood.toolBarcode')}
-              >
-                <Icon name="scan-barcode" size={19} color="var(--acc)" />
-              </button>
-            </div>
-
-            {showingSearch ? (
+        {showingSearch ? (
               results.length === 0 ? (
                 <div style={{ marginTop: 14 }}>
                   <p className="hint">{t('addFood.noLibraryResults')}</p>
@@ -695,10 +585,175 @@ export default function AddFoodToMeal({
                 )}
               </>
             )}
-
-          </>
-        )}
       </div>
+
+      {activeTool === 'write' && (
+        <div className="modal-overlay" onClick={() => setActiveTool(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+              <button type="button" className="meal-detail-back-btn" onClick={() => setActiveTool(null)} aria-label={t('meal.close')}>
+                <Icon name="x" size={20} />
+              </button>
+              <div className="meal-detail-heading">
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('addFood.toolWrite')}</div>
+              </div>
+            </div>
+            <textarea
+              className="wide"
+              rows={6}
+              placeholder={t('addFood.writePlaceholder')}
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              autoFocus
+            />
+            {scanStatus && <p className={scanStatus.error ? 'hint error' : 'hint'}>{scanStatus.text}</p>}
+          </div>
+          <button
+            type="button"
+            className="done-btn done-btn-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleParseText();
+            }}
+            disabled={textLoading || !textInput.trim()}
+          >
+            {textLoading ? t('addFood.analyzingAction') : t('addFood.analyzeAction')}
+          </button>
+        </div>
+      )}
+
+      {activeTool === 'photo' && (
+        <div className="modal-overlay" onClick={() => setActiveTool(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+              <button type="button" className="meal-detail-back-btn" onClick={() => setActiveTool(null)} aria-label={t('meal.close')}>
+                <Icon name="x" size={20} />
+              </button>
+              <div className="meal-detail-heading">
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('addFood.toolPhoto')}</div>
+              </div>
+            </div>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={handlePhotoSelected}
+            />
+            {scanStatus && <p className={scanStatus.error ? 'hint error' : 'hint'}>{scanStatus.text}</p>}
+          </div>
+          <button
+            type="button"
+            className="done-btn done-btn-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              photoInputRef.current?.click();
+            }}
+            disabled={textLoading}
+          >
+            {textLoading ? t('addFood.analyzingAction') : t('addFood.takePhoto')}
+          </button>
+        </div>
+      )}
+
+      {activeTool === 'barcode' && (
+        <div className="modal-overlay" onClick={() => setActiveTool(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+              <button type="button" className="meal-detail-back-btn" onClick={() => setActiveTool(null)} aria-label={t('meal.close')}>
+                <Icon name="x" size={20} />
+              </button>
+              <div className="meal-detail-heading">
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('addFood.toolBarcode')}</div>
+              </div>
+            </div>
+            <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setActiveTool(null)} />
+            {scanStatus && <p className={scanStatus.error ? 'hint error' : 'hint'}>{scanStatus.text}</p>}
+          </div>
+        </div>
+      )}
+
+      {activeTool === 'manual' && (
+        <div className="modal-overlay" onClick={() => setActiveTool(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+              <button type="button" className="meal-detail-back-btn" onClick={() => setActiveTool(null)} aria-label={t('meal.close')}>
+                <Icon name="x" size={20} />
+              </button>
+              <div className="meal-detail-heading">
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('addFood.toolManual')}</div>
+              </div>
+            </div>
+            <form onSubmit={handleManualSubmit}>
+              <div className="row">
+                <label>{t('addFood.name')}</label>
+                <div className="field">
+                  <input type="text" name="name" value={manualForm.name} onChange={handleManualChange} placeholder={t('addFood.namePlaceholder')} autoFocus />
+                </div>
+              </div>
+              <div className="row">
+                <label>{t('addFood.kcalPer100g')}</label>
+                <div className="field">
+                  <input type="number" name="kcal_per_100g" min="0" step="any" value={manualForm.kcal_per_100g} onChange={handleManualChange} />
+                  <span className="unit">kcal</span>
+                </div>
+              </div>
+              <div className="row">
+                <label>{t('addFood.proteinPer100g')}</label>
+                <div className="field">
+                  <input type="number" name="protein_per_100g" min="0" step="any" value={manualForm.protein_per_100g} onChange={handleManualChange} />
+                  <span className="unit">g</span>
+                </div>
+              </div>
+              <div className="row">
+                <label>{t('addFood.carbsPer100g')}</label>
+                <div className="field">
+                  <input type="number" name="carbs_per_100g" min="0" step="any" value={manualForm.carbs_per_100g} onChange={handleManualChange} />
+                  <span className="unit">g</span>
+                </div>
+              </div>
+              <div className="row">
+                <label>{t('addFood.fatPer100g')}</label>
+                <div className="field">
+                  <input type="number" name="fat_per_100g" min="0" step="any" value={manualForm.fat_per_100g} onChange={handleManualChange} />
+                  <span className="unit">g</span>
+                </div>
+              </div>
+
+              <h4 className="section-label">{t('addFood.micronutrientsPer100g')}</h4>
+              {MICRO_FIELDS.map((f) => (
+                <div className="row" key={f.key}>
+                  <label>{t(f.labelKey)}</label>
+                  <div className="field">
+                    <input
+                      type="number"
+                      name={`${f.key}_per_100g`}
+                      min="0"
+                      step="any"
+                      placeholder={t('addFood.autoEstimate')}
+                      value={manualForm[`${f.key}_per_100g`]}
+                      onChange={handleManualChange}
+                    />
+                    <span className="unit">{f.unit}</span>
+                  </div>
+                </div>
+              ))}
+            </form>
+          </div>
+          <button
+            type="button"
+            className="done-btn done-btn-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleManualSubmit(e);
+            }}
+            disabled={!manualForm.name.trim() || manualForm.kcal_per_100g === ''}
+          >
+            {t('addFood.continueAction')}
+          </button>
+        </div>
+      )}
 
       {viewingItem && (
         <div className="modal-overlay" onClick={() => setViewingItem(null)}>
@@ -889,29 +944,123 @@ export default function AddFoodToMeal({
       )}
 
       {scanResult && (
-        <div className="modal-overlay" onClick={() => setScanResult(null)}>
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setScanResult(null);
+            setEditingResult(false);
+          }}
+        >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{scanResult.name}</h2>
-            {scanResultMacros && (
-              <div className="tile-grid">
-                <div className="tile">
-                  <b style={{ fontSize: 16 }}>{Math.round(scanResultMacros.kcal)}</b>
-                  <span>kcal</span>
-                </div>
-                <div className="tile">
-                  <b>{scanResultMacros.carbs.toFixed(1)} g</b>
-                  <span>{t('nutrient.carbs')}</span>
-                </div>
-                <div className="tile">
-                  <b>{scanResultMacros.protein.toFixed(1)} g</b>
-                  <span>{t('nutrient.protein')}</span>
-                </div>
-                <div className="tile">
-                  <b>{scanResultMacros.fat.toFixed(1)} g</b>
-                  <span>{t('nutrient.fat')}</span>
-                </div>
+            <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+              <button
+                type="button"
+                className="meal-detail-back-btn"
+                onClick={() => {
+                  setScanResult(null);
+                  setEditingResult(false);
+                }}
+                aria-label={t('meal.close')}
+              >
+                <Icon name="x" size={20} />
+              </button>
+              <div className="meal-detail-heading">
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>{editingResult ? t('addFood.modify') : scanResult.name}</div>
               </div>
+              {!editingResult && (
+                <button type="button" className="entry-icon-btn" onClick={() => setEditingResult(true)} aria-label={t('addFood.modify')}>
+                  <Icon name="pencil" size={17} />
+                </button>
+              )}
+            </div>
+
+            {editingResult ? (
+              <>
+                <div className="row">
+                  <label>{t('addFood.name')}</label>
+                  <div className="field">
+                    <input type="text" value={scanResult.name} onChange={(e) => setScanResult({ ...scanResult, name: e.target.value })} />
+                  </div>
+                </div>
+                <div className="row">
+                  <label>{t('addFood.kcalPer100g')}</label>
+                  <div className="field">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={scanResult.kcal_per_100g}
+                      onChange={(e) => setScanResult({ ...scanResult, kcal_per_100g: Number(e.target.value) })}
+                    />
+                    <span className="unit">kcal</span>
+                  </div>
+                </div>
+                <div className="row">
+                  <label>{t('addFood.proteinPer100g')}</label>
+                  <div className="field">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={scanResult.protein_per_100g}
+                      onChange={(e) => setScanResult({ ...scanResult, protein_per_100g: Number(e.target.value) })}
+                    />
+                    <span className="unit">g</span>
+                  </div>
+                </div>
+                <div className="row">
+                  <label>{t('addFood.carbsPer100g')}</label>
+                  <div className="field">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={scanResult.carbs_per_100g}
+                      onChange={(e) => setScanResult({ ...scanResult, carbs_per_100g: Number(e.target.value) })}
+                    />
+                    <span className="unit">g</span>
+                  </div>
+                </div>
+                <div className="row">
+                  <label>{t('addFood.fatPer100g')}</label>
+                  <div className="field">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={scanResult.fat_per_100g}
+                      onChange={(e) => setScanResult({ ...scanResult, fat_per_100g: Number(e.target.value) })}
+                    />
+                    <span className="unit">g</span>
+                  </div>
+                </div>
+                <button type="button" className="btn btn-block" onClick={() => setEditingResult(false)}>
+                  {t('addFood.doneEditing')}
+                </button>
+              </>
+            ) : (
+              scanResultMacros && (
+                <div className="tile-grid">
+                  <div className="tile">
+                    <b style={{ fontSize: 16 }}>{Math.round(scanResultMacros.kcal)}</b>
+                    <span>kcal</span>
+                  </div>
+                  <div className="tile">
+                    <b>{scanResultMacros.carbs.toFixed(1)} g</b>
+                    <span>{t('nutrient.carbs')}</span>
+                  </div>
+                  <div className="tile">
+                    <b>{scanResultMacros.protein.toFixed(1)} g</b>
+                    <span>{t('nutrient.protein')}</span>
+                  </div>
+                  <div className="tile">
+                    <b>{scanResultMacros.fat.toFixed(1)} g</b>
+                    <span>{t('nutrient.fat')}</span>
+                  </div>
+                </div>
+              )
             )}
+
             <h4 className="section-label">{t('addFood.quantity')}</h4>
             <div className="qty-editor">
               <div className="qty-editor-row">
@@ -925,11 +1074,18 @@ export default function AddFoodToMeal({
                 <span className="qty-editor-unit">g</span>
               </div>
               <button type="button" className="btn btn-block" onClick={handleAddScanResult} disabled={scanAdding}>
-                {scanAdding ? t('addFood.saving') : t('addFood.save')}
+                {scanAdding ? t('addFood.saving') : t('addFood.confirm')}
               </button>
             </div>
           </div>
-          <button type="button" className="done-btn" onClick={() => setScanResult(null)}>
+          <button
+            type="button"
+            className="done-btn"
+            onClick={() => {
+              setScanResult(null);
+              setEditingResult(false);
+            }}
+          >
             {t('addFood.close')}
           </button>
         </div>

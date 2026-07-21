@@ -2495,16 +2495,6 @@ textarea.wide {
   box-shadow: none;
 }
 
-.search-scan-btn {
-  border: 0;
-  background: none;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  flex: none;
-}
-
 .tool-menu-row {
   display: flex;
   gap: 8px;
