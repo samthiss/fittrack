@@ -574,6 +574,12 @@ if (!profileCols2.includes('meal_shares')) {
 if (!profileCols2.includes('extra_snacks')) {
   db.exec(`ALTER TABLE profile ADD COLUMN extra_snacks TEXT`);
 }
+// 'manual' (the default) means the activity's duration/kcal stay whatever was entered when it was
+// logged — 'auto' means finishing a live session (see ActivitySession) overwrites them with the
+// session timer's actual elapsed time and the kcal that scales to.
+if (!profileCols2.includes('activity_tracking_mode')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN activity_tracking_mode TEXT`);
+}
 
 // Free-text muscle/body-part tag per exercise (e.g. "Quadriceps") — shown above the exercise
 // name and rolled up into a pill row on the exercise's saved workout_templates card.

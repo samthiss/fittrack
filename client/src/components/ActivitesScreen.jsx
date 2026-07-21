@@ -44,7 +44,7 @@ function shiftDateStr(dateStr, delta) {
 // Data (activityTypes/activities/planEntries/date) is owned by App.jsx and passed in as props —
 // same pattern as the Journal dashboard — so switching tabs and back doesn't remount this
 // component's state to empty and flash "0 kcal" while it refetches from scratch.
-export default function ActivitesScreen({ date, onDateChange, activityTypes, activities, planEntries, onRefresh }) {
+export default function ActivitesScreen({ date, onDateChange, activityTypes, activities, planEntries, onRefresh, profile }) {
   const { t, lang } = useLanguage();
   const [weekPresence, setWeekPresence] = useState({});
   const [showAdd, setShowAdd] = useState(false);
@@ -165,7 +165,18 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         onResetElapsed={() => setSession((s) => ({ ...s, elapsed: 0 }))}
         onOpenExercise={setSessionExercise}
         onAddExercise={(ex) => setSession((s) => ({ ...s, exercises: [...s.exercises, ex] }))}
-        onExit={() => {
+        onExit={async () => {
+          // "Automatique" tracking (Réglages > Activités) replaces the duration/kcal estimated at
+          // creation with what the live session timer actually measured.
+          if (profile?.activity_tracking_mode === 'auto' && session.elapsed > 0) {
+            const elapsedMinutes = session.elapsed / 60;
+            const rate = session.activity.duration_minutes > 0 ? session.activity.kcal / session.activity.duration_minutes : 0;
+            await api.updateActivity(session.activity.id, {
+              label: session.activity.label || '',
+              duration_minutes: Math.max(1, Math.round(elapsedMinutes)),
+              kcal: Math.round(rate * elapsedMinutes),
+            });
+          }
           setSession(null);
           refresh();
         }}
