@@ -15,12 +15,10 @@ function mealShortLabel(key, label, t) {
   return BASE_MEAL_KEYS.includes(key) ? t(`planner.slotShort.${key}`) : label;
 }
 
-// breakfast, lunch, dinner in that fixed order, then every en-cas slot (the base one plus any
-// extra ones added in Réglages > Repas du jour) in whatever order the server returned them.
+// The server already orders `meals` correctly (breakfast, any morning en-cas, lunch, any
+// afternoon en-cas, dinner, any evening en-cas, then untagged ones) — see mealsFor() in index.js.
 function displayOrder(meals) {
-  const keys = meals.map((m) => m.key);
-  const snacks = keys.filter((k) => k.startsWith('snack'));
-  return ['breakfast', 'lunch', 'dinner', ...snacks].filter((k) => keys.includes(k));
+  return meals.map((m) => m.key);
 }
 
 function todayStr() {

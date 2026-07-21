@@ -6,30 +6,48 @@ import { useLanguage } from '../i18n/LanguageContext';
 const GOAL_KEYS = ['lose', 'maintain', 'gain'];
 const PACE_OPTIONS = [500, 750, 1000];
 const SEX_KEYS = ['male', 'female', 'other'];
-const BASE_MEAL_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
 const MEAL_ICONS = { breakfast: 'sunrise', lunch: 'utensils', dinner: 'moon' };
 const SNACK_TIMES = ['morning', 'afternoon', 'evening'];
 
-function parseExtraSnacks(profile) {
-  if (!profile?.extra_snacks) return [];
-  try {
-    const parsed = JSON.parse(profile.extra_snacks);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+// profile.extra_snacks holds every en-cas customization: extra slots ({key:'snack_<n>', label,
+// time}) and, optionally, an override entry for the base slot ({key:'snack', time, removed}) —
+// the base slot can be given a time-of-day or removed entirely, same as any extra one.
+function parseSnackConfig(profile) {
+  let list = [];
+  if (profile?.extra_snacks) {
+    try {
+      const parsed = JSON.parse(profile.extra_snacks);
+      if (Array.isArray(parsed)) list = parsed;
+    } catch {
+      list = [];
+    }
   }
+  const baseOverride = list.find((s) => s && s.key === 'snack');
+  const extras = list.filter((s) => s && typeof s.key === 'string' && s.key.startsWith('snack_') && typeof s.label === 'string' && s.label.trim());
+  const slots = [];
+  if (!baseOverride?.removed) {
+    slots.push({ key: 'snack', label: null, time: baseOverride?.time ?? null, isBase: true });
+  }
+  for (const s of extras) slots.push({ key: s.key, label: s.label, time: s.time ?? null, isBase: false });
+  return slots; // every currently-active snack slot (base + extras), in insertion order
+}
+
+// breakfast, any 'morning' snacks, lunch, any 'afternoon' snacks, dinner, any 'evening' snacks,
+// then any snacks left untagged — mirrors the server's mealsFor() ordering.
+function orderedMealKeys(snacks) {
+  const byTime = (time) => snacks.filter((s) => s.time === time).map((s) => s.key);
+  return ['breakfast', ...byTime('morning'), 'lunch', ...byTime('afternoon'), 'dinner', ...byTime('evening'), ...byTime(null)];
 }
 
 function defaultShare(key, snackCount) {
   if (key === 'breakfast') return 0.15;
   if (key === 'lunch') return 0.35;
   if (key === 'dinner') return 0.45;
-  return 0.05 / snackCount; // 'snack' + every extra en-cas split the 5% allocation evenly
+  return snackCount > 0 ? 0.05 / snackCount : 0;
 }
 
-function parseMealShares(profile, extraSnacks) {
-  const snackKeys = ['snack', ...extraSnacks.map((s) => s.key)];
-  const allKeys = [...BASE_MEAL_ORDER, ...extraSnacks.map((s) => s.key)];
+function parseMealShares(profile, snacks) {
+  const allKeys = ['breakfast', 'lunch', 'dinner', ...snacks.map((s) => s.key)];
   if (profile?.meal_shares) {
     try {
       const parsed = JSON.parse(profile.meal_shares);
@@ -39,14 +57,16 @@ function parseMealShares(profile, extraSnacks) {
     }
   }
   const shares = {};
-  for (const k of ['breakfast', 'lunch', 'dinner']) shares[k] = defaultShare(k, snackKeys.length);
-  for (const k of snackKeys) shares[k] = defaultShare('snack', snackKeys.length);
+  for (const k of ['breakfast', 'lunch', 'dinner']) shares[k] = defaultShare(k, snacks.length);
+  for (const s of snacks) shares[s.key] = defaultShare('snack', snacks.length);
   return shares;
 }
 
-function mealLabel(key, extraSnacks, t) {
-  if (BASE_MEAL_ORDER.includes(key)) return t(`mealName.${key}`);
-  return extraSnacks.find((s) => s.key === key)?.label || key;
+function mealLabel(key, snacks, t) {
+  if (['breakfast', 'lunch', 'dinner'].includes(key)) return t(`mealName.${key}`);
+  const snack = snacks.find((s) => s.key === key);
+  if (!snack) return key;
+  return snack.isBase ? t('mealName.snack') : snack.label;
 }
 
 function iconForActivity(type) {
@@ -153,19 +173,20 @@ export default function Settings({
     }
   }
 
-  // --- Repas du jour screen state (per-meal kcal budget + extra en-cas slots) ---
+  // --- Repas du jour screen state (per-meal kcal budget + en-cas slots, base included) ---
   const [mealKcal, setMealKcal] = useState({ breakfast: 0, snack: 0, lunch: 0, dinner: 0 });
-  const [extraSnacks, setExtraSnacks] = useState([]);
-  const mealOrder = [...BASE_MEAL_ORDER, ...extraSnacks.map((s) => s.key)];
+  const [snacks, setSnacks] = useState([]);
+  const [mealsSaved, setMealsSaved] = useState(false);
+  const mealOrder = orderedMealKeys(snacks);
 
   useEffect(() => {
     if (profile && summary) {
-      const snacks = parseExtraSnacks(profile);
-      const shares = parseMealShares(profile, snacks);
+      const snackList = parseSnackConfig(profile);
+      const shares = parseMealShares(profile, snackList);
       const target = summary.targetIntake || 0;
       const next = {};
-      for (const key of [...BASE_MEAL_ORDER, ...snacks.map((s) => s.key)]) next[key] = Math.round(target * (shares[key] ?? 0));
-      setExtraSnacks(snacks);
+      for (const key of ['breakfast', 'lunch', 'dinner', ...snackList.map((s) => s.key)]) next[key] = Math.round(target * (shares[key] ?? 0));
+      setSnacks(snackList);
       setMealKcal(next);
     }
   }, [profile, summary]);
@@ -174,13 +195,13 @@ export default function Settings({
 
   function addSnack() {
     const key = `snack_${Date.now()}`;
-    const n = extraSnacks.length + 2; // "En-cas 2", "En-cas 3"...
-    setExtraSnacks((list) => [...list, { key, label: `${t('mealName.snack')} ${n}`, time: null }]);
+    const n = snacks.length + 1; // "En-cas 2", "En-cas 3"... (base counts as "1")
+    setSnacks((list) => [...list, { key, label: `${t('mealName.snack')} ${n}`, time: null, isBase: false }]);
     setMealKcal((v) => ({ ...v, [key]: 0 }));
   }
 
   function removeSnack(key) {
-    setExtraSnacks((list) => list.filter((s) => s.key !== key));
+    setSnacks((list) => list.filter((s) => s.key !== key));
     setMealKcal((v) => {
       const next = { ...v };
       delete next[key];
@@ -189,7 +210,7 @@ export default function Settings({
   }
 
   function updateSnack(key, patch) {
-    setExtraSnacks((list) => list.map((s) => (s.key === key ? { ...s, ...patch } : s)));
+    setSnacks((list) => list.map((s) => (s.key === key ? { ...s, ...patch } : s)));
   }
 
   async function handleSaveMeals() {
@@ -197,10 +218,22 @@ export default function Settings({
     setSaving(true);
     try {
       const target = summary?.targetIntake || 0;
+      const allKeys = ['breakfast', 'lunch', 'dinner', ...snacks.map((s) => s.key)];
       const shares = {};
-      for (const key of mealOrder) shares[key] = target > 0 ? (Number(mealKcal[key]) || 0) / target : 0;
-      await onSaveProfile({ meal_shares: shares, extra_snacks: extraSnacks });
-      setScreen('home');
+      for (const key of allKeys) shares[key] = target > 0 ? (Number(mealKcal[key]) || 0) / target : 0;
+
+      const baseSnack = snacks.find((s) => s.isBase);
+      const extraPayload = snacks.filter((s) => !s.isBase).map((s) => ({ key: s.key, label: s.label, time: s.time }));
+      const extra_snacks = baseSnack
+        ? baseSnack.time
+          ? [{ key: 'snack', time: baseSnack.time }, ...extraPayload]
+          : extraPayload
+        : [{ key: 'snack', removed: true }, ...extraPayload];
+
+      await onSaveProfile({ meal_shares: shares, extra_snacks });
+      // Stay on this screen (rather than jumping back to Réglages) so adjustments can keep going.
+      setMealsSaved(true);
+      setTimeout(() => setMealsSaved(false), 2500);
     } finally {
       setSaving(false);
     }
@@ -417,13 +450,12 @@ export default function Settings({
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           {mealOrder.map((key) => {
-            const isExtra = !BASE_MEAL_ORDER.includes(key);
-            const snack = isExtra ? extraSnacks.find((s) => s.key === key) : null;
+            const snack = snacks.find((s) => s.key === key) || null;
             const pct = target > 0 ? (mealKcal[key] / target) * 100 : 0;
             return (
               <div key={key}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  {isExtra ? (
+                  {snack && !snack.isBase ? (
                     <input
                       type="text"
                       value={snack.label}
@@ -433,13 +465,13 @@ export default function Settings({
                   ) : (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14.5, fontWeight: 600 }}>
                       <Icon name={MEAL_ICONS[key] || 'apple'} size={17} color="var(--acc)" />
-                      {mealLabel(key, extraSnacks, t)}
+                      {mealLabel(key, snacks, t)}
                     </span>
                   )}
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flex: 'none' }}>
                     <b style={{ fontSize: 13.5 }}>{Math.round(mealKcal[key] || 0)} kcal</b>
                     <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 34, textAlign: 'right' }}>{Math.round(pct)}%</span>
-                    {isExtra && (
+                    {snack && (
                       <button type="button" className="entry-icon-btn entry-delete-btn" style={{ width: 28, height: 28 }} onClick={() => removeSnack(key)} aria-label={t('planner.remove')}>
                         <Icon name="x" size={14} />
                       </button>
@@ -456,7 +488,7 @@ export default function Settings({
                   onChange={(e) => setMealKcal((v) => ({ ...v, [key]: e.target.value }))}
                   style={{ background: `linear-gradient(to right, var(--acc) ${pct}%, var(--ink-700, var(--border-subtle)) ${pct}%)` }}
                 />
-                {isExtra && (
+                {snack && (
                   <div className="type-list-row" style={{ marginTop: 8 }}>
                     {SNACK_TIMES.map((time) => (
                       <button
@@ -519,6 +551,7 @@ export default function Settings({
           <Icon name="check" size={20} />
           {saving ? t('addFood.saving') : t('meal.save')}
         </button>
+        {mealsSaved && <p className="hint success" style={{ textAlign: 'center', marginTop: -12 }}>{t('settings.mealsSaved')}</p>}
       </div>
     );
   }

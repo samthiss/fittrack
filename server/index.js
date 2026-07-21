@@ -232,43 +232,58 @@ function todayStr() {
 
 const EXTRA_SNACK_TIMES = ['morning', 'afternoon', 'evening'];
 
-// profile.extra_snacks (set via Réglages > Repas du jour) adds more "en-cas" slots beyond the
-// base one — each { key: 'snack_<n>', label, time }. key must not collide with a base MEALS key.
-function parseExtraSnacks(profile) {
-  if (!profile?.extra_snacks) return [];
-  try {
-    const parsed = JSON.parse(profile.extra_snacks);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (s) =>
-        s &&
-        typeof s.key === 'string' &&
-        typeof s.label === 'string' &&
-        s.label.trim() &&
-        !MEALS.some((m) => m.key === s.key)
-    );
-  } catch {
-    return [];
+// profile.extra_snacks (set via Réglages > Repas du jour) holds every en-cas customization:
+// extra slots ({ key: 'snack_<n>', label, time }) AND, optionally, an override entry for the
+// base slot ({ key: 'snack', time, removed }) — the base slot can be given a time-of-day (so it
+// sorts alongside the others) or removed entirely, same as any extra one.
+function parseSnackConfig(profile) {
+  let list = [];
+  if (profile?.extra_snacks) {
+    try {
+      const parsed = JSON.parse(profile.extra_snacks);
+      if (Array.isArray(parsed)) list = parsed;
+    } catch {
+      list = [];
+    }
   }
+  const baseOverride = list.find((s) => s && s.key === 'snack');
+  const extras = list.filter(
+    (s) => s && typeof s.key === 'string' && s.key.startsWith('snack_') && typeof s.label === 'string' && s.label.trim()
+  );
+  const slots = [];
+  if (!baseOverride?.removed) {
+    slots.push({ key: 'snack', label: MEALS.find((m) => m.key === 'snack').label, time: baseOverride?.time ?? null });
+  }
+  for (const s of extras) slots.push({ key: s.key, label: s.label, time: s.time ?? null });
+  return slots; // every currently-active snack slot (base + extras), in insertion order
 }
 
-// The full ordered meal list for this user: the 4 fixed meals plus any extra en-cas slots.
+// The full ordered meal list for this user: breakfast, any 'morning' snacks, lunch, any
+// 'afternoon' snacks, dinner, any 'evening' snacks, then any snacks left untagged.
 function mealsFor(profile) {
-  const extra = parseExtraSnacks(profile);
-  const shares = mealSharesFor(profile, extra);
+  const snacks = parseSnackConfig(profile);
+  const shares = mealSharesFor(profile, snacks);
+  const withShare = (key, label, time) => ({ key, label, share: shares[key], ...(time !== undefined ? { time } : {}) });
+  const byTime = (time) => snacks.filter((s) => s.time === time).map((s) => withShare(s.key, s.label, s.time));
+
   return [
-    ...MEALS.map((m) => ({ key: m.key, label: m.label, share: shares[m.key] })),
-    ...extra.map((s) => ({ key: s.key, label: s.label, share: shares[s.key], time: s.time })),
+    withShare('breakfast', MEALS.find((m) => m.key === 'breakfast').label),
+    ...byTime('morning'),
+    withShare('lunch', MEALS.find((m) => m.key === 'lunch').label),
+    ...byTime('afternoon'),
+    withShare('dinner', MEALS.find((m) => m.key === 'dinner').label),
+    ...byTime('evening'),
+    ...byTime(null),
   ];
 }
 
 // profile.meal_shares (set via Réglages > Repas du jour) overrides each meal's slice of the
 // daily kcal budget when present — falls back to the fixed 15/35/45% split for breakfast/lunch/
-// dinner, with the 5% "en-cas" allocation divided evenly across the base snack + any extra ones.
-function mealSharesFor(profile, extra) {
-  const extraSnacks = extra || parseExtraSnacks(profile);
-  const snackKeys = ['snack', ...extraSnacks.map((s) => s.key)];
-  const allKeys = [...MEALS.map((m) => m.key), ...extraSnacks.map((s) => s.key)];
+// dinner, with the 5% "en-cas" allocation divided evenly across every active snack slot.
+function mealSharesFor(profile, snacks) {
+  const snackSlots = snacks || parseSnackConfig(profile);
+  const snackKeys = snackSlots.map((s) => s.key);
+  const allKeys = ['breakfast', 'lunch', 'dinner', ...snackKeys];
 
   let stored = null;
   if (profile?.meal_shares) {
@@ -280,7 +295,7 @@ function mealSharesFor(profile, extra) {
   }
   if (stored && allKeys.every((k) => typeof stored[k] === 'number')) return stored;
 
-  const perSnack = 0.05 / snackKeys.length;
+  const perSnack = snackKeys.length > 0 ? 0.05 / snackKeys.length : 0;
   const shares = { breakfast: 0.15, lunch: 0.35, dinner: 0.45 };
   for (const k of snackKeys) shares[k] = perSnack;
   return shares;
@@ -386,16 +401,13 @@ app.put('/api/profile', (req, res) => {
     extra_snacks !== undefined &&
     extra_snacks !== null &&
     (!Array.isArray(extra_snacks) ||
-      extra_snacks.length > 4 ||
-      extra_snacks.some(
-        (s) =>
-          !s ||
-          typeof s.key !== 'string' ||
-          !s.key.startsWith('snack_') ||
-          typeof s.label !== 'string' ||
-          !s.label.trim() ||
-          (s.time != null && !EXTRA_SNACK_TIMES.includes(s.time))
-      ) ||
+      extra_snacks.filter((s) => s?.key !== 'snack').length > 4 ||
+      extra_snacks.some((s) => {
+        if (!s || typeof s.key !== 'string') return true;
+        if (s.time != null && !EXTRA_SNACK_TIMES.includes(s.time)) return true;
+        if (s.key === 'snack') return s.removed != null && typeof s.removed !== 'boolean';
+        return !s.key.startsWith('snack_') || typeof s.label !== 'string' || !s.label.trim();
+      }) ||
       new Set(extra_snacks.map((s) => s.key)).size !== extra_snacks.length)
   ) {
     return res.status(400).json({ error: 'extra_snacks invalide' });
@@ -404,8 +416,8 @@ app.put('/api/profile', (req, res) => {
   const current = getProfile(req.userId);
   const nextExtraSnacksJson = extra_snacks !== undefined ? (extra_snacks === null ? null : JSON.stringify(extra_snacks)) : current.extra_snacks;
   if (meal_shares !== undefined && meal_shares !== null) {
-    const currentExtra = parseExtraSnacks({ extra_snacks: nextExtraSnacksJson });
-    const allKeys = [...MEALS.map((m) => m.key), ...currentExtra.map((s) => s.key)];
+    const currentSlots = parseSnackConfig({ extra_snacks: nextExtraSnacksJson });
+    const allKeys = ['breakfast', 'lunch', 'dinner', ...currentSlots.map((s) => s.key)];
     if (!allKeys.every((k) => typeof meal_shares[k] === 'number')) {
       return res.status(400).json({ error: 'meal_shares invalide' });
     }
