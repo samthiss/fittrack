@@ -177,6 +177,7 @@ export default function Settings({
   const [mealKcal, setMealKcal] = useState({ breakfast: 0, snack: 0, lunch: 0, dinner: 0 });
   const [snacks, setSnacks] = useState([]);
   const [mealsSaved, setMealsSaved] = useState(false);
+  const [editingTimeKey, setEditingTimeKey] = useState(null);
   const mealOrder = orderedMealKeys(snacks);
 
   useEffect(() => {
@@ -488,20 +489,33 @@ export default function Settings({
                   onChange={(e) => setMealKcal((v) => ({ ...v, [key]: e.target.value }))}
                   style={{ background: `linear-gradient(to right, var(--acc) ${pct}%, var(--ink-700, var(--border-subtle)) ${pct}%)` }}
                 />
-                {snack && (
+                {snack && (snack.time == null || editingTimeKey === key) ? (
                   <div className="type-list-row" style={{ marginTop: 8 }}>
                     {SNACK_TIMES.map((time) => (
                       <button
                         key={time}
                         type="button"
                         className={snack.time === time ? 'type-pill active' : 'type-pill'}
-                        onClick={() => updateSnack(key, { time: snack.time === time ? null : time })}
+                        onClick={() => {
+                          updateSnack(key, { time: snack.time === time ? null : time });
+                          setEditingTimeKey(null);
+                        }}
                       >
                         {t(`settings.snackTime.${time}`)}
                       </button>
                     ))}
                   </div>
-                )}
+                ) : snack ? (
+                  <button
+                    type="button"
+                    className="filter-pill"
+                    style={{ marginTop: 8 }}
+                    onClick={() => setEditingTimeKey(key)}
+                  >
+                    <Icon name="clock" size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
+                    {t(`settings.snackTime.${snack.time}`)}
+                  </button>
+                ) : null}
               </div>
             );
           })}
