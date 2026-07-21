@@ -2334,6 +2334,12 @@ textarea.wide {
   cursor: pointer;
 }
 
+.meal-add-cta-white {
+  background: #fff;
+  color: #111;
+  box-shadow: none;
+}
+
 /* add food to meal */
 .search-input-row {
   display: flex;

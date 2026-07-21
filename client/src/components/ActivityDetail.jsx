@@ -246,8 +246,9 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
           )}
 
           <div className="row" style={{ gap: 10, marginTop: 16 }}>
-            <button type="button" className="btn-ghost btn-block" style={{ flex: 1, textAlign: 'center' }} onClick={() => setShowPicker(true)}>
-              <Icon name="plus" size={16} /> {t('activityLog.addExercise')}
+            <button type="button" className="meal-add-cta meal-add-cta-white" style={{ flex: 1 }} onClick={() => setShowPicker(true)}>
+              <Icon name="plus" size={18} />
+              {t('activityLog.addExercise')}
             </button>
             {exercises.length > 0 && (
               <button type="button" className="meal-add-cta" style={{ flex: 1 }} onClick={() => onStart(exercises)}>
