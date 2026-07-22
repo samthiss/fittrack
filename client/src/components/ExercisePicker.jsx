@@ -3,13 +3,16 @@ import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 import { MUSCLE_GROUP_KEYS } from '../data/muscleGroups';
+import { EXERCISE_LIBRARY } from '../data/exercises';
 
 // Full-screen exercise picker shown when tapping "Ajouter" on a force session: search + filter
-// by muscle group across every exercise this user has ever logged (their real history — no
-// fabricated exercise catalog/images), tap one to add it instantly with its last-used sets/reps/
-// weight, or fall back to creating a brand new one.
+// by muscle group across every exercise this user has ever logged (their real history), plus
+// built-in catalog suggestions (see data/exercises.js, filled in one muscle group at a time) for
+// categories the user hasn't logged anything in yet. Tap one to add it — a logged exercise comes
+// with its last-used sets/reps/weight, a catalog suggestion with sane defaults — or fall back to
+// creating a brand new one.
 export default function ExercisePicker({ onClose, onPick, onCreateNew }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [library, setLibrary] = useState(null);
   const [search, setSearch] = useState('');
   const [muscleFilter, setMuscleFilter] = useState(null);
@@ -33,9 +36,49 @@ export default function ExercisePicker({ onClose, onPick, onCreateNew }) {
     });
   }, [library, search, muscleFilter]);
 
+  const suggestions = useMemo(() => {
+    if (!library) return [];
+    const term = search.trim().toLowerCase();
+    const loggedNames = new Set(library.map((e) => e.name.toLowerCase()));
+    const out = [];
+    for (const key of MUSCLE_GROUP_KEYS) {
+      const label = t(`muscleGroup.${key}`);
+      if (muscleFilter && muscleFilter !== label) continue;
+      for (const entry of EXERCISE_LIBRARY[key] || []) {
+        const name = lang === 'en' ? entry.en : entry.fr;
+        if (loggedNames.has(name.toLowerCase())) continue;
+        if (term && !name.toLowerCase().includes(term)) continue;
+        out.push({ name, muscle_group: label, sets: 4, reps: 10, weight_kg: null });
+      }
+    }
+    return out;
+  }, [library, search, muscleFilter, t, lang]);
+
   async function handlePick(ex) {
     await onPick(ex);
     setAddedIds((prev) => new Set([...prev, ex.name]));
+  }
+
+  function renderRow(ex) {
+    const added = addedIds.has(ex.name);
+    return (
+      <div className="entry-card" key={ex.name} onClick={() => handlePick(ex)}>
+        <span className="meal-icon-box">
+          <Icon name="dumbbell" size={19} />
+        </span>
+        <div className="entry-card-body" style={{ cursor: 'pointer' }}>
+          {ex.muscle_group && <div className="entry-card-sub" style={{ marginTop: 0, marginBottom: 2 }}>{ex.muscle_group}</div>}
+          <div className="entry-card-name">{ex.name}</div>
+          <div className="entry-card-sub">
+            {ex.sets} {t('activityLog.setsShort')} × {ex.reps} {t('activityLog.repsShort')}
+            {ex.weight_kg != null ? ` · ${ex.weight_kg} kg` : ''}
+          </div>
+        </div>
+        <span className={added ? 'plan-pick-btn added' : 'plan-pick-btn'}>
+          <Icon name={added ? 'check' : 'plus'} size={18} />
+        </span>
+      </div>
+    );
   }
 
   return (
@@ -95,32 +138,26 @@ export default function ExercisePicker({ onClose, onPick, onCreateNew }) {
 
         {library === null ? (
           <p className="hint">{t('weight.loading')}</p>
-        ) : filtered.length === 0 ? (
-          <p className="hint">{library.length === 0 ? t('activityLog.libraryEmpty') : t('activityLog.noResults')}</p>
         ) : (
-          <div className="entry-list">
-            {filtered.map((ex) => {
-              const added = addedIds.has(ex.name);
-              return (
-                <div className="entry-card" key={ex.name} onClick={() => handlePick(ex)}>
-                  <span className="meal-icon-box">
-                    <Icon name="dumbbell" size={19} />
-                  </span>
-                  <div className="entry-card-body" style={{ cursor: 'pointer' }}>
-                    {ex.muscle_group && <div className="entry-card-sub" style={{ marginTop: 0, marginBottom: 2 }}>{ex.muscle_group}</div>}
-                    <div className="entry-card-name">{ex.name}</div>
-                    <div className="entry-card-sub">
-                      {ex.sets} {t('activityLog.setsShort')} × {ex.reps} {t('activityLog.repsShort')}
-                      {ex.weight_kg != null ? ` · ${ex.weight_kg} kg` : ''}
-                    </div>
-                  </div>
-                  <span className={added ? 'plan-pick-btn added' : 'plan-pick-btn'}>
-                    <Icon name={added ? 'check' : 'plus'} size={18} />
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <>
+            {filtered.length > 0 && (
+              <>
+                <h4 className="section-label">{t('activityLog.yourHistory')}</h4>
+                <div className="entry-list">{filtered.map((ex) => renderRow(ex))}</div>
+              </>
+            )}
+
+            {suggestions.length > 0 && (
+              <>
+                <h4 className="section-label">{t('activityLog.suggestions')}</h4>
+                <div className="entry-list">{suggestions.map((ex) => renderRow(ex))}</div>
+              </>
+            )}
+
+            {filtered.length === 0 && suggestions.length === 0 && (
+              <p className="hint">{library.length === 0 ? t('activityLog.libraryEmpty') : t('activityLog.noResults')}</p>
+            )}
+          </>
         )}
       </div>
       <button type="button" className="done-btn done-btn-primary" onClick={(e) => { e.stopPropagation(); onClose(); }}>
