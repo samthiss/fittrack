@@ -758,11 +758,11 @@ export default function Settings({
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
           {[
-            { label: t('nutrient.protein'), color: 'var(--macro-protein)', pct: proteinPct, grams: Math.round((targetIntake * proteinPct) / 100 / 4) },
-            { label: t('nutrient.carbs'), color: 'var(--macro-carb)', pct: carbsPct, grams: Math.round((targetIntake * carbsPct) / 100 / 4) },
-            { label: t('nutrient.fat'), color: 'var(--macro-fat)', pct: fatPct, grams: Math.round((targetIntake * fatPct) / 100 / 9) },
+            { key: 'protein', label: t('nutrient.protein'), color: 'var(--macro-protein)', pct: proteinPct, grams: Math.round((targetIntake * proteinPct) / 100 / 4), onChange: setProteinPct },
+            { key: 'carbs', label: t('nutrient.carbs'), color: 'var(--macro-carb)', pct: carbsPct, grams: Math.round((targetIntake * carbsPct) / 100 / 4), onChange: setCarbsPct },
+            { key: 'fat', label: t('nutrient.fat'), color: 'var(--macro-fat)', pct: fatPct, grams: Math.round((targetIntake * fatPct) / 100 / 9) },
           ].map((m) => (
-            <div key={m.label}>
+            <div key={m.key}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14.5, fontWeight: 600 }}>
                   <i style={{ width: 10, height: 10, borderRadius: 3, background: m.color, display: 'inline-block' }} />
@@ -772,9 +772,22 @@ export default function Settings({
                   <b style={{ color: 'var(--text-primary)' }}>{m.grams} g</b> · {Math.round(m.pct)}%
                 </span>
               </div>
-              <div style={{ position: 'relative', height: 8, borderRadius: 5, background: 'var(--ink-700, var(--border-subtle))' }}>
-                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(100, m.pct)}%`, borderRadius: 5, background: m.color }} />
-              </div>
+              {m.onChange ? (
+                <input
+                  type="range"
+                  className="gauge-slider"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={m.pct}
+                  onChange={(e) => m.onChange(Number(e.target.value))}
+                  style={{ background: `linear-gradient(to right, ${m.color} ${Math.min(100, m.pct)}%, var(--ink-700, var(--border-subtle)) ${Math.min(100, m.pct)}%)` }}
+                />
+              ) : (
+                <div style={{ position: 'relative', height: 8, borderRadius: 5, background: 'var(--ink-700, var(--border-subtle))' }}>
+                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(100, m.pct)}%`, borderRadius: 5, background: m.color }} />
+                </div>
+              )}
             </div>
           ))}
         </div>
