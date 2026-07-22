@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
+import { MUSCLE_GROUP_KEYS } from '../data/muscleGroups';
 
 // Full-screen exercise picker shown when tapping "Ajouter" on a force session: search + filter
 // by muscle group across every exercise this user has ever logged (their real history — no
@@ -18,10 +19,9 @@ export default function ExercisePicker({ onClose, onPick, onCreateNew }) {
     api.getExerciseLibrary().then(setLibrary);
   }, []);
 
-  const muscleGroups = useMemo(() => {
-    if (!library) return [];
-    return [...new Set(library.map((e) => e.muscle_group).filter(Boolean))].sort();
-  }, [library]);
+  // The fixed taxonomy (see data/muscleGroups.js), not just whatever's already in this user's
+  // history — otherwise a category with no logged exercises yet could never be filtered to.
+  const muscleGroups = useMemo(() => MUSCLE_GROUP_KEYS.map((key) => t(`muscleGroup.${key}`)), [t]);
 
   const filtered = useMemo(() => {
     if (!library) return [];
