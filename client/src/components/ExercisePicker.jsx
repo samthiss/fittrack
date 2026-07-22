@@ -3,13 +3,16 @@ import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 import { MUSCLE_GROUP_KEYS } from '../data/muscleGroups';
+import { EXERCISE_LIBRARY } from '../data/exercises';
 
 // Full-screen exercise picker shown when tapping "Ajouter" on a force session: search + filter
-// by muscle group across every exercise this user has ever logged (their real history). Tap one
-// to add it — it comes back with its last-used sets/reps/weight — or fall back to creating a
-// brand new one.
+// by muscle group across every exercise this user has ever logged (their real history) plus the
+// built-in catalog (data/exercises.js) for exercises not logged yet — one flat list, not split
+// into separate "history"/"suggestions" sections. Tap one to add it — a logged exercise comes
+// back with its last-used sets/reps/weight, a catalog one with sane defaults — or fall back to
+// creating a brand new one.
 export default function ExercisePicker({ onClose, onPick, onCreateNew }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [library, setLibrary] = useState(null);
   const [search, setSearch] = useState('');
   const [muscleFilter, setMuscleFilter] = useState(null);
@@ -26,12 +29,28 @@ export default function ExercisePicker({ onClose, onPick, onCreateNew }) {
   const filtered = useMemo(() => {
     if (!library) return [];
     const term = search.trim().toLowerCase();
-    return library.filter((e) => {
+    const loggedNames = new Set(library.map((e) => e.name.toLowerCase()));
+
+    const history = library.filter((e) => {
       if (muscleFilter && e.muscle_group !== muscleFilter) return false;
       if (term && !e.name.toLowerCase().includes(term)) return false;
       return true;
     });
-  }, [library, search, muscleFilter]);
+
+    const catalog = [];
+    for (const key of MUSCLE_GROUP_KEYS) {
+      const label = t(`muscleGroup.${key}`);
+      if (muscleFilter && muscleFilter !== label) continue;
+      for (const entry of EXERCISE_LIBRARY[key] || []) {
+        const name = lang === 'en' ? entry.en : entry.fr;
+        if (loggedNames.has(name.toLowerCase())) continue;
+        if (term && !name.toLowerCase().includes(term)) continue;
+        catalog.push({ name, muscle_group: label, sets: 4, reps: 10, weight_kg: null });
+      }
+    }
+
+    return [...history, ...catalog];
+  }, [library, search, muscleFilter, t, lang]);
 
   async function handlePick(ex) {
     await onPick(ex);
