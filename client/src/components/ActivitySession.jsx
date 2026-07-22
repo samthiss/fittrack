@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import ExercisePicker from './ExercisePicker';
+import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
 
 function formatElapsed(totalSeconds) {
@@ -55,6 +56,7 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
   const [reps, setReps] = useState(10);
   const [weight, setWeight] = useState('');
   const [muscleGroup, setMuscleGroup] = useState('');
+  const [showMuscleGroupPicker, setShowMuscleGroupPicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function handleAddExercise() {
@@ -210,15 +212,10 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
             <h4 className="section-label">
               {t('activityLog.muscleGroup')} <span style={{ textTransform: 'none', fontWeight: 400 }}>({t('profile.optional')})</span>
             </h4>
-            <div className="search-input-row">
-              <input
-                type="text"
-                className="search-input"
-                value={muscleGroup}
-                onChange={(e) => setMuscleGroup(e.target.value)}
-                placeholder={t('activityLog.muscleGroupPlaceholder')}
-              />
-            </div>
+            <button type="button" className="filter-pill" style={{ display: 'flex', width: '100%', justifyContent: 'space-between', boxSizing: 'border-box' }} onClick={() => setShowMuscleGroupPicker(true)}>
+              <span>{muscleGroup || t('activityLog.muscleGroupPicker.none')}</span>
+              <Icon name="chevron-right" size={16} color="var(--text-muted)" />
+            </button>
 
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{ flex: 1 }}>
@@ -253,6 +250,17 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
             {saving ? t('activityLog.saving') : t('activityLog.add')}
           </button>
         </div>
+      )}
+
+      {showMuscleGroupPicker && (
+        <MuscleGroupPicker
+          value={muscleGroup}
+          onClose={() => setShowMuscleGroupPicker(false)}
+          onSelect={(label) => {
+            setMuscleGroup(label || '');
+            setShowMuscleGroupPicker(false);
+          }}
+        />
       )}
     </div>
   );

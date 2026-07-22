@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import ExercisePicker from './ExercisePicker';
+import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
 
 // Full-screen editor for an existing saved workout template: rename it, add exercises (from the
@@ -17,6 +18,7 @@ export default function WorkoutTemplateEditor({ template, onClose, onSaved, onDe
   const [customSets, setCustomSets] = useState(4);
   const [customReps, setCustomReps] = useState(10);
   const [customWeight, setCustomWeight] = useState('');
+  const [showMuscleGroupPicker, setShowMuscleGroupPicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   function removeExercise(index) {
@@ -165,15 +167,10 @@ export default function WorkoutTemplateEditor({ template, onClose, onSaved, onDe
             <h4 className="section-label">
               {t('activityLog.muscleGroup')} <span style={{ textTransform: 'none', fontWeight: 400 }}>({t('profile.optional')})</span>
             </h4>
-            <div className="search-input-row">
-              <input
-                type="text"
-                className="search-input"
-                value={customMuscleGroup}
-                onChange={(e) => setCustomMuscleGroup(e.target.value)}
-                placeholder={t('activityLog.muscleGroupPlaceholder')}
-              />
-            </div>
+            <button type="button" className="filter-pill" style={{ display: 'flex', width: '100%', justifyContent: 'space-between', boxSizing: 'border-box' }} onClick={() => setShowMuscleGroupPicker(true)}>
+              <span>{customMuscleGroup || t('activityLog.muscleGroupPicker.none')}</span>
+              <Icon name="chevron-right" size={16} color="var(--text-muted)" />
+            </button>
 
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{ flex: 1 }}>
@@ -208,6 +205,17 @@ export default function WorkoutTemplateEditor({ template, onClose, onSaved, onDe
             {t('activityLog.add')}
           </button>
         </div>
+      )}
+
+      {showMuscleGroupPicker && (
+        <MuscleGroupPicker
+          value={customMuscleGroup}
+          onClose={() => setShowMuscleGroupPicker(false)}
+          onSelect={(label) => {
+            setCustomMuscleGroup(label || '');
+            setShowMuscleGroupPicker(false);
+          }}
+        />
       )}
     </div>
   );
