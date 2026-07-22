@@ -115,25 +115,18 @@ export default function ExercisePicker({ onClose, onPick, onCreateNew }) {
         </button>
 
         {muscleGroups.length > 0 && (
-          <div className="filter-pill-row">
-            <button
-              type="button"
-              className={muscleFilter === null ? 'filter-pill active' : 'filter-pill'}
-              onClick={() => setMuscleFilter(null)}
-            >
-              {t('activityLog.allMuscleGroups')}
-            </button>
+          <select
+            className="filter-select"
+            value={muscleFilter ?? ''}
+            onChange={(e) => setMuscleFilter(e.target.value || null)}
+          >
+            <option value="">{t('activityLog.allMuscleGroups')}</option>
             {muscleGroups.map((g) => (
-              <button
-                key={g}
-                type="button"
-                className={muscleFilter === g ? 'filter-pill active' : 'filter-pill'}
-                onClick={() => setMuscleFilter((v) => (v === g ? null : g))}
-              >
+              <option key={g} value={g}>
                 {g}
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
         )}
 
         {library === null ? (

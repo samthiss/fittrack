@@ -6,7 +6,6 @@ export const EXERCISE_LIBRARY = {
     { fr: "Haussements d'épaules à la barre", en: 'Barbell shrugs' },
     { fr: "Haussements d'épaules aux haltères", en: 'Dumbbell shrugs' },
     { fr: 'Haussements à la poulie', en: 'Cable shrugs' },
-    { fr: 'Rowing menton', en: 'Upright row' },
     { fr: 'Marche du fermier', en: "Farmer's carry" },
   ],
   chest: [
@@ -297,7 +296,6 @@ export const EXERCISE_LIBRARY = {
     { fr: 'French press haltère', en: 'Dumbbell French press' },
     { fr: 'French press inversé avec serviette', en: 'Reverse French press with towel' },
     { fr: 'Skullcrusher barre EZ', en: 'EZ-bar skullcrusher' },
-    { fr: 'Extension triceps au-dessus de la tête avec superband', en: 'Superband overhead triceps extension' },
     { fr: 'Tate press', en: 'Tate press' },
     { fr: 'Tate press unilatéral', en: 'Tate press (unilateral)' },
     { fr: 'Kickback triceps à la poulie', en: 'Cable triceps kickback' },
