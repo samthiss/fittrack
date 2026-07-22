@@ -2603,7 +2603,18 @@ app.get('/api/weight-report', (req, res) => {
   // "Poids perdu" grid on the dedicated weight-report screen shows every fixed window
   // (7/14/30/60/90 days) side by side, not just whichever one is currently selected for the
   // chart above — computed here from one all-time fetch instead of five separate requests.
-  const allRows = db.prepare('SELECT date, weight_kg FROM weight_logs WHERE user_id = ? ORDER BY date').all(req.userId);
+  // GLOB + date <= today guards against any row whose date isn't a proper ISO string (e.g. a
+  // stray legacy entry saved in a locale date format like "22/03/2025") — such a string can sort
+  // AFTER every real ISO date lexicographically and would otherwise get picked as "most recent",
+  // corrupting weightCurrent/weightStart while the range-scoped chart/window stats stay correct
+  // (they only match rows whose date is exactly one of rangeDates()'s ISO strings).
+  const allRows = db
+    .prepare(
+      `SELECT date, weight_kg FROM weight_logs
+       WHERE user_id = ? AND date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date <= ?
+       ORDER BY date`
+    )
+    .all(req.userId, todayStr());
   const statsForWindow = (days) => {
     const windowDates = new Set(rangeDates(String(days)));
     return metricStats(allRows.filter((r) => windowDates.has(r.date)), 'weight_kg');
