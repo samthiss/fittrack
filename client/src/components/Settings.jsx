@@ -5,6 +5,11 @@ import { useLanguage } from '../i18n/LanguageContext';
 
 const GOAL_KEYS = ['lose', 'maintain', 'gain'];
 const PACE_OPTIONS = [500, 750, 1000];
+const MACRO_PRESETS = [
+  { key: 'balanced', protein: 30, carbs: 35 },
+  { key: 'highProtein', protein: 40, carbs: 30 },
+  { key: 'lowCarb', protein: 35, carbs: 15 },
+];
 const SEX_KEYS = ['male', 'female', 'other'];
 const MEAL_ICONS = { breakfast: 'sunrise', lunch: 'utensils', dinner: 'moon' };
 const SNACK_TIMES = ['morning', 'afternoon', 'evening'];
@@ -115,6 +120,9 @@ export default function Settings({
   const [weightKg, setWeightKg] = useState('');
   const [targetWeightKg, setTargetWeightKg] = useState('');
   const [bodyFatPct, setBodyFatPct] = useState('');
+  const [proteinPct, setProteinPct] = useState(30);
+  const [carbsPct, setCarbsPct] = useState(35);
+  const [savingMacros, setSavingMacros] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -128,8 +136,22 @@ export default function Settings({
       setWeightKg(profile.weight_kg ?? '');
       setTargetWeightKg(profile.target_weight_kg ?? '');
       setBodyFatPct(profile.body_fat_pct ?? '');
+      setProteinPct(profile.protein_pct ?? 30);
+      setCarbsPct(profile.carbs_pct ?? 35);
     }
   }, [profile]);
+
+  const fatPct = Math.max(0, 100 - proteinPct - carbsPct);
+
+  async function saveMacros() {
+    setSavingMacros(true);
+    try {
+      await onSaveProfile({ protein_pct: proteinPct, carbs_pct: carbsPct });
+      setScreen('home');
+    } finally {
+      setSavingMacros(false);
+    }
+  }
 
   async function handleSaveInfo() {
     if (saving) return;
@@ -710,6 +732,85 @@ export default function Settings({
     );
   }
 
+  // --- Macros screen (same preset+breakdown UI as onboarding's "Ajuster les macros") ---
+  if (screen === 'macros') {
+    return (
+      <div>
+        <SubHeader title={t('settings.macros')} onBack={() => setScreen('home')} t={t} />
+
+        <p className="hint">{t('onboarding.goalKcal').replace('{kcal}', Math.round(targetIntake))}</p>
+
+        <div className="filter-pill-row" style={{ marginTop: 0 }}>
+          {MACRO_PRESETS.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              className={proteinPct === p.protein && carbsPct === p.carbs ? 'filter-pill active' : 'filter-pill'}
+              onClick={() => {
+                setProteinPct(p.protein);
+                setCarbsPct(p.carbs);
+              }}
+            >
+              {t(`onboarding.macroPreset.${p.key}`)}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+          {[
+            { label: t('nutrient.protein'), color: 'var(--macro-protein)', pct: proteinPct, grams: Math.round((targetIntake * proteinPct) / 100 / 4) },
+            { label: t('nutrient.carbs'), color: 'var(--macro-carb)', pct: carbsPct, grams: Math.round((targetIntake * carbsPct) / 100 / 4) },
+            { label: t('nutrient.fat'), color: 'var(--macro-fat)', pct: fatPct, grams: Math.round((targetIntake * fatPct) / 100 / 9) },
+          ].map((m) => (
+            <div key={m.label}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14.5, fontWeight: 600 }}>
+                  <i style={{ width: 10, height: 10, borderRadius: 3, background: m.color, display: 'inline-block' }} />
+                  {m.label}
+                </span>
+                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  <b style={{ color: 'var(--text-primary)' }}>{m.grams} g</b> · {Math.round(m.pct)}%
+                </span>
+              </div>
+              <div style={{ position: 'relative', height: 8, borderRadius: 5, background: 'var(--ink-700, var(--border-subtle))' }}>
+                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(100, m.pct)}%`, borderRadius: 5, background: m.color }} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'var(--surface-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 18,
+            padding: '16px 18px',
+            marginTop: 22,
+          }}
+        >
+          <div>
+            <div className="hint" style={{ margin: 0 }}>{t('onboarding.totalMacros')}</div>
+            <div className="weight-value" style={{ fontSize: 22 }}>
+              {Math.round(targetIntake)} <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>kcal</span>
+            </div>
+          </div>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: proteinPct + carbsPct <= 100 ? 'var(--success)' : 'var(--danger)' }}>
+            <Icon name="circle-check" size={16} />
+            {Math.round(proteinPct + carbsPct + fatPct)}%
+          </span>
+        </div>
+
+        <button type="button" className="meal-add-cta" style={{ marginTop: 20, marginBottom: 12 }} onClick={saveMacros} disabled={savingMacros}>
+          <Icon name="check" size={20} />
+          {savingMacros ? t('addFood.saving') : t('meal.save')}
+        </button>
+      </div>
+    );
+  }
+
   // --- Password screen ---
   if (screen === 'password') {
     return (
@@ -772,6 +873,13 @@ export default function Settings({
             <Icon name="utensils" size={19} />
           </span>
           <span className="settings-list-label">{t('settings.meals')}</span>
+          <Icon name="chevron-right" size={18} color="var(--text-muted)" />
+        </button>
+        <button type="button" className="settings-list-row" onClick={() => setScreen('macros')}>
+          <span className="settings-list-icon">
+            <Icon name="chart-pie" size={19} />
+          </span>
+          <span className="settings-list-label">{t('settings.macros')}</span>
           <Icon name="chevron-right" size={18} color="var(--text-muted)" />
         </button>
       </div>
