@@ -181,6 +181,7 @@ export default function WeightReport({ onBack }) {
             {logs
               .slice()
               .reverse()
+              .slice(0, 10)
               .map((l) => (
                 <div className="entry-card" key={l.id}>
                   <div className="entry-card-body" style={{ cursor: 'default' }}>
