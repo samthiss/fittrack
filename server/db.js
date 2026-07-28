@@ -422,6 +422,7 @@ export const DEFAULT_ACTIVITY_SETTINGS = [
   { type: 'marche_tapis_incline_10', label: 'Tapis incliné 10%', kcal_per_hour: 700 },
   { type: 'marche_tapis_incline_12', label: 'Tapis incliné 12%', kcal_per_hour: 780 },
   { type: 'velo_ville', label: 'Vélo de ville', kcal_per_hour: 300 },
+  { type: 'corde_a_sauter', label: 'Corde à sauter', kcal_per_hour: 600 },
 ];
 
 // --- Multi-user migration ---------------------------------------------------------------------
@@ -740,6 +741,19 @@ const upsertSetting = db.prepare(`
 `);
 for (const setting of DEFAULT_ACTIVITY_SETTINGS) {
   upsertSetting.run(setting);
+}
+
+// Backfill: seedDefaultUserData (index.js) only inserts DEFAULT_ACTIVITY_SETTINGS for a BRAND NEW
+// account at registration time, so a type added to that list later (e.g. jump rope) never reaches
+// accounts that already existed — INSERT OR IGNORE here re-runs the same seeding for every
+// existing user on every boot, a no-op for types they already have.
+const insertMissingSetting = db.prepare(
+  `INSERT OR IGNORE INTO activity_settings (user_id, type, label, kcal_per_hour) VALUES (?, ?, ?, ?)`
+);
+for (const { id: userId } of db.prepare('SELECT id FROM users').all()) {
+  for (const setting of DEFAULT_ACTIVITY_SETTINGS) {
+    insertMissingSetting.run(userId, setting.type, setting.label, setting.kcal_per_hour);
+  }
 }
 
 export default db;
