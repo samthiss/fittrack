@@ -993,9 +993,14 @@ export default function AddFoodToMeal({
         >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+              <div className="meal-detail-heading">
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>
+                  {correctingResult ? t('addFood.modify') : editingResult ? t('addFood.modify') : scanResult.name}
+                </div>
+              </div>
               <button
                 type="button"
-                className="meal-detail-back-btn"
+                className="modal-back-text-btn"
                 onClick={() => {
                   if (correctingResult) {
                     setCorrectingResult(false);
@@ -1004,15 +1009,9 @@ export default function AddFoodToMeal({
                   setScanResult(null);
                   setEditingResult(false);
                 }}
-                aria-label={t('meal.close')}
               >
-                <Icon name={correctingResult ? 'chevron-left' : 'x'} size={20} />
+                {t('meal.back')}
               </button>
-              <div className="meal-detail-heading">
-                <div className="meal-detail-title" style={{ fontSize: 21 }}>
-                  {correctingResult ? t('addFood.modify') : editingResult ? t('addFood.modify') : scanResult.name}
-                </div>
-              </div>
             </div>
 
             {correctingResult ? (
