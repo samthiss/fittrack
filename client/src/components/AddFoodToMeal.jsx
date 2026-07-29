@@ -1013,16 +1013,6 @@ export default function AddFoodToMeal({
                   {correctingResult ? t('addFood.modify') : editingResult ? t('addFood.modify') : scanResult.name}
                 </div>
               </div>
-              {!editingResult && !correctingResult && (
-                <button
-                  type="button"
-                  className="entry-icon-btn"
-                  onClick={() => (scanSource === 'photo' ? handleStartCorrection() : setEditingResult(true))}
-                  aria-label={t('addFood.modify')}
-                >
-                  <Icon name="pencil" size={17} />
-                </button>
-              )}
             </div>
 
             {correctingResult ? (
@@ -1140,6 +1130,15 @@ export default function AddFoodToMeal({
                     />
                     <span className="qty-editor-unit">g</span>
                   </div>
+                  {!editingResult && (
+                    <button
+                      type="button"
+                      className="btn-block-secondary"
+                      onClick={() => (scanSource === 'photo' ? handleStartCorrection() : setEditingResult(true))}
+                    >
+                      {t('addFood.modify')}
+                    </button>
+                  )}
                   <button type="button" className="btn btn-block" onClick={handleAddScanResult} disabled={scanAdding}>
                     {scanAdding ? t('addFood.saving') : t('addFood.confirm')}
                   </button>

@@ -1336,6 +1336,24 @@
   border-radius: 7px;
 }
 
+/* Secondary block action (e.g. "Modifier" sitting right above the primary "Confirmer") — same
+   footprint as .btn-block but a bordered surface instead of the accent gradient, so it doesn't
+   compete with the primary action for attention. */
+.btn-block-secondary {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px 18px;
+  font-size: 15px;
+  border-radius: var(--radius-md, 9px);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  color: var(--txt);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .btn-ghost {
   background: none;
   border: 0;
