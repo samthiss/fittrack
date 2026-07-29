@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import BarcodeScanner from './BarcodeScanner';
+import CameraCapture from './CameraCapture';
 import { api } from '../api';
 import { findRecurringItems } from './MealPlanner';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -83,6 +84,7 @@ export default function AddFoodToMeal({
     { key: 'manual', icon: 'pencil-line', label: t('addFood.toolManual') },
   ];
   const photoInputRef = useRef(null);
+  const [showCamera, setShowCamera] = useState(false);
   const [activeTool, setActiveTool] = useState(null);
   const [search, setSearch] = useState('');
   const [itemKind, setItemKind] = useState('food');
@@ -373,10 +375,9 @@ export default function AddFoodToMeal({
     }
   }
 
-  async function handlePhotoSelected(e) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+  async function processPhotoFile(file) {
     if (!file || !onParsePhoto) return;
+    setShowCamera(false);
     setTextLoading(true);
     setScanStatus({ text: t('addFood.analyzing') });
     setScanResult(null);
@@ -393,6 +394,12 @@ export default function AddFoodToMeal({
     } finally {
       setTextLoading(false);
     }
+  }
+
+  function handlePhotoSelected(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    processPhotoFile(file);
   }
 
   function handleStartCorrection() {
@@ -503,10 +510,23 @@ export default function AddFoodToMeal({
         ref={photoInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         style={{ display: 'none' }}
         onChange={handlePhotoSelected}
       />
+      {showCamera && (
+        <CameraCapture
+          onCapture={processPhotoFile}
+          onClose={() => setShowCamera(false)}
+          onPickLibrary={() => {
+            setShowCamera(false);
+            photoInputRef.current?.click();
+          }}
+          onFallback={() => {
+            setShowCamera(false);
+            photoInputRef.current?.click();
+          }}
+        />
+      )}
       <div className="card">
         <div className="type-list-row">
           <button
@@ -531,7 +551,7 @@ export default function AddFoodToMeal({
               key={tool.key}
               type="button"
               className={tool.key === activeTool ? 'tool-tile active' : 'tool-tile'}
-              onClick={() => (tool.key === 'photo' ? photoInputRef.current?.click() : setActiveTool(tool.key))}
+              onClick={() => (tool.key === 'photo' ? setShowCamera(true) : setActiveTool(tool.key))}
             >
               <Icon name={tool.icon} size={20} />
               <span className="tool-tile-label">{tool.label}</span>
