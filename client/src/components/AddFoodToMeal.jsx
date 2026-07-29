@@ -97,10 +97,17 @@ export default function AddFoodToMeal({
   const [recurringKeys, setRecurringKeys] = useState(new Set());
   const swipeRef = useRef(null);
   const [scanResult, setScanResult] = useState(null);
+  const [scanSource, setScanSource] = useState(null);
   const [editingResult, setEditingResult] = useState(false);
   const [scanQty, setScanQty] = useState('100');
   const [scanStatus, setScanStatus] = useState(null);
   const [scanAdding, setScanAdding] = useState(false);
+  // Photo recognition can misread a dish — instead of forcing the user into per-macro number
+  // edits right away, this offers the same fix a mis-heard voice order gets: redescribe it in
+  // plain text and let the same text-analysis pipeline (onParseText) re-run on the correction.
+  const [correctingResult, setCorrectingResult] = useState(false);
+  const [correctionText, setCorrectionText] = useState('');
+  const [correctionLoading, setCorrectionLoading] = useState(false);
   const [manualForm, setManualForm] = useState(EMPTY_FOOD);
   const [textInput, setTextInput] = useState('');
   const [textLoading, setTextLoading] = useState(false);
@@ -377,6 +384,7 @@ export default function AddFoodToMeal({
     try {
       const result = await onParsePhoto(file);
       setScanResult(result);
+      setScanSource('photo');
       setScanQty(String(Math.round(result.suggestedQuantity || 100)));
       setScanStatus(null);
       setActiveTool(null);
@@ -384,6 +392,27 @@ export default function AddFoodToMeal({
       setScanStatus({ text: err.message || t('addFood.analysisFailed'), error: true });
     } finally {
       setTextLoading(false);
+    }
+  }
+
+  function handleStartCorrection() {
+    setCorrectionText(scanResult.name);
+    setCorrectingResult(true);
+  }
+
+  async function handleSubmitCorrection() {
+    const text = correctionText.trim();
+    if (!text || correctionLoading) return;
+    setCorrectionLoading(true);
+    try {
+      const result = await onParseText(text);
+      setScanResult(result);
+      setScanQty(String(Math.round(result.suggestedQuantity || 100)));
+      setCorrectingResult(false);
+    } catch (err) {
+      setScanStatus({ text: err.message || t('addFood.analysisFailed'), error: true });
+    } finally {
+      setCorrectionLoading(false);
     }
   }
 
@@ -939,6 +968,7 @@ export default function AddFoodToMeal({
           onClick={() => {
             setScanResult(null);
             setEditingResult(false);
+            setCorrectingResult(false);
           }}
         >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -947,24 +977,49 @@ export default function AddFoodToMeal({
                 type="button"
                 className="meal-detail-back-btn"
                 onClick={() => {
+                  if (correctingResult) {
+                    setCorrectingResult(false);
+                    return;
+                  }
                   setScanResult(null);
                   setEditingResult(false);
                 }}
                 aria-label={t('meal.close')}
               >
-                <Icon name="x" size={20} />
+                <Icon name={correctingResult ? 'chevron-left' : 'x'} size={20} />
               </button>
               <div className="meal-detail-heading">
-                <div className="meal-detail-title" style={{ fontSize: 21 }}>{editingResult ? t('addFood.modify') : scanResult.name}</div>
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>
+                  {correctingResult ? t('addFood.modify') : editingResult ? t('addFood.modify') : scanResult.name}
+                </div>
               </div>
-              {!editingResult && (
-                <button type="button" className="entry-icon-btn" onClick={() => setEditingResult(true)} aria-label={t('addFood.modify')}>
+              {!editingResult && !correctingResult && (
+                <button
+                  type="button"
+                  className="entry-icon-btn"
+                  onClick={() => (scanSource === 'photo' ? handleStartCorrection() : setEditingResult(true))}
+                  aria-label={t('addFood.modify')}
+                >
                   <Icon name="pencil" size={17} />
                 </button>
               )}
             </div>
 
-            {editingResult ? (
+            {correctingResult ? (
+              <>
+                <p className="hint" style={{ marginBottom: 12 }}>{t('addFood.correctDescriptionHint')}</p>
+                <textarea
+                  className="wide correct-description-input"
+                  rows={5}
+                  value={correctionText}
+                  onChange={(e) => setCorrectionText(e.target.value)}
+                  autoFocus
+                />
+                <button type="button" className="btn btn-block" style={{ marginTop: 16 }} onClick={handleSubmitCorrection} disabled={correctionLoading}>
+                  {correctionLoading ? t('addFood.analyzingAction') : t('addFood.adjustMeal')}
+                </button>
+              </>
+            ) : editingResult ? (
               <>
                 <div className="row">
                   <label>{t('addFood.name')}</label>
@@ -1051,22 +1106,26 @@ export default function AddFoodToMeal({
               )
             )}
 
-            <h4 className="section-label">{t('addFood.quantity')}</h4>
-            <div className="qty-editor">
-              <div className="qty-editor-row">
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={scanQty}
-                  onChange={(e) => setScanQty(e.target.value)}
-                />
-                <span className="qty-editor-unit">g</span>
-              </div>
-              <button type="button" className="btn btn-block" onClick={handleAddScanResult} disabled={scanAdding}>
-                {scanAdding ? t('addFood.saving') : t('addFood.confirm')}
-              </button>
-            </div>
+            {!correctingResult && (
+              <>
+                <h4 className="section-label">{t('addFood.quantity')}</h4>
+                <div className="qty-editor">
+                  <div className="qty-editor-row">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={scanQty}
+                      onChange={(e) => setScanQty(e.target.value)}
+                    />
+                    <span className="qty-editor-unit">g</span>
+                  </div>
+                  <button type="button" className="btn btn-block" onClick={handleAddScanResult} disabled={scanAdding}>
+                    {scanAdding ? t('addFood.saving') : t('addFood.confirm')}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

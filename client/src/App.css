@@ -1486,6 +1486,10 @@ textarea.wide {
   font-family: var(--sans);
 }
 
+.correct-description-input {
+  min-height: 120px;
+}
+
 .hint.error {
   color: var(--warn);
 }
