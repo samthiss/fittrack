@@ -159,8 +159,8 @@ function MainApp({ onLogout, account }) {
     await refreshCore();
   }
 
-  async function handleAddWater() {
-    await api.addWater(date);
+  async function handleAddWater(amountMl) {
+    await api.addWater(date, amountMl);
     setWater(await api.getWater(date));
   }
 
@@ -307,6 +307,8 @@ function MainApp({ onLogout, account }) {
               water={water}
               onAddWater={handleAddWater}
               onRemoveLastWater={handleRemoveLastWater}
+              defaultWaterMl={profile?.default_water_ml || 700}
+              waterGoalMl={profile?.water_goal_ml || 4000}
               onOpenWeight={() => setView('poids-rapport')}
               onOpenReport={() => setView('rapport')}
               onOpenWeightReport={() => setView('poids-rapport')}

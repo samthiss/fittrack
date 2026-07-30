@@ -575,6 +575,16 @@ if (!profileCols2.includes('meal_shares')) {
 if (!profileCols2.includes('extra_snacks')) {
   db.exec(`ALTER TABLE profile ADD COLUMN extra_snacks TEXT`);
 }
+// Which preset (250/500/700/1000 ml) the water quick-add dropdown in the journal starts on —
+// set via Réglages > Eau. NULL falls back to 700ml, the app's original fixed amount.
+if (!profileCols2.includes('default_water_ml')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN default_water_ml REAL`);
+}
+// Daily water goal shown on the journal's progress bar (3L or 4L) — set via Réglages > Eau.
+// NULL falls back to 4000ml, the app's original fixed goal.
+if (!profileCols2.includes('water_goal_ml')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN water_goal_ml REAL`);
+}
 
 // Free-text muscle/body-part tag per exercise (e.g. "Quadriceps") — shown above the exercise
 // name and rolled up into a pill row on the exercise's saved workout_templates card.

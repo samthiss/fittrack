@@ -5,6 +5,8 @@ import { useLanguage } from '../i18n/LanguageContext';
 
 const GOAL_KEYS = ['lose', 'maintain', 'gain'];
 const PACE_OPTIONS = [500, 750, 1000];
+const WATER_ML_PRESETS = [250, 500, 700, 1000];
+const WATER_GOAL_PRESETS = [3000, 4000];
 const MACRO_PRESETS = [
   { key: 'balanced', protein: 30, carbs: 35 },
   { key: 'highProtein', protein: 40, carbs: 30 },
@@ -290,6 +292,29 @@ export default function Settings({
       setScreen('home');
     } finally {
       setSavingGoal(false);
+    }
+  }
+
+  // --- Water screen state ---
+  const [defaultWaterMl, setDefaultWaterMl] = useState(700);
+  const [waterGoalMl, setWaterGoalMl] = useState(4000);
+  const [savingWater, setSavingWater] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setDefaultWaterMl(profile.default_water_ml || 700);
+      setWaterGoalMl(profile.water_goal_ml || 4000);
+    }
+  }, [profile]);
+
+  async function handleSaveWaterScreen() {
+    if (savingWater) return;
+    setSavingWater(true);
+    try {
+      await onSaveProfile({ default_water_ml: defaultWaterMl, water_goal_ml: waterGoalMl });
+      setScreen('home');
+    } finally {
+      setSavingWater(false);
     }
   }
 
@@ -683,6 +708,53 @@ export default function Settings({
     );
   }
 
+  if (screen === 'water') {
+    return (
+      <div>
+        <SubHeader title={t('settings.water')} onBack={() => setScreen('home')} t={t} />
+
+        <h4 className="section-label" style={{ marginTop: 0 }}>{t('settings.waterDefault')}</h4>
+        <div className="type-list-row">
+          {WATER_ML_PRESETS.map((ml) => (
+            <button
+              key={ml}
+              type="button"
+              className={defaultWaterMl === ml ? 'type-pill active' : 'type-pill'}
+              onClick={() => setDefaultWaterMl(ml)}
+            >
+              {ml >= 1000 ? `${ml / 1000}L` : `${ml}ml`}
+            </button>
+          ))}
+        </div>
+
+        <h4 className="section-label">{t('settings.waterGoal')}</h4>
+        <div className="type-list-row">
+          {WATER_GOAL_PRESETS.map((ml) => (
+            <button
+              key={ml}
+              type="button"
+              className={waterGoalMl === ml ? 'type-pill active' : 'type-pill'}
+              onClick={() => setWaterGoalMl(ml)}
+            >
+              {ml / 1000}L
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className="meal-add-cta"
+          style={{ marginTop: 20, marginBottom: 20 }}
+          onClick={handleSaveWaterScreen}
+          disabled={savingWater}
+        >
+          <Icon name="check" size={20} />
+          {savingWater ? t('addFood.saving') : t('meal.save')}
+        </button>
+      </div>
+    );
+  }
+
   // --- Custom activities screen ---
   if (screen === 'activities') {
     const filtered = activityTypes.filter((a) =>
@@ -893,6 +965,13 @@ export default function Settings({
             <Icon name="chart-pie" size={19} />
           </span>
           <span className="settings-list-label">{t('settings.macros')}</span>
+          <Icon name="chevron-right" size={18} color="var(--text-muted)" />
+        </button>
+        <button type="button" className="settings-list-row" onClick={() => setScreen('water')}>
+          <span className="settings-list-icon">
+            <Icon name="droplet" size={19} />
+          </span>
+          <span className="settings-list-label">{t('settings.water')}</span>
           <Icon name="chevron-right" size={18} color="var(--text-muted)" />
         </button>
       </div>

@@ -30,7 +30,7 @@ function MacroMiniBar({ label, value, max, color }) {
   );
 }
 
-const WATER_GOAL_ML = 4000;
+const DEFAULT_WATER_GOAL_ML = 4000;
 
 const MEAL_ICONS = {
   breakfast: 'sunrise',
@@ -73,6 +73,8 @@ function formatDateLabel(dateStr, t) {
   return `${weekday} ${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
 }
 
+const WATER_PRESETS_ML = [250, 500, 700, 1000];
+
 export default function HomeDashboard({
   dashboard,
   date,
@@ -82,6 +84,8 @@ export default function HomeDashboard({
   water,
   onAddWater,
   onRemoveLastWater,
+  defaultWaterMl,
+  waterGoalMl,
   onOpenWeight,
   onOpenReport,
   onOpenWeightReport,
@@ -90,6 +94,12 @@ export default function HomeDashboard({
   const [improvementIndex, setImprovementIndex] = useState(0);
   const [latestWeight, setLatestWeight] = useState(null);
   const [weightSaving, setWeightSaving] = useState(false);
+  // Sticks to whatever the user last picked for the rest of the session — only resets to the
+  // configured default (Réglages > Eau) when that default itself changes.
+  const [waterAmount, setWaterAmount] = useState(defaultWaterMl);
+  useEffect(() => {
+    setWaterAmount(defaultWaterMl);
+  }, [defaultWaterMl]);
 
   const refreshLatestWeight = useCallback(async () => {
     const logs = await api.getWeightLogs('90');
@@ -234,13 +244,16 @@ export default function HomeDashboard({
             <div className="resume-water-top">
               <span>{t('home.water')}</span>
               <span>
-                {water.totalMl} / {WATER_GOAL_ML} ml
+                {water.totalMl} / {waterGoalMl || DEFAULT_WATER_GOAL_ML} ml
               </span>
             </div>
             <div className="progress-track">
               <div
                 className="progress-fill"
-                style={{ width: `${Math.min(100, Math.round((water.totalMl / WATER_GOAL_ML) * 100))}%`, background: 'var(--macro-water)' }}
+                style={{
+                  width: `${Math.min(100, Math.round((water.totalMl / (waterGoalMl || DEFAULT_WATER_GOAL_ML)) * 100))}%`,
+                  background: 'var(--macro-water)',
+                }}
               />
             </div>
           </div>
@@ -250,7 +263,19 @@ export default function HomeDashboard({
                 <Icon name="minus" size={14} />
               </button>
             )}
-            <button type="button" className="resume-water-btn" onClick={onAddWater} aria-label={t('home.addWater')}>
+            <select
+              className="resume-water-select"
+              value={waterAmount}
+              onChange={(e) => setWaterAmount(Number(e.target.value))}
+              aria-label={t('home.waterAmount')}
+            >
+              {WATER_PRESETS_ML.map((ml) => (
+                <option key={ml} value={ml}>
+                  {ml >= 1000 ? `${ml / 1000}L` : `${ml}ml`}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="resume-water-btn" onClick={() => onAddWater(waterAmount)} aria-label={t('home.addWater')}>
               <Icon name="plus" size={14} />
             </button>
           </div>

@@ -107,6 +107,9 @@ export const translations = {
     'settings.unitsValue': 'Métrique (kg, cm)',
     'settings.meals': 'Repas du jour',
     'settings.macros': 'Ajuster macro',
+    'settings.water': 'Eau',
+    'settings.waterDefault': 'Quantité par défaut',
+    'settings.waterGoal': 'Objectif quotidien',
     'settings.mealsHint': "Répartis ton objectif calorique quotidien entre les repas — le total doit correspondre à ton objectif.",
     'settings.totalMeals': 'Total repas',
     'settings.addSnack': 'Ajouter un en-cas',
@@ -422,6 +425,7 @@ export const translations = {
     'home.viewReport': 'Voir le rapport',
     'home.addWater': "Ajouter de l'eau",
     'home.removeWater': "Retirer de l'eau",
+    'home.waterAmount': 'Quantité',
 
     // Improvement insights
     'insights.nothing': 'Rien à signaler — pas de carence ni de dépassement sur la période.',
@@ -842,6 +846,9 @@ export const translations = {
     'settings.unitsValue': 'Metric (kg, cm)',
     'settings.meals': "Today's meals",
     'settings.macros': 'Adjust macros',
+    'settings.water': 'Water',
+    'settings.waterDefault': 'Default amount',
+    'settings.waterGoal': 'Daily goal',
     'settings.mealsHint': "Split your daily calorie target across meals — the total should match your target.",
     'settings.totalMeals': 'Meals total',
     'settings.addSnack': 'Add a snack',
@@ -1157,6 +1164,7 @@ export const translations = {
     'home.viewReport': 'View report',
     'home.addWater': 'Add water',
     'home.removeWater': 'Remove water',
+    'home.waterAmount': 'Amount',
 
     // Improvement insights
     'insights.nothing': 'Nothing to report — no deficiency or excess over the period.',

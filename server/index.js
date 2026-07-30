@@ -389,7 +389,7 @@ app.get('/api/profile', (req, res) => {
 const SEX_OPTIONS = ['male', 'female', 'other'];
 
 app.put('/api/profile', (req, res) => {
-  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks } = req.body;
+  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks, default_water_ml, water_goal_ml } = req.body;
 
   if (goal !== undefined && !GOALS.includes(goal)) {
     return res.status(400).json({ error: 'goal invalide' });
@@ -441,12 +441,14 @@ app.put('/api/profile', (req, res) => {
     carbs_pct: carbs_pct !== undefined ? carbs_pct : current.carbs_pct,
     meal_shares: meal_shares !== undefined ? (meal_shares === null ? null : JSON.stringify(meal_shares)) : current.meal_shares,
     extra_snacks: nextExtraSnacksJson,
+    default_water_ml: default_water_ml !== undefined ? default_water_ml : current.default_water_ml,
+    water_goal_ml: water_goal_ml !== undefined ? water_goal_ml : current.water_goal_ml,
   };
 
   db.prepare(
     `UPDATE profile SET bmr = ?, daily_movement_kcal = ?, digestion_kcal = ?, weight_kg = ?, goal = ?, goal_kcal = ?,
      sex = ?, birthdate = ?, height_cm = ?, body_fat_pct = ?, manual_target_kcal = ?, target_weight_kg = ?, steps_per_day = ?,
-     protein_pct = ?, carbs_pct = ?, meal_shares = ?, extra_snacks = ?
+     protein_pct = ?, carbs_pct = ?, meal_shares = ?, extra_snacks = ?, default_water_ml = ?, water_goal_ml = ?
      WHERE user_id = ?`
   ).run(
     next.bmr,
@@ -466,6 +468,8 @@ app.put('/api/profile', (req, res) => {
     next.carbs_pct,
     next.meal_shares,
     next.extra_snacks,
+    next.default_water_ml,
+    next.water_goal_ml,
     req.userId
   );
 
@@ -864,11 +868,14 @@ app.get('/api/water', (req, res) => {
   });
 });
 
+const WATER_PRESETS_ML = [250, 500, 700, 1000];
+
 app.post('/api/water', (req, res) => {
   const date = req.body.date || todayStr();
+  const amountMl = WATER_PRESETS_ML.includes(Number(req.body.amount_ml)) ? Number(req.body.amount_ml) : 700;
   const result = db
-    .prepare('INSERT INTO water_logs (user_id, date, amount_ml) VALUES (?, ?, 700)')
-    .run(req.userId, date);
+    .prepare('INSERT INTO water_logs (user_id, date, amount_ml) VALUES (?, ?, ?)')
+    .run(req.userId, date, amountMl);
   const log = db.prepare('SELECT * FROM water_logs WHERE id = ?').get(result.lastInsertRowid);
   res.status(201).json(log);
 });

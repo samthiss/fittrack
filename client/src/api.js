@@ -65,7 +65,7 @@ export const api = {
   applyActivityPlanToLog: (date) =>
     request('/activity-plan/apply-to-log', { method: 'POST', body: JSON.stringify({ date }) }),
   getWater: (date) => request(`/water?date=${date}`),
-  addWater: (date) => request('/water', { method: 'POST', body: JSON.stringify({ date }) }),
+  addWater: (date, amountMl) => request('/water', { method: 'POST', body: JSON.stringify({ date, amount_ml: amountMl }) }),
   deleteWater: (id) => request(`/water/${id}`, { method: 'DELETE' }),
   getSummary: (date) => request(`/summary?date=${date}`),
   getRecipes: () => request('/recipes'),

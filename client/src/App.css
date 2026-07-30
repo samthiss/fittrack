@@ -1952,6 +1952,17 @@ textarea.wide {
   cursor: pointer;
 }
 
+.resume-water-select {
+  flex: none;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong, var(--line));
+  background: transparent;
+  color: var(--text-secondary, var(--dim));
+  font-size: 12px;
+  padding: 0 4px;
+}
+
 .meal-card-list {
   display: flex;
   flex-direction: column;
