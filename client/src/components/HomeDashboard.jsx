@@ -260,7 +260,7 @@ export default function HomeDashboard({
           <div className="resume-water-actions">
             {water.manualMl > 0 && (
               <button type="button" className="resume-water-btn" onClick={onRemoveLastWater} aria-label={t('home.removeWater')}>
-                <Icon name="minus" size={14} />
+                <Icon name="minus" size={17} />
               </button>
             )}
             <select
@@ -276,7 +276,7 @@ export default function HomeDashboard({
               ))}
             </select>
             <button type="button" className="resume-water-btn" onClick={() => onAddWater(waterAmount)} aria-label={t('home.addWater')}>
-              <Icon name="plus" size={14} />
+              <Icon name="plus" size={17} />
             </button>
           </div>
         </div>

@@ -1939,12 +1939,12 @@ textarea.wide {
 }
 
 .resume-water-btn {
-  width: 26px;
-  height: 26px;
+  width: 40px;
+  height: 40px;
   flex: none;
-  border-radius: 8px;
-  border: 1px solid var(--border-strong, var(--line));
-  background: transparent;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle, var(--line));
+  background: var(--surface-card);
   color: var(--text-secondary, var(--dim));
   display: flex;
   align-items: center;
@@ -1954,13 +1954,15 @@ textarea.wide {
 
 .resume-water-select {
   flex: none;
-  height: 26px;
-  border-radius: 8px;
-  border: 1px solid var(--border-strong, var(--line));
-  background: transparent;
-  color: var(--text-secondary, var(--dim));
-  font-size: 12px;
-  padding: 0 4px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle, var(--line));
+  background: var(--surface-card);
+  color: var(--txt);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0 8px;
 }
 
 .meal-card-list {
