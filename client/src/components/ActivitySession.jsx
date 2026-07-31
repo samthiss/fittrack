@@ -54,6 +54,7 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
   const [name, setName] = useState('');
   const [sets, setSets] = useState(4);
   const [reps, setReps] = useState(10);
+  const [setTargets, setSetTargets] = useState([]);
   const [weight, setWeight] = useState('');
   const [muscleGroup, setMuscleGroup] = useState('');
   const [showMuscleGroupPicker, setShowMuscleGroupPicker] = useState(false);
@@ -63,17 +64,20 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
     if (!name.trim() || saving) return;
     setSaving(true);
     try {
+      const cleanTargets = setTargets.map((s) => s.trim()).filter(Boolean);
       const created = await api.addActivityExercise(activity.id, {
         name: name.trim(),
-        sets: Number(sets) || 3,
+        sets: cleanTargets.length > 0 ? cleanTargets.length : Number(sets) || 3,
         reps: Number(reps) || 10,
         weight_kg: weight === '' ? null : Number(weight),
         muscle_group: muscleGroup.trim() || null,
+        set_targets: cleanTargets.length > 0 ? cleanTargets : null,
       });
       onAddExercise(created);
       setName('');
       setSets(4);
       setReps(10);
+      setSetTargets([]);
       setWeight('');
       setMuscleGroup('');
       setShowAdd(false);
@@ -150,7 +154,7 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
               <div className="entry-card-body">
                 <div className="entry-card-name" style={{ color: done ? 'var(--txt)' : undefined }}>{ex.name}</div>
                 <div className="entry-card-sub">
-                  {ex.sets} {t('activityLog.setsShort')}
+                  {ex.set_targets && ex.set_targets.length > 0 ? ex.set_targets.length : ex.sets} {t('activityLog.setsShort')}
                   {ex.weight_kg != null ? ` · ${ex.weight_kg} kg` : ''}
                 </div>
               </div>
@@ -182,6 +186,7 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
               sets: ex.sets,
               reps: ex.reps,
               weight_kg: ex.weight_kg,
+              set_targets: ex.set_targets,
             });
             onAddExercise(created);
           }}
@@ -217,20 +222,58 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
               <Icon name="chevron-right" size={16} color="var(--text-muted)" />
             </button>
 
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <h4 className="section-label">{t('activityLog.sets')}</h4>
-                <div className="search-input-row">
-                  <input type="number" min="1" className="search-input" value={sets} onChange={(e) => setSets(e.target.value)} />
+            {setTargets.length === 0 && (
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <h4 className="section-label">{t('activityLog.sets')}</h4>
+                  <div className="search-input-row">
+                    <input type="number" min="1" className="search-input" value={sets} onChange={(e) => setSets(e.target.value)} />
+                  </div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h4 className="section-label">{t('activityLog.reps')}</h4>
+                  <div className="search-input-row">
+                    <input type="number" min="1" className="search-input" value={reps} onChange={(e) => setReps(e.target.value)} />
+                  </div>
                 </div>
               </div>
-              <div style={{ flex: 1 }}>
-                <h4 className="section-label">{t('activityLog.reps')}</h4>
-                <div className="search-input-row">
-                  <input type="number" min="1" className="search-input" value={reps} onChange={(e) => setReps(e.target.value)} />
-                </div>
+            )}
+
+            <h4 className="section-label">
+              {t('activityLog.setTargets')} <span style={{ textTransform: 'none', fontWeight: 400 }}>({t('profile.optional')})</span>
+            </h4>
+            <p className="hint" style={{ padding: '0 0 8px' }}>{t('activityLog.setTargetsHint')}</p>
+            {setTargets.map((val, i) => (
+              <div className="search-input-row" key={i} style={{ marginBottom: 8 }}>
+                <input
+                  type="text"
+                  className="search-input"
+                  value={val}
+                  placeholder={t('activityLog.setTargetPlaceholder')}
+                  onChange={(e) => setSetTargets((rows) => rows.map((r, ri) => (ri === i ? e.target.value : r)))}
+                />
+                <button type="button" className="entry-icon-btn" aria-label="up" onClick={() => setSetTargets((rows) => rows.map((r, ri) => (ri === i ? `${r}↑` : r)))}>
+                  ↑
+                </button>
+                <button type="button" className="entry-icon-btn" aria-label="down" onClick={() => setSetTargets((rows) => rows.map((r, ri) => (ri === i ? `${r}↓` : r)))}>
+                  ↓
+                </button>
+                <button type="button" className="entry-icon-btn entry-delete-btn" onClick={() => setSetTargets((rows) => rows.filter((_, ri) => ri !== i))}>
+                  <Icon name="trash-2" size={16} />
+                </button>
               </div>
-            </div>
+            ))}
+            <button
+              type="button"
+              className="recurring-feature-row"
+              style={{ justifyContent: 'center', width: '100%', marginBottom: 12, font: 'inherit', cursor: 'pointer' }}
+              onClick={() => setSetTargets((rows) => [...rows, ''])}
+            >
+              <Icon name="plus" size={16} color="var(--acc)" />
+              <span className="recurring-feature-title" style={{ color: 'var(--acc)' }}>
+                S{setTargets.length + 1}
+              </span>
+            </button>
 
             <h4 className="section-label">{t('activityLog.weightKg')}</h4>
             <div className="search-input-row">

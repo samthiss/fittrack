@@ -592,6 +592,13 @@ const activityExerciseColumns = db.prepare('PRAGMA table_info(activity_exercises
 if (!activityExerciseColumns.includes('muscle_group')) {
   db.exec(`ALTER TABLE activity_exercises ADD COLUMN muscle_group TEXT`);
 }
+// Per-set rep targets (e.g. ["5-9↑", "10-15↓"] for a reverse-pyramid scheme) as a JSON array of
+// strings — NULL means "no per-set scheme, just use sets × reps" (the original, simpler shape).
+// sets/reps stay as-is alongside it (auto-derived from the scheme when one is set) so every
+// existing kcal estimate / display that only knows about sets×reps keeps working unchanged.
+if (!activityExerciseColumns.includes('set_targets')) {
+  db.exec(`ALTER TABLE activity_exercises ADD COLUMN set_targets TEXT`);
+}
 
 // Seed one history row from the current profile if none exists yet, so profileAsOf() in
 // index.js always has a fallback for dates before this feature started tracking changes.

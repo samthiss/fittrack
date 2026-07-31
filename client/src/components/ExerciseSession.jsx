@@ -256,6 +256,11 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
               </span>
               <div className="entry-card-body" style={{ cursor: 'default' }}>
                 <div className="entry-card-name">{t('activityLog.setLabel').replace('{n}', i + 1)}</div>
+                {exercise.set_targets?.[i] && (
+                  <div className="entry-card-sub">
+                    {t('activityLog.target')} {exercise.set_targets[i]}
+                  </div>
+                )}
               </div>
               {current ? (
                 <span className="activites-row-kcal" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>

@@ -597,15 +597,46 @@ app.delete('/api/activities/:id', (req, res) => {
 });
 
 // --- Exercises within a strength-training activity_logs entry (type='force') ---
+// set_targets is stored as a JSON string (or NULL) — parsed back to a real array/null here so
+// every response consistently hands the client an array instead of a string to re-parse.
+function serializeExercise(row) {
+  return { ...row, set_targets: row.set_targets ? JSON.parse(row.set_targets) : null };
+}
+
 app.get('/api/activities/:id/exercises', (req, res) => {
   const rows = db
     .prepare('SELECT * FROM activity_exercises WHERE activity_log_id = ? AND user_id = ? ORDER BY order_index, id')
     .all(req.params.id, req.userId);
-  res.json(rows);
+  res.json(rows.map(serializeExercise));
 });
 
+// Array of ["5-9↑", "10-15↓", ...] (a per-set rep target, e.g. from a reverse-pyramid scheme) ->
+// a JSON string to store, or null if absent/empty/malformed — same "explicit null clears it"
+// convention as muscle_group.
+function normalizeSetTargets(input) {
+  if (!Array.isArray(input) || input.length === 0) return null;
+  const cleaned = input
+    .map((s) => (typeof s === 'string' ? s.trim() : ''))
+    .filter(Boolean)
+    .slice(0, 8);
+  return cleaned.length > 0 ? JSON.stringify(cleaned) : null;
+}
+
+// First set target's leading number (e.g. "5-9↑" -> 5) as a sane `reps` fallback for anything
+// that only knows about the plain sets×reps shape (kcal estimates, exercises picked from history).
+function repsFromSetTargets(setTargetsJson) {
+  if (!setTargetsJson) return null;
+  try {
+    const [first] = JSON.parse(setTargetsJson);
+    const n = parseInt(first, 10);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 app.post('/api/activities/:id/exercises', (req, res) => {
-  const { name, sets, reps, weight_kg, muscle_group } = req.body;
+  const { name, sets, reps, weight_kg, muscle_group, set_targets } = req.body;
   if (!name) return res.status(400).json({ error: 'name requis' });
   const activity = db.prepare('SELECT id FROM activity_logs WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   if (!activity) return res.status(404).json({ error: 'Activité introuvable' });
@@ -614,39 +645,54 @@ app.post('/api/activities/:id/exercises', (req, res) => {
     .prepare('SELECT COALESCE(MAX(order_index), -1) AS maxOrder FROM activity_exercises WHERE activity_log_id = ? AND user_id = ?')
     .get(req.params.id, req.userId);
 
+  const normalizedTargets = normalizeSetTargets(set_targets);
+
   const result = db
     .prepare(
-      `INSERT INTO activity_exercises (user_id, activity_log_id, name, sets, reps, weight_kg, muscle_group, order_index)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO activity_exercises (user_id, activity_log_id, name, sets, reps, weight_kg, muscle_group, order_index, set_targets)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       req.userId,
       req.params.id,
       name,
-      Number(sets) || 3,
-      Number(reps) || 10,
+      normalizedTargets ? JSON.parse(normalizedTargets).length : Number(sets) || 3,
+      normalizedTargets ? repsFromSetTargets(normalizedTargets) || Number(reps) || 10 : Number(reps) || 10,
       weight_kg != null && weight_kg !== '' ? Number(weight_kg) : null,
       muscle_group && muscle_group.trim() ? muscle_group.trim() : null,
-      maxOrder + 1
+      maxOrder + 1,
+      normalizedTargets
     );
 
-  res.status(201).json(db.prepare('SELECT * FROM activity_exercises WHERE id = ?').get(result.lastInsertRowid));
+  res.status(201).json(serializeExercise(db.prepare('SELECT * FROM activity_exercises WHERE id = ?').get(result.lastInsertRowid)));
 });
 
 app.put('/api/exercises/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM activity_exercises WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   if (!existing) return res.status(404).json({ error: 'Exercice introuvable' });
-  const { name, sets, reps, weight_kg, muscle_group } = req.body;
-  db.prepare('UPDATE activity_exercises SET name = ?, sets = ?, reps = ?, weight_kg = ?, muscle_group = ? WHERE id = ? AND user_id = ?').run(
+  const { name, sets, reps, weight_kg, muscle_group, set_targets } = req.body;
+  const normalizedTargets = set_targets !== undefined ? normalizeSetTargets(set_targets) : existing.set_targets;
+  db.prepare(
+    'UPDATE activity_exercises SET name = ?, sets = ?, reps = ?, weight_kg = ?, muscle_group = ?, set_targets = ? WHERE id = ? AND user_id = ?'
+  ).run(
     name ?? existing.name,
-    sets != null ? Number(sets) : existing.sets,
-    reps != null ? Number(reps) : existing.reps,
+    normalizedTargets
+      ? JSON.parse(normalizedTargets).length
+      : sets != null
+        ? Number(sets)
+        : existing.sets,
+    normalizedTargets
+      ? repsFromSetTargets(normalizedTargets) || (reps != null ? Number(reps) : existing.reps)
+      : reps != null
+        ? Number(reps)
+        : existing.reps,
     weight_kg !== undefined ? (weight_kg !== '' && weight_kg !== null ? Number(weight_kg) : null) : existing.weight_kg,
     muscle_group !== undefined ? (muscle_group && muscle_group.trim() ? muscle_group.trim() : null) : existing.muscle_group,
+    normalizedTargets,
     req.params.id,
     req.userId
   );
-  res.json(db.prepare('SELECT * FROM activity_exercises WHERE id = ?').get(req.params.id));
+  res.json(serializeExercise(db.prepare('SELECT * FROM activity_exercises WHERE id = ?').get(req.params.id)));
 });
 
 app.delete('/api/exercises/:id', (req, res) => {
@@ -660,11 +706,11 @@ app.delete('/api/exercises/:id', (req, res) => {
 app.get('/api/exercise-library', (req, res) => {
   const rows = db
     .prepare(
-      `SELECT name, muscle_group, sets, reps, weight_kg, MAX(created_at) AS last_used
+      `SELECT name, muscle_group, sets, reps, weight_kg, set_targets, MAX(created_at) AS last_used
        FROM activity_exercises WHERE user_id = ? GROUP BY LOWER(name) ORDER BY last_used DESC`
     )
     .all(req.userId);
-  res.json(rows);
+  res.json(rows.map((r) => ({ ...r, set_targets: r.set_targets ? JSON.parse(r.set_targets) : null })));
 });
 
 // --- Saved workout templates (reusable exercise lists for a "force" session) ---
@@ -680,13 +726,17 @@ app.get('/api/workout-templates', (req, res) => {
 function cleanTemplateExercises(exercises) {
   return exercises
     .filter((e) => e && e.name && String(e.name).trim())
-    .map((e) => ({
-      name: String(e.name).trim(),
-      sets: Number(e.sets) || 3,
-      reps: Number(e.reps) || 10,
-      weight_kg: e.weight_kg != null && e.weight_kg !== '' ? Number(e.weight_kg) : null,
-      muscle_group: e.muscle_group && String(e.muscle_group).trim() ? String(e.muscle_group).trim() : null,
-    }));
+    .map((e) => {
+      const normalizedTargets = normalizeSetTargets(e.set_targets);
+      return {
+        name: String(e.name).trim(),
+        sets: normalizedTargets ? JSON.parse(normalizedTargets).length : Number(e.sets) || 3,
+        reps: normalizedTargets ? repsFromSetTargets(normalizedTargets) || Number(e.reps) || 10 : Number(e.reps) || 10,
+        weight_kg: e.weight_kg != null && e.weight_kg !== '' ? Number(e.weight_kg) : null,
+        muscle_group: e.muscle_group && String(e.muscle_group).trim() ? String(e.muscle_group).trim() : null,
+        set_targets: normalizedTargets ? JSON.parse(normalizedTargets) : null,
+      };
+    });
 }
 
 app.post('/api/workout-templates', (req, res) => {

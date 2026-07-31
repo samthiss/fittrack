@@ -18,6 +18,9 @@ export default function WorkoutTemplateEditor({ template, onClose, onSaved, onDe
   const [customSets, setCustomSets] = useState(4);
   const [customReps, setCustomReps] = useState(10);
   const [customWeight, setCustomWeight] = useState('');
+  // Empty strings included so each row always has a stable input to type into — filtered out on
+  // save (addCustomExercise) and again defensively by the server (normalizeSetTargets).
+  const [customSetTargets, setCustomSetTargets] = useState([]);
   const [showMuscleGroupPicker, setShowMuscleGroupPicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -27,14 +30,16 @@ export default function WorkoutTemplateEditor({ template, onClose, onSaved, onDe
 
   function addCustomExercise() {
     if (!customName.trim()) return;
+    const cleanTargets = customSetTargets.map((s) => s.trim()).filter(Boolean);
     setExercises((list) => [
       ...list,
       {
         name: customName.trim(),
         muscle_group: customMuscleGroup.trim() || null,
-        sets: Number(customSets) || 3,
+        sets: cleanTargets.length > 0 ? cleanTargets.length : Number(customSets) || 3,
         reps: Number(customReps) || 10,
         weight_kg: customWeight === '' ? null : Number(customWeight),
+        set_targets: cleanTargets.length > 0 ? cleanTargets : null,
       },
     ]);
     setCustomName('');
@@ -42,6 +47,7 @@ export default function WorkoutTemplateEditor({ template, onClose, onSaved, onDe
     setCustomSets(4);
     setCustomReps(10);
     setCustomWeight('');
+    setCustomSetTargets([]);
     setShowCustomForm(false);
   }
 
@@ -96,7 +102,9 @@ export default function WorkoutTemplateEditor({ template, onClose, onSaved, onDe
                   {ex.muscle_group && <div className="entry-card-sub" style={{ marginTop: 0, marginBottom: 2 }}>{ex.muscle_group}</div>}
                   <div className="entry-card-name">{ex.name}</div>
                   <div className="entry-card-sub">
-                    {ex.sets} {t('activityLog.setsShort')} × {ex.reps} {t('activityLog.repsShort')}
+                    {ex.set_targets && ex.set_targets.length > 0
+                      ? ex.set_targets.map((s, si) => `S${si + 1}: ${s}`).join(' · ')
+                      : `${ex.sets} ${t('activityLog.setsShort')} × ${ex.reps} ${t('activityLog.repsShort')}`}
                     {ex.weight_kg != null ? ` · ${ex.weight_kg} kg` : ''}
                   </div>
                 </div>
@@ -137,7 +145,7 @@ export default function WorkoutTemplateEditor({ template, onClose, onSaved, onDe
           onPick={async (ex) => {
             setExercises((list) => [
               ...list,
-              { name: ex.name, muscle_group: ex.muscle_group, sets: ex.sets, reps: ex.reps, weight_kg: ex.weight_kg },
+              { name: ex.name, muscle_group: ex.muscle_group, sets: ex.sets, reps: ex.reps, weight_kg: ex.weight_kg, set_targets: ex.set_targets },
             ]);
           }}
           onCreateNew={() => {
@@ -172,20 +180,74 @@ export default function WorkoutTemplateEditor({ template, onClose, onSaved, onDe
               <Icon name="chevron-right" size={16} color="var(--text-muted)" />
             </button>
 
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <h4 className="section-label">{t('activityLog.sets')}</h4>
-                <div className="search-input-row">
-                  <input type="number" min="1" className="search-input" value={customSets} onChange={(e) => setCustomSets(e.target.value)} />
+            {customSetTargets.length === 0 && (
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <h4 className="section-label">{t('activityLog.sets')}</h4>
+                  <div className="search-input-row">
+                    <input type="number" min="1" className="search-input" value={customSets} onChange={(e) => setCustomSets(e.target.value)} />
+                  </div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h4 className="section-label">{t('activityLog.reps')}</h4>
+                  <div className="search-input-row">
+                    <input type="number" min="1" className="search-input" value={customReps} onChange={(e) => setCustomReps(e.target.value)} />
+                  </div>
                 </div>
               </div>
-              <div style={{ flex: 1 }}>
-                <h4 className="section-label">{t('activityLog.reps')}</h4>
-                <div className="search-input-row">
-                  <input type="number" min="1" className="search-input" value={customReps} onChange={(e) => setCustomReps(e.target.value)} />
-                </div>
+            )}
+
+            <h4 className="section-label">
+              {t('activityLog.setTargets')} <span style={{ textTransform: 'none', fontWeight: 400 }}>({t('profile.optional')})</span>
+            </h4>
+            <p className="hint" style={{ padding: '0 0 8px' }}>{t('activityLog.setTargetsHint')}</p>
+            {customSetTargets.map((val, i) => (
+              <div className="search-input-row" key={i} style={{ marginBottom: 8 }}>
+                <input
+                  type="text"
+                  className="search-input"
+                  value={val}
+                  placeholder={t('activityLog.setTargetPlaceholder')}
+                  onChange={(e) =>
+                    setCustomSetTargets((rows) => rows.map((r, ri) => (ri === i ? e.target.value : r)))
+                  }
+                />
+                <button
+                  type="button"
+                  className="entry-icon-btn"
+                  aria-label="up"
+                  onClick={() => setCustomSetTargets((rows) => rows.map((r, ri) => (ri === i ? `${r}↑` : r)))}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className="entry-icon-btn"
+                  aria-label="down"
+                  onClick={() => setCustomSetTargets((rows) => rows.map((r, ri) => (ri === i ? `${r}↓` : r)))}
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  className="entry-icon-btn entry-delete-btn"
+                  onClick={() => setCustomSetTargets((rows) => rows.filter((_, ri) => ri !== i))}
+                >
+                  <Icon name="trash-2" size={16} />
+                </button>
               </div>
-            </div>
+            ))}
+            <button
+              type="button"
+              className="recurring-feature-row"
+              style={{ justifyContent: 'center', width: '100%', marginBottom: 12, font: 'inherit', cursor: 'pointer' }}
+              onClick={() => setCustomSetTargets((rows) => [...rows, ''])}
+            >
+              <Icon name="plus" size={16} color="var(--acc)" />
+              <span className="recurring-feature-title" style={{ color: 'var(--acc)' }}>
+                S{customSetTargets.length + 1}
+              </span>
+            </button>
 
             <h4 className="section-label">{t('activityLog.weightKg')}</h4>
             <div className="search-input-row">

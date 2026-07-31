@@ -68,7 +68,9 @@ export default function ExercisePicker({ onClose, onPick, onCreateNew }) {
           {ex.muscle_group && <div className="entry-card-sub" style={{ marginTop: 0, marginBottom: 2 }}>{ex.muscle_group}</div>}
           <div className="entry-card-name">{ex.name}</div>
           <div className="entry-card-sub">
-            {ex.sets} {t('activityLog.setsShort')} × {ex.reps} {t('activityLog.repsShort')}
+            {ex.set_targets && ex.set_targets.length > 0
+              ? ex.set_targets.map((s, si) => `S${si + 1}: ${s}`).join(' · ')
+              : `${ex.sets} ${t('activityLog.setsShort')} × ${ex.reps} ${t('activityLog.repsShort')}`}
             {ex.weight_kg != null ? ` · ${ex.weight_kg} kg` : ''}
           </div>
         </div>
