@@ -227,18 +227,25 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
           {t('activityLog.exerciseSettings')}
         </div>
         <div className="filter-pill-row" style={{ marginTop: 0 }}>
-          <button type="button" className="filter-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => openSheet('sets')}>
-            <Icon name="layers" size={14} />
-            {sets} {t('activityLog.setsShort')}
-          </button>
+          {/* Sets/reps come from the exercise's fixed per-set scheme (shown under each set row
+              below) once set_targets is set — a single free-editable number no longer applies,
+              so only weight (which does vary per session) stays quick-editable here. */}
+          {!exercise.set_targets && (
+            <button type="button" className="filter-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => openSheet('sets')}>
+              <Icon name="layers" size={14} />
+              {sets} {t('activityLog.setsShort')}
+            </button>
+          )}
           <button type="button" className="filter-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => openSheet('weight')}>
             <Icon name="weight" size={14} />
             {weight} kg
           </button>
-          <button type="button" className="filter-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => openSheet('reps')}>
-            <Icon name="repeat-2" size={14} />
-            {reps} {t('activityLog.repsShort')}
-          </button>
+          {!exercise.set_targets && (
+            <button type="button" className="filter-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => openSheet('reps')}>
+              <Icon name="repeat-2" size={14} />
+              {reps} {t('activityLog.repsShort')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -278,9 +285,7 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
                   {setHistory[i]?.weight ?? weight} kg × {setHistory[i]?.reps ?? reps}
                 </span>
               ) : (
-                <span className="activites-row-kcal">
-                  {weight} kg × {reps}
-                </span>
+                <span className="activites-row-kcal">{exercise.set_targets ? `${weight} kg` : `${weight} kg × ${reps}`}</span>
               )}
             </div>
           );
