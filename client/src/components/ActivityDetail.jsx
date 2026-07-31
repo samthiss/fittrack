@@ -9,6 +9,15 @@ const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const WEEKDAY_LABEL = { mon: 'L', tue: 'M', wed: 'M', thu: 'J', fri: 'V', sat: 'S', sun: 'D' };
 const WEEKDAY_LABEL_EN = { mon: 'M', tue: 'T', wed: 'W', thu: 'T', fri: 'F', sat: 'S', sun: 'S' };
 
+// A per-set target row is edited as { value: '5-9' | '10-15' | 'Max', dir: 'up' | 'down' | null }
+// (a fixed 3-way choice instead of free text, so every template stays consistent/parseable) and
+// flattened to a single string like "5-9↑" only at save time.
+const SET_TARGET_OPTIONS = ['5-9', '8-12', '10-15', '15-20', 'Max'];
+function serializeSetTarget(row) {
+  if (!row.value) return '';
+  return row.dir === 'up' ? `${row.value}↑` : row.dir === 'down' ? `${row.value}↓` : row.value;
+}
+
 export default function ActivityDetail({ activity, recurringDays = [], onBack, onStart, onDeleted, onUpdated }) {
   const { t, lang } = useLanguage();
   const [exercises, setExercises] = useState([]);
@@ -51,7 +60,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
     if (!name.trim() || saving) return;
     setSaving(true);
     try {
-      const cleanTargets = setTargets.map((s) => s.trim()).filter(Boolean);
+      const cleanTargets = setTargets.map(serializeSetTarget).filter(Boolean);
       await api.addActivityExercise(activity.id, {
         name: name.trim(),
         sets: cleanTargets.length > 0 ? cleanTargets.length : Number(sets) || 3,
@@ -433,41 +442,61 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
               {t('activityLog.setTargets')} <span style={{ textTransform: 'none', fontWeight: 400 }}>({t('profile.optional')})</span>
             </h4>
             <p className="hint" style={{ padding: '0 0 8px' }}>{t('activityLog.setTargetsHint')}</p>
-            {setTargets.map((val, i) => (
-              <div className="search-input-row" key={i} style={{ marginBottom: 8 }}>
-                <input
-                  type="text"
-                  className="search-input"
-                  value={val}
-                  placeholder={t('activityLog.setTargetPlaceholder')}
-                  onChange={(e) => setSetTargets((rows) => rows.map((r, ri) => (ri === i ? e.target.value : r)))}
-                />
-                <button
-                  type="button"
-                  className="entry-icon-btn"
-                  aria-label="up"
-                  onClick={() => setSetTargets((rows) => rows.map((r, ri) => (ri === i ? `${r}↑` : r)))}
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  className="entry-icon-btn"
-                  aria-label="down"
-                  onClick={() => setSetTargets((rows) => rows.map((r, ri) => (ri === i ? `${r}↓` : r)))}
-                >
-                  ↓
-                </button>
-                <button type="button" className="entry-icon-btn entry-delete-btn" onClick={() => setSetTargets((rows) => rows.filter((_, ri) => ri !== i))}>
-                  <Icon name="trash-2" size={16} />
-                </button>
+            {setTargets.map((row, i) => (
+              <div key={i} style={{ marginBottom: 12 }}>
+                <div className="day-nav-subtitle" style={{ marginBottom: 6 }}>
+                  S{i + 1}
+                </div>
+                <div className="type-list-row" style={{ margin: '0 0 6px', flexWrap: 'wrap' }}>
+                  {SET_TARGET_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      className={row.value === opt ? 'type-pill active' : 'type-pill'}
+                      style={{ flex: '1 1 30%' }}
+                      onClick={() =>
+                        setSetTargets((rows) => rows.map((r, ri) => (ri === i ? { value: opt, dir: opt === 'Max' ? null : r.dir } : r)))
+                      }
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {row.value !== 'Max' && (
+                    <>
+                      <button
+                        type="button"
+                        className="entry-icon-btn"
+                        style={row.dir === 'up' ? { background: 'var(--acc)', color: '#fff', borderColor: 'transparent' } : undefined}
+                        aria-label="up"
+                        onClick={() => setSetTargets((rows) => rows.map((r, ri) => (ri === i ? { ...r, dir: r.dir === 'up' ? null : 'up' } : r)))}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="entry-icon-btn"
+                        style={row.dir === 'down' ? { background: 'var(--acc)', color: '#fff', borderColor: 'transparent' } : undefined}
+                        aria-label="down"
+                        onClick={() => setSetTargets((rows) => rows.map((r, ri) => (ri === i ? { ...r, dir: r.dir === 'down' ? null : 'down' } : r)))}
+                      >
+                        ↓
+                      </button>
+                    </>
+                  )}
+                  <div style={{ flex: 1 }} />
+                  <button type="button" className="entry-icon-btn entry-delete-btn" onClick={() => setSetTargets((rows) => rows.filter((_, ri) => ri !== i))}>
+                    <Icon name="trash-2" size={16} />
+                  </button>
+                </div>
               </div>
             ))}
             <button
               type="button"
               className="recurring-feature-row"
               style={{ justifyContent: 'center', width: '100%', marginBottom: 12, font: 'inherit', cursor: 'pointer' }}
-              onClick={() => setSetTargets((rows) => [...rows, ''])}
+              onClick={() => setSetTargets((rows) => [...rows, { value: '5-9', dir: null }])}
             >
               <Icon name="plus" size={16} color="var(--acc)" />
               <span className="recurring-feature-title" style={{ color: 'var(--acc)' }}>
