@@ -319,21 +319,21 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
                 <div className="day-nav-subtitle" style={{ marginBottom: 6 }}>
                   S{i + 1}
                 </div>
-                <div className="type-list-row" style={{ margin: '0 0 6px', flexWrap: 'wrap' }}>
+                <select
+                  className="filter-select"
+                  style={{ width: '100%', marginTop: 0, marginBottom: 6 }}
+                  value={row.value}
+                  onChange={(e) => {
+                    const opt = e.target.value;
+                    setSetTargets((rows) => rows.map((r, ri) => (ri === i ? { value: opt, dir: opt === 'Max' ? null : r.dir } : r)));
+                  }}
+                >
                   {SET_TARGET_OPTIONS.map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      className={row.value === opt ? 'type-pill active' : 'type-pill'}
-                      style={{ flex: '1 1 30%' }}
-                      onClick={() =>
-                        setSetTargets((rows) => rows.map((r, ri) => (ri === i ? { value: opt, dir: opt === 'Max' ? null : r.dir } : r)))
-                      }
-                    >
+                    <option key={opt} value={opt}>
                       {opt}
-                    </button>
+                    </option>
                   ))}
-                </div>
+                </select>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {row.value !== 'Max' && (
                     <>
