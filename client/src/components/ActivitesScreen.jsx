@@ -230,6 +230,9 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         onResetElapsed={() => setSession((s) => resetSessionElapsed(s))}
         onOpenExercise={setSessionExercise}
         onAddExercise={(ex) => setSession((s) => ({ ...s, exercises: [...s.exercises, ex] }))}
+        onUpdateExercise={(id, patch) =>
+          setSession((s) => ({ ...s, exercises: s.exercises.map((e) => (e.id === id ? { ...e, ...patch } : e)) }))
+        }
         onExit={() => setFinishingSession(true)}
       />
     );

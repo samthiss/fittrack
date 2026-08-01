@@ -13,6 +13,12 @@ function serializeSetTarget(row) {
   if (!row.value) return '';
   return row.dir === 'up' ? `${row.value}↑` : row.dir === 'down' ? `${row.value}↓` : row.value;
 }
+// Inverse of serializeSetTarget, for pre-filling the edit form from an already-saved exercise.
+function parseSetTarget(target) {
+  if (target.endsWith('↑')) return { value: target.slice(0, -1), dir: 'up' };
+  if (target.endsWith('↓')) return { value: target.slice(0, -1), dir: 'down' };
+  return { value: target, dir: null };
+}
 
 function formatElapsed(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -56,10 +62,11 @@ function TimerRing({ elapsed, plannedSeconds, size = 176 }) {
   );
 }
 
-export default function ActivitySession({ activity, exercises, onExit, onOpenExercise, onAddExercise, doneExerciseIds, elapsed, running, onToggleRunning, onResetElapsed }) {
+export default function ActivitySession({ activity, exercises, onExit, onOpenExercise, onAddExercise, onUpdateExercise, doneExerciseIds, elapsed, running, onToggleRunning, onResetElapsed }) {
   const { t } = useLanguage();
   const [showPicker, setShowPicker] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [editingExerciseId, setEditingExerciseId] = useState(null);
   const [name, setName] = useState('');
   const [sets, setSets] = useState(4);
   const [reps, setReps] = useState(10);
@@ -69,26 +76,53 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
   const [showMuscleGroupPicker, setShowMuscleGroupPicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  function resetExerciseForm() {
+    setName('');
+    setSets(4);
+    setReps(10);
+    setSetTargets([]);
+    setWeight('');
+    setMuscleGroup('');
+    setEditingExerciseId(null);
+  }
+
+  function openAddExercise() {
+    resetExerciseForm();
+    setShowAdd(true);
+  }
+
+  function openEditExercise(ex) {
+    setEditingExerciseId(ex.id);
+    setName(ex.name);
+    setMuscleGroup(ex.muscle_group || '');
+    setWeight(ex.weight_kg != null ? String(ex.weight_kg) : '');
+    setSetTargets(ex.set_targets && ex.set_targets.length > 0 ? ex.set_targets.map(parseSetTarget) : []);
+    setSets(ex.sets);
+    setReps(ex.reps);
+    setShowAdd(true);
+  }
+
   async function handleAddExercise() {
     if (!name.trim() || saving) return;
     setSaving(true);
     try {
       const cleanTargets = setTargets.map(serializeSetTarget).filter(Boolean);
-      const created = await api.addActivityExercise(activity.id, {
+      const payload = {
         name: name.trim(),
         sets: cleanTargets.length > 0 ? cleanTargets.length : Number(sets) || 3,
         reps: Number(reps) || 10,
         weight_kg: weight === '' ? null : Number(weight),
         muscle_group: muscleGroup.trim() || null,
         set_targets: cleanTargets.length > 0 ? cleanTargets : null,
-      });
-      onAddExercise(created);
-      setName('');
-      setSets(4);
-      setReps(10);
-      setSetTargets([]);
-      setWeight('');
-      setMuscleGroup('');
+      };
+      if (editingExerciseId) {
+        const updated = await api.updateActivityExercise(editingExerciseId, payload);
+        onUpdateExercise?.(editingExerciseId, updated);
+      } else {
+        const created = await api.addActivityExercise(activity.id, payload);
+        onAddExercise(created);
+      }
+      resetExerciseForm();
       setShowAdd(false);
     } finally {
       setSaving(false);
@@ -168,6 +202,18 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
                 </div>
               </div>
               {isCurrent && <span className="activity-session-current-label">{t('activityLog.inProgress')}</span>}
+              <button
+                type="button"
+                className="entry-icon-btn"
+                style={{ flex: 'none' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openEditExercise(ex);
+                }}
+                aria-label={t('activityLog.editExercise')}
+              >
+                <Icon name="pencil" size={15} />
+              </button>
               <Icon name="chevron-right" size={16} color="var(--text-muted)" />
             </div>
           );
@@ -201,20 +247,36 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
           }}
           onCreateNew={() => {
             setShowPicker(false);
-            setShowAdd(true);
+            openAddExercise();
           }}
         />
       )}
 
       {showAdd && (
-        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setShowAdd(false);
+            resetExerciseForm();
+          }}
+        >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="meal-detail-header" style={{ marginBottom: 4 }}>
-              <button type="button" className="meal-detail-back-btn" onClick={() => setShowAdd(false)} aria-label={t('meal.close')}>
+              <button
+                type="button"
+                className="meal-detail-back-btn"
+                onClick={() => {
+                  setShowAdd(false);
+                  resetExerciseForm();
+                }}
+                aria-label={t('meal.close')}
+              >
                 <Icon name="x" size={20} />
               </button>
               <div className="meal-detail-heading">
-                <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('activityLog.addExercise')}</div>
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>
+                  {editingExerciseId ? t('activityLog.editExercise') : t('activityLog.addExercise')}
+                </div>
               </div>
             </div>
 
@@ -329,7 +391,7 @@ export default function ActivitySession({ activity, exercises, onExit, onOpenExe
             }}
             disabled={saving || !name.trim()}
           >
-            {saving ? t('activityLog.saving') : t('activityLog.add')}
+            {saving ? t('activityLog.saving') : editingExerciseId ? t('meal.save') : t('activityLog.add')}
           </button>
         </div>
       )}

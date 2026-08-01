@@ -17,12 +17,19 @@ function serializeSetTarget(row) {
   if (!row.value) return '';
   return row.dir === 'up' ? `${row.value}↑` : row.dir === 'down' ? `${row.value}↓` : row.value;
 }
+// Inverse of serializeSetTarget, for pre-filling the edit form from an already-saved exercise.
+function parseSetTarget(target) {
+  if (target.endsWith('↑')) return { value: target.slice(0, -1), dir: 'up' };
+  if (target.endsWith('↓')) return { value: target.slice(0, -1), dir: 'down' };
+  return { value: target, dir: null };
+}
 
 export default function ActivityDetail({ activity, recurringDays = [], onBack, onStart, onDeleted, onUpdated }) {
   const { t, lang } = useLanguage();
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [editingExerciseId, setEditingExerciseId] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
   const [label, setLabel] = useState(activity.label || '');
   const [showEdit, setShowEdit] = useState(false);
@@ -56,25 +63,57 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
 
   const isForce = activity.type === 'force';
 
+  function resetExerciseForm() {
+    setName('');
+    setSets(4);
+    setReps(10);
+    setSetTargets([]);
+    setWeight('');
+    setMuscleGroup('');
+    setEditingExerciseId(null);
+  }
+
+  function openAddExercise() {
+    resetExerciseForm();
+    setShowAdd(true);
+  }
+
+  function openEditExercise(ex) {
+    setEditingExerciseId(ex.id);
+    setName(ex.name);
+    setMuscleGroup(ex.muscle_group || '');
+    setWeight(ex.weight_kg != null ? String(ex.weight_kg) : '');
+    if (ex.set_targets && ex.set_targets.length > 0) {
+      setSetTargets(ex.set_targets.map(parseSetTarget));
+      setSets(ex.sets);
+      setReps(ex.reps);
+    } else {
+      setSetTargets([]);
+      setSets(ex.sets);
+      setReps(ex.reps);
+    }
+    setShowAdd(true);
+  }
+
   async function handleAddExercise() {
     if (!name.trim() || saving) return;
     setSaving(true);
     try {
       const cleanTargets = setTargets.map(serializeSetTarget).filter(Boolean);
-      await api.addActivityExercise(activity.id, {
+      const payload = {
         name: name.trim(),
         sets: cleanTargets.length > 0 ? cleanTargets.length : Number(sets) || 3,
         reps: Number(reps) || 10,
         weight_kg: weight === '' ? null : Number(weight),
         muscle_group: muscleGroup.trim() || null,
         set_targets: cleanTargets.length > 0 ? cleanTargets : null,
-      });
-      setName('');
-      setSets(4);
-      setReps(10);
-      setSetTargets([]);
-      setWeight('');
-      setMuscleGroup('');
+      };
+      if (editingExerciseId) {
+        await api.updateActivityExercise(editingExerciseId, payload);
+      } else {
+        await api.addActivityExercise(activity.id, payload);
+      }
+      resetExerciseForm();
       setShowAdd(false);
       await refresh();
     } finally {
@@ -256,6 +295,9 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
                       {ex.weight_kg != null ? ` · ${ex.weight_kg} kg` : ''}
                     </div>
                   </div>
+                  <button type="button" className="entry-icon-btn" onClick={() => openEditExercise(ex)} aria-label={t('activityLog.editExercise')}>
+                    <Icon name="pencil" size={15} />
+                  </button>
                   <button type="button" className="entry-icon-btn entry-delete-btn" onClick={() => handleDeleteExercise(ex.id)}>
                     <Icon name="trash-2" size={16} />
                   </button>
@@ -391,20 +433,36 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
           }}
           onCreateNew={() => {
             setShowPicker(false);
-            setShowAdd(true);
+            openAddExercise();
           }}
         />
       )}
 
       {showAdd && (
-        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setShowAdd(false);
+            resetExerciseForm();
+          }}
+        >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="meal-detail-header" style={{ marginBottom: 4 }}>
-              <button type="button" className="meal-detail-back-btn" onClick={() => setShowAdd(false)} aria-label={t('meal.close')}>
+              <button
+                type="button"
+                className="meal-detail-back-btn"
+                onClick={() => {
+                  setShowAdd(false);
+                  resetExerciseForm();
+                }}
+                aria-label={t('meal.close')}
+              >
                 <Icon name="x" size={20} />
               </button>
               <div className="meal-detail-heading">
-                <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('activityLog.addExercise')}</div>
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>
+                  {editingExerciseId ? t('activityLog.editExercise') : t('activityLog.addExercise')}
+                </div>
               </div>
             </div>
 
@@ -519,7 +577,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
             }}
             disabled={saving || !name.trim()}
           >
-            {saving ? t('activityLog.saving') : t('activityLog.add')}
+            {saving ? t('activityLog.saving') : editingExerciseId ? t('meal.save') : t('activityLog.add')}
           </button>
         </div>
       )}
