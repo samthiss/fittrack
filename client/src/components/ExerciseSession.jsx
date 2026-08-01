@@ -93,10 +93,13 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   const [sets, setSets] = useState(exercise.sets);
   const [weight, setWeight] = useState(exercise.weight_kg ?? 0);
   const [reps, setReps] = useState(exercise.reps);
-  const [currentReps, setCurrentReps] = useState(exercise.reps);
   const [sheet, setSheet] = useState(null); // null | 'sets' | 'weight' | 'reps' | 'rest'
   const [sheetSets, setSheetSets] = useState(exercise.sets);
   const [sheetReps, setSheetReps] = useState(exercise.reps);
+  // Which rep-choice pill is highlighted — tracked directly instead of inferred from sheetReps
+  // (range-matching a number back to a pill was fragile: overlapping ranges like "5-9"/"8-12"
+  // could both/neither match depending on the value).
+  const [sheetRepsChoice, setSheetRepsChoice] = useState(null);
   const [sheetUnit, setSheetUnit] = useState('kg');
   const [sheetWeight, setSheetWeight] = useState(exercise.weight_kg ?? 0);
   const [sheetRestTarget, setSheetRestTarget] = useState(REST_SECONDS);
@@ -129,9 +132,8 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
 
   function validateSet() {
     const next = completedSets + 1;
-    setSetHistory((h) => [...h, { weight, reps: Number(currentReps) || reps }]);
+    setSetHistory((h) => [...h, { weight, reps }]);
     setCompletedSets(next);
-    setCurrentReps(reps);
     if (next >= sets) {
       onComplete(exercise.id);
       return;
@@ -145,6 +147,7 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   function openSheet(name) {
     setSheetSets(sets);
     setSheetReps(reps);
+    setSheetRepsChoice(REP_CHOICE_OPTIONS.find((o) => repChoiceMatches(o, reps)) ?? null);
     setSheetWeight(sheetUnit === 'lb' ? Math.round(weight * LB_PER_KG * 10) / 10 : weight);
     setSheetRestTarget(restTarget);
     setSheet(name);
@@ -279,15 +282,8 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
                 )}
               </div>
               {current ? (
-                <span className="activites-row-kcal" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
-                  {weight} kg ×
-                  <input
-                    type="number"
-                    min="1"
-                    value={currentReps}
-                    onChange={(e) => setCurrentReps(e.target.value)}
-                    style={{ width: 40, background: 'var(--ink-900)', border: '1px solid var(--border-strong, var(--line))', borderRadius: 8, color: 'var(--txt)', textAlign: 'center', padding: '4px 2px' }}
-                  />
+                <span className="activites-row-kcal">
+                  {weight} kg × {reps}
                 </span>
               ) : done ? (
                 <span className="activites-row-kcal">
@@ -379,10 +375,11 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
                 <button
                   key={opt}
                   type="button"
-                  // Ranges can overlap (e.g. 9 is in both "5-9" and "8-12") — only the first
-                  // match in option order counts as "the" active pill, so exactly one lights up.
-                  className={opt === REP_CHOICE_OPTIONS.find((o) => repChoiceMatches(o, sheetReps)) ? 'rep-choice-pill active' : 'rep-choice-pill'}
-                  onClick={() => setSheetReps(repChoiceToNumber(opt))}
+                  className={opt === sheetRepsChoice ? 'rep-choice-pill active' : 'rep-choice-pill'}
+                  onClick={() => {
+                    setSheetRepsChoice(opt);
+                    setSheetReps(repChoiceToNumber(opt));
+                  }}
                 >
                   {opt}
                 </button>
