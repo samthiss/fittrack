@@ -64,6 +64,7 @@ export const translations = {
     'activityType.marche_tapis_incline_10': 'Tapis incliné 10%',
     'activityType.marche_tapis_incline_12': 'Tapis incliné 12%',
     'activityType.velo_ville': 'Vélo de ville',
+    'activityType.corde_a_sauter': 'Corde à sauter',
 
     // Weekly plan day names (fixed set of 7, same translate-by-key approach)
     'dayName.mon': 'Lundi',
@@ -811,6 +812,7 @@ export const translations = {
     'activityType.marche_tapis_incline_10': 'Incline treadmill 10%',
     'activityType.marche_tapis_incline_12': 'Incline treadmill 12%',
     'activityType.velo_ville': 'City cycling',
+    'activityType.corde_a_sauter': 'Jump rope',
 
     // Weekly plan day names
     'dayName.mon': 'Monday',
