@@ -2,10 +2,21 @@ import { useState, useMemo, useEffect } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import WorkoutTemplateEditor from './WorkoutTemplateEditor';
+import ExercisePicker from './ExercisePicker';
+import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const FORCE_TYPES = new Set(['force']);
+
+// A per-set target row is edited as { value: '5-9' | '8-12' | '10-15' | '15-20' | 'Max', dir:
+// 'up' | 'down' | null } (a fixed choice instead of free text, so every template stays
+// consistent/parseable) and flattened to a single string like "5-9↑" only at save time.
+const SET_TARGET_OPTIONS = ['5-9', '8-12', '10-15', '15-20', 'Max'];
+function serializeSetTarget(row) {
+  if (!row.value) return '';
+  return row.dir === 'up' ? `${row.value}↑` : row.dir === 'down' ? `${row.value}↓` : row.value;
+}
 
 const TYPE_ICONS = {
   force: 'dumbbell',
@@ -32,6 +43,17 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   const [templates, setTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
   const [editingTemplate, setEditingTemplate] = useState(null);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [manualExercises, setManualExercises] = useState([]);
+  const [showExercisePicker, setShowExercisePicker] = useState(false);
+  const [showCustomExerciseForm, setShowCustomExerciseForm] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customMuscleGroup, setCustomMuscleGroup] = useState('');
+  const [customSets, setCustomSets] = useState(4);
+  const [customReps, setCustomReps] = useState(10);
+  const [customWeight, setCustomWeight] = useState('');
+  const [customSetTargets, setCustomSetTargets] = useState([]);
+  const [showMuscleGroupPicker, setShowMuscleGroupPicker] = useState(false);
 
   useEffect(() => {
     if (kind === 'force') {
@@ -78,6 +100,33 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     if (!label.trim()) setLabel(tpl.name);
   }
 
+  function addCustomExercise() {
+    if (!customName.trim()) return;
+    const cleanTargets = customSetTargets.map(serializeSetTarget).filter(Boolean);
+    setManualExercises((list) => [
+      ...list,
+      {
+        name: customName.trim(),
+        muscle_group: customMuscleGroup.trim() || null,
+        sets: cleanTargets.length > 0 ? cleanTargets.length : Number(customSets) || 3,
+        reps: Number(customReps) || 10,
+        weight_kg: customWeight === '' ? null : Number(customWeight),
+        set_targets: cleanTargets.length > 0 ? cleanTargets : null,
+      },
+    ]);
+    setCustomName('');
+    setCustomMuscleGroup('');
+    setCustomSets(4);
+    setCustomReps(10);
+    setCustomWeight('');
+    setCustomSetTargets([]);
+    setShowCustomExerciseForm(false);
+  }
+
+  function removeManualExercise(index) {
+    setManualExercises((list) => list.filter((_, i) => i !== index));
+  }
+
   async function handleSubmit() {
     if (!selectedType || saving) return;
     setSaving(true);
@@ -92,8 +141,9 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
         label: finalLabel,
         recurringGroupId: groupId,
       });
-      if (kind === 'force' && selectedTemplate) {
-        for (const ex of selectedTemplate.exercises) {
+      if (kind === 'force') {
+        const exercisesToAdd = [...(selectedTemplate?.exercises || []), ...manualExercises];
+        for (const ex of exercisesToAdd) {
           await api.addActivityExercise(created.id, ex);
         }
       }
@@ -172,12 +222,26 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
 
         {kind === 'force' && (
           <>
-            <h4 className="section-label">{t('activityLog.savedWorkouts')}</h4>
-            {templates.length === 0 ? (
-              <p className="hint">{t('activityLog.noSavedWorkouts')}</p>
-            ) : (
-              <div className="entry-list" style={{ maxHeight: 320, overflowY: 'auto' }}>
-                {templates.map((tpl) => {
+            <button
+              type="button"
+              className="recurring-feature-row"
+              style={{ justifyContent: 'center', width: '100%', marginTop: 14, font: 'inherit', cursor: 'pointer' }}
+              onClick={() => setShowTemplatePicker((v) => !v)}
+            >
+              <Icon name="bookmark" size={18} color="var(--acc)" />
+              <span className="recurring-feature-title" style={{ color: 'var(--acc)' }}>
+                {t('activityLog.selectSavedWorkout')}
+              </span>
+            </button>
+
+            {showTemplatePicker && (
+              <>
+                <h4 className="section-label">{t('activityLog.savedWorkouts')}</h4>
+                {templates.length === 0 ? (
+                  <p className="hint">{t('activityLog.noSavedWorkouts')}</p>
+                ) : (
+                  <div className="entry-list" style={{ maxHeight: 320, overflowY: 'auto' }}>
+                    {templates.map((tpl) => {
                   const isSelected = selectedTemplateId === tpl.id;
                   const muscleGroups = [...new Set(tpl.exercises.map((e) => e.muscle_group).filter(Boolean))];
                   return (
@@ -226,6 +290,8 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
             {selectedTemplateId && (
               <p className="hint">{t('activityLog.savedWorkoutHint')}</p>
             )}
+              </>
+            )}
 
             <h4 className="section-label">{t('activityLog.workoutName')}</h4>
             <div className="search-input-row">
@@ -238,10 +304,46 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
                 onChange={(e) => setLabel(e.target.value)}
               />
             </div>
+
+            <h4 className="section-label">{t('activityLog.exercises')}</h4>
+            {manualExercises.length > 0 && (
+              <div className="entry-list">
+                {manualExercises.map((ex, i) => (
+                  <div className="entry-card" key={i}>
+                    <span className="meal-icon-box">
+                      <b style={{ fontSize: 14, fontWeight: 700 }}>{i + 1}</b>
+                    </span>
+                    <div className="entry-card-body" style={{ cursor: 'default' }}>
+                      {ex.muscle_group && <div className="entry-card-sub" style={{ marginTop: 0, marginBottom: 2 }}>{ex.muscle_group}</div>}
+                      <div className="entry-card-name">{ex.name}</div>
+                      <div className="entry-card-sub">
+                        {ex.set_targets && ex.set_targets.length > 0
+                          ? ex.set_targets.map((s, si) => `S${si + 1}: ${s}`).join(' · ')
+                          : `${ex.sets} ${t('activityLog.setsShort')} × ${ex.reps} ${t('activityLog.repsShort')}`}
+                      </div>
+                    </div>
+                    <button type="button" className="entry-icon-btn entry-delete-btn" onClick={() => removeManualExercise(i)}>
+                      <Icon name="trash-2" size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              className="recurring-feature-row"
+              style={{ justifyContent: 'center', width: '100%', marginTop: 12, font: 'inherit', cursor: 'pointer' }}
+              onClick={() => setShowExercisePicker(true)}
+            >
+              <Icon name="plus" size={18} color="var(--acc)" />
+              <span className="recurring-feature-title" style={{ color: 'var(--acc)' }}>
+                {t('activityLog.addExercise')}
+              </span>
+            </button>
           </>
         )}
 
-        <h4 className="section-label">{t('activityLog.duration')}</h4>
+        <h4 className="section-label">{t('activityLog.estimatedTime')}</h4>
         <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
           <button type="button" className="weight-minus-btn" onClick={() => setDuration((d) => Math.max(5, d - 5))}>
             <Icon name="minus" size={18} />
@@ -324,6 +426,165 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
             setTemplates((list) => list.filter((tpl) => tpl.id !== id));
             if (selectedTemplateId === id) setSelectedTemplateId(null);
             setEditingTemplate(null);
+          }}
+        />
+      )}
+
+      {showExercisePicker && (
+        <ExercisePicker
+          onClose={() => setShowExercisePicker(false)}
+          onPick={async (ex) => {
+            setManualExercises((list) => [
+              ...list,
+              { name: ex.name, muscle_group: ex.muscle_group, sets: ex.sets, reps: ex.reps, weight_kg: ex.weight_kg, set_targets: ex.set_targets },
+            ]);
+          }}
+          onCreateNew={() => {
+            setShowExercisePicker(false);
+            setShowCustomExerciseForm(true);
+          }}
+        />
+      )}
+
+      {showCustomExerciseForm && (
+        <div className="modal-overlay" onClick={() => setShowCustomExerciseForm(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="meal-detail-header" style={{ marginBottom: 4 }}>
+              <button type="button" className="meal-detail-back-btn" onClick={() => setShowCustomExerciseForm(false)} aria-label={t('meal.close')}>
+                <Icon name="x" size={20} />
+              </button>
+              <div className="meal-detail-heading">
+                <div className="meal-detail-title" style={{ fontSize: 21 }}>{t('activityLog.addExercise')}</div>
+              </div>
+            </div>
+
+            <h4 className="section-label" style={{ marginTop: 0 }}>{t('activityLog.exerciseName')}</h4>
+            <div className="search-input-row">
+              <input type="text" className="search-input" autoFocus value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder={t('activityLog.exerciseName')} />
+            </div>
+
+            <h4 className="section-label">
+              {t('activityLog.muscleGroup')} <span style={{ textTransform: 'none', fontWeight: 400 }}>({t('profile.optional')})</span>
+            </h4>
+            <button type="button" className="filter-pill" style={{ display: 'flex', width: '100%', justifyContent: 'space-between', boxSizing: 'border-box' }} onClick={() => setShowMuscleGroupPicker(true)}>
+              <span>{customMuscleGroup || t('activityLog.muscleGroupPicker.none')}</span>
+              <Icon name="chevron-right" size={16} color="var(--text-muted)" />
+            </button>
+
+            {customSetTargets.length === 0 && (
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <h4 className="section-label">{t('activityLog.sets')}</h4>
+                  <div className="search-input-row">
+                    <input type="number" min="1" className="search-input" value={customSets} onChange={(e) => setCustomSets(e.target.value)} />
+                  </div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h4 className="section-label">{t('activityLog.reps')}</h4>
+                  <div className="search-input-row">
+                    <input type="number" min="1" className="search-input" value={customReps} onChange={(e) => setCustomReps(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <h4 className="section-label">
+              {t('activityLog.setTargets')} <span style={{ textTransform: 'none', fontWeight: 400 }}>({t('profile.optional')})</span>
+            </h4>
+            <p className="hint" style={{ padding: '0 0 8px' }}>{t('activityLog.setTargetsHint')}</p>
+            {customSetTargets.map((row, i) => (
+              <div key={i} style={{ marginBottom: 12 }}>
+                <div className="day-nav-subtitle" style={{ marginBottom: 6 }}>
+                  S{i + 1}
+                </div>
+                <div className="type-list-row" style={{ margin: '0 0 6px', flexWrap: 'wrap' }}>
+                  {SET_TARGET_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      className={row.value === opt ? 'type-pill active' : 'type-pill'}
+                      style={{ flex: '1 1 30%' }}
+                      onClick={() =>
+                        setCustomSetTargets((rows) => rows.map((r, ri) => (ri === i ? { value: opt, dir: opt === 'Max' ? null : r.dir } : r)))
+                      }
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {row.value !== 'Max' && (
+                    <>
+                      <button
+                        type="button"
+                        className="entry-icon-btn"
+                        style={row.dir === 'up' ? { background: 'var(--acc)', color: '#fff', borderColor: 'transparent' } : undefined}
+                        aria-label="up"
+                        onClick={() => setCustomSetTargets((rows) => rows.map((r, ri) => (ri === i ? { ...r, dir: r.dir === 'up' ? null : 'up' } : r)))}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="entry-icon-btn"
+                        style={row.dir === 'down' ? { background: 'var(--acc)', color: '#fff', borderColor: 'transparent' } : undefined}
+                        aria-label="down"
+                        onClick={() => setCustomSetTargets((rows) => rows.map((r, ri) => (ri === i ? { ...r, dir: r.dir === 'down' ? null : 'down' } : r)))}
+                      >
+                        ↓
+                      </button>
+                    </>
+                  )}
+                  <div style={{ flex: 1 }} />
+                  <button
+                    type="button"
+                    className="entry-icon-btn entry-delete-btn"
+                    onClick={() => setCustomSetTargets((rows) => rows.filter((_, ri) => ri !== i))}
+                  >
+                    <Icon name="trash-2" size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="recurring-feature-row"
+              style={{ justifyContent: 'center', width: '100%', marginBottom: 12, font: 'inherit', cursor: 'pointer' }}
+              onClick={() => setCustomSetTargets((rows) => [...rows, { value: '5-9', dir: null }])}
+            >
+              <Icon name="plus" size={16} color="var(--acc)" />
+              <span className="recurring-feature-title" style={{ color: 'var(--acc)' }}>
+                S{customSetTargets.length + 1}
+              </span>
+            </button>
+
+            <h4 className="section-label">{t('activityLog.weightKg')}</h4>
+            <div className="search-input-row">
+              <input type="number" min="0" step="0.5" className="search-input" value={customWeight} onChange={(e) => setCustomWeight(e.target.value)} />
+              <span className="unit">kg</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="done-btn done-btn-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              addCustomExercise();
+            }}
+            disabled={!customName.trim()}
+          >
+            {t('activityLog.add')}
+          </button>
+        </div>
+      )}
+
+      {showMuscleGroupPicker && (
+        <MuscleGroupPicker
+          value={customMuscleGroup}
+          onClose={() => setShowMuscleGroupPicker(false)}
+          onSelect={(label) => {
+            setCustomMuscleGroup(label || '');
+            setShowMuscleGroupPicker(false);
           }}
         />
       )}
