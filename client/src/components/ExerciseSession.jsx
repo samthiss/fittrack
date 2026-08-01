@@ -22,6 +22,15 @@ function repChoiceMatches(opt, value) {
   const [lo, hi] = opt.split('-').map(Number);
   return value >= lo && value <= hi;
 }
+// A per-set target is "5-9" / "5-9↑" / "5-9↓" — this strips the arrow to match it back to one
+// of REP_CHOICE_OPTIONS, and the pair below re-attaches whatever arrow it had after editing.
+function stripArrow(target) {
+  return (target || '').replace(/[↑↓]$/, '');
+}
+function arrowOf(target) {
+  const m = /[↑↓]$/.exec(target || '');
+  return m ? m[0] : '';
+}
 
 function formatRest(s) {
   const m = Math.floor(Math.max(0, s) / 60);
@@ -93,6 +102,10 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   const [sets, setSets] = useState(exercise.sets);
   const [weight, setWeight] = useState(exercise.weight_kg ?? 0);
   const [reps, setReps] = useState(exercise.reps);
+  // The `exercise` prop is a one-time snapshot from the parent (never refreshed while this screen
+  // stays open) — sets/weight/reps already had their own local state for this reason; set_targets
+  // needs the same treatment so editing a set's target actually updates what's on screen.
+  const [setTargets, setSetTargetsState] = useState(exercise.set_targets || null);
   const [sheet, setSheet] = useState(null); // null | 'sets' | 'weight' | 'reps' | 'rest'
   const [sheetSets, setSheetSets] = useState(exercise.sets);
   const [sheetReps, setSheetReps] = useState(exercise.reps);
@@ -146,8 +159,17 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
 
   function openSheet(name) {
     setSheetSets(sets);
-    setSheetReps(reps);
-    setSheetRepsChoice(REP_CHOICE_OPTIONS.find((o) => repChoiceMatches(o, reps)) ?? null);
+    // With a per-set scheme, "reps" here edits the CURRENT set's own target (what's actually
+    // shown on that set's row) rather than the flat exercise-wide reps number, which had nothing
+    // to do with what any individual row displayed.
+    const currentTarget = setTargets?.[completedSets];
+    if (currentTarget) {
+      setSheetReps(reps);
+      setSheetRepsChoice(REP_CHOICE_OPTIONS.find((o) => o === stripArrow(currentTarget)) ?? null);
+    } else {
+      setSheetReps(reps);
+      setSheetRepsChoice(REP_CHOICE_OPTIONS.find((o) => repChoiceMatches(o, reps)) ?? null);
+    }
     setSheetWeight(sheetUnit === 'lb' ? Math.round(weight * LB_PER_KG * 10) / 10 : weight);
     setSheetRestTarget(restTarget);
     setSheet(name);
@@ -167,7 +189,15 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
 
   function confirmReps() {
     setReps(sheetReps);
-    persist({ reps: sheetReps });
+    if (setTargets?.[completedSets] && sheetRepsChoice) {
+      const nextTargets = setTargets.map((target, i) =>
+        i === completedSets ? `${sheetRepsChoice}${arrowOf(target)}` : target
+      );
+      setSetTargetsState(nextTargets);
+      persist({ reps: sheetReps, set_targets: nextTargets });
+    } else {
+      persist({ reps: sheetReps });
+    }
     setSheet(null);
   }
 
@@ -285,9 +315,9 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
                 <span className="activites-row-kcal">
                   {setHistory[i]?.weight ?? weight} kg × {setHistory[i]?.reps ?? reps}
                 </span>
-              ) : exercise.set_targets?.[i] ? (
+              ) : setTargets?.[i] ? (
                 <span className="activites-row-kcal">
-                  {weight} kg / {exercise.set_targets[i]}
+                  {weight} kg / {setTargets[i]}
                 </span>
               ) : (
                 <span className="activites-row-kcal">
