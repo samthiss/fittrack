@@ -239,6 +239,11 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
             <Icon name="pencil" size={16} />
           </button>
         </div>
+        {resting && (
+          <button type="button" className="btn-ghost" style={{ display: 'block', margin: '10px auto 0' }} onClick={() => setResting(false)}>
+            {t('activityLog.skipRest')}
+          </button>
+        )}
       </div>
 
       <div style={{ marginTop: 4 }}>
@@ -275,22 +280,19 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
               </span>
               <div className="entry-card-body" style={{ cursor: 'default' }}>
                 <div className="entry-card-name">{t('activityLog.setLabel').replace('{n}', i + 1)}</div>
-                {exercise.set_targets?.[i] && (
-                  <div className="entry-card-sub">
-                    {t('activityLog.target')} {exercise.set_targets[i]}
-                  </div>
-                )}
               </div>
-              {current ? (
-                <span className="activites-row-kcal">
-                  {weight} kg × {reps}
-                </span>
-              ) : done ? (
+              {done ? (
                 <span className="activites-row-kcal">
                   {setHistory[i]?.weight ?? weight} kg × {setHistory[i]?.reps ?? reps}
                 </span>
+              ) : exercise.set_targets?.[i] ? (
+                <span className="activites-row-kcal">
+                  {weight} kg / {exercise.set_targets[i]}
+                </span>
               ) : (
-                <span className="activites-row-kcal">{exercise.set_targets ? `${weight} kg` : `${weight} kg × ${reps}`}</span>
+                <span className="activites-row-kcal">
+                  {weight} kg × {reps}
+                </span>
               )}
             </div>
           );
