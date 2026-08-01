@@ -7,6 +7,22 @@ const REST_SECONDS = 90;
 const REST_STEP_SECONDS = 15;
 const LB_PER_KG = 2.20462;
 
+// Same fixed rep-range choices as the set-target picker elsewhere (ActivityDetail,
+// WorkoutTemplateEditor, ActivitySession) — quick-editing reps mid-session picks from the same
+// vocabulary instead of free-stepping an arbitrary number.
+const REP_CHOICE_OPTIONS = ['5-9', '8-12', '10-15', '15-20', 'Max'];
+function repChoiceToNumber(opt) {
+  if (opt === 'Max') return 1;
+  return parseInt(opt, 10);
+}
+// Highlights whichever choice the current numeric reps value came from (falls inside the range,
+// or Max for the 1-rep placeholder) — reps itself stays a plain number under the hood.
+function repChoiceMatches(opt, value) {
+  if (opt === 'Max') return value === 1;
+  const [lo, hi] = opt.split('-').map(Number);
+  return value >= lo && value <= hi;
+}
+
 function formatRest(s) {
   const m = Math.floor(Math.max(0, s) / 60);
   const sec = Math.max(0, s) % 60;
@@ -235,16 +251,10 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
             <Icon name="weight" size={14} />
             {weight} kg
           </button>
-          {/* Reps comes from the exercise's fixed per-set scheme (shown under each set row below)
-              once set_targets is set — a single free-editable reps count no longer applies. Sets
-              stays editable either way: adding/removing a set on the fly is independent of
-              whether the existing sets have a target (an extra set just won't have one). */}
-          {!exercise.set_targets && (
-            <button type="button" className="filter-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => openSheet('reps')}>
-              <Icon name="repeat-2" size={14} />
-              {reps} {t('activityLog.repsShort')}
-            </button>
-          )}
+          <button type="button" className="filter-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => openSheet('reps')}>
+            <Icon name="repeat-2" size={14} />
+            {reps} {t('activityLog.repsShort')}
+          </button>
         </div>
       </div>
 
@@ -364,14 +374,19 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
           <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="bottom-sheet-handle" />
             <div className="bottom-sheet-title">{t('activityLog.reps')}</div>
-            <div className="bottom-sheet-stepper">
-              <button type="button" className="weight-minus-btn" onClick={() => setSheetReps((n) => Math.max(1, n - 1))}>
-                <Icon name="minus" size={18} />
-              </button>
-              <span className="bottom-sheet-stepper-value">{sheetReps}</span>
-              <button type="button" className="weight-plus-btn" onClick={() => setSheetReps((n) => n + 1)}>
-                <Icon name="plus" size={18} />
-              </button>
+            <div className="rep-choice-row">
+              {REP_CHOICE_OPTIONS.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  // Ranges can overlap (e.g. 9 is in both "5-9" and "8-12") — only the first
+                  // match in option order counts as "the" active pill, so exactly one lights up.
+                  className={opt === REP_CHOICE_OPTIONS.find((o) => repChoiceMatches(o, sheetReps)) ? 'rep-choice-pill active' : 'rep-choice-pill'}
+                  onClick={() => setSheetReps(repChoiceToNumber(opt))}
+                >
+                  {opt}
+                </button>
+              ))}
             </div>
             <div className="bottom-sheet-actions">
               <button type="button" className="meal-add-cta meal-add-cta-white" style={{ flex: 1 }} onClick={() => setSheet(null)}>

@@ -507,6 +507,32 @@
   padding: 6px 0 18px;
 }
 
+.rep-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 6px 0 18px;
+}
+
+.rep-choice-pill {
+  flex: 1 1 30%;
+  padding: 14px 8px;
+  border-radius: 12px;
+  border: 2px solid var(--border-subtle, var(--line));
+  background: var(--surface-card);
+  color: var(--txt);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.rep-choice-pill.active {
+  border-color: var(--acc);
+  color: var(--acc);
+}
+
 .bottom-sheet-stepper-value {
   font-family: var(--font-display);
   font-size: 28px;
