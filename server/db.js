@@ -752,14 +752,6 @@ for (const table of ['nutrient_estimation_runs', 'microbiome_classification_runs
   }
 }
 
-const upsertSetting = db.prepare(`
-  INSERT INTO activity_settings (user_id, type, label, kcal_per_hour) VALUES (1, @type, @label, @kcal_per_hour)
-  ON CONFLICT(user_id, type) DO UPDATE SET label = @label, kcal_per_hour = @kcal_per_hour
-`);
-for (const setting of DEFAULT_ACTIVITY_SETTINGS) {
-  upsertSetting.run(setting);
-}
-
 // Backfill: seedDefaultUserData (index.js) only inserts DEFAULT_ACTIVITY_SETTINGS for a BRAND NEW
 // account at registration time, so a type added to that list later (e.g. jump rope) never reaches
 // accounts that already existed — INSERT OR IGNORE here re-runs the same seeding for every
