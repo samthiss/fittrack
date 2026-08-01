@@ -5,7 +5,8 @@ import { useLanguage } from '../i18n/LanguageContext';
 
 const REST_SECONDS = 90;
 const REST_STEP_SECONDS = 15;
-const LB_PER_KG = 2.20462;
+const WEIGHT_STEP_OPTIONS = [1.25, 2.5, 5];
+const WEIGHT_STEP_STORAGE_KEY = 'fittrack_weight_step';
 
 // Same fixed rep-range choices as the set-target picker elsewhere (ActivityDetail,
 // WorkoutTemplateEditor, ActivitySession) — quick-editing reps mid-session picks from the same
@@ -113,9 +114,15 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   // (range-matching a number back to a pill was fragile: overlapping ranges like "5-9"/"8-12"
   // could both/neither match depending on the value).
   const [sheetRepsChoice, setSheetRepsChoice] = useState(null);
-  const [sheetUnit, setSheetUnit] = useState('kg');
   const [sheetWeight, setSheetWeight] = useState(exercise.weight_kg ?? 0);
   const [sheetRestTarget, setSheetRestTarget] = useState(REST_SECONDS);
+  // How much the weight +/- buttons move by — a personal preference, kept on the device rather
+  // than round-tripping through the server for something this minor.
+  const [weightStep, setWeightStep] = useState(() => Number(localStorage.getItem(WEIGHT_STEP_STORAGE_KEY)) || 2.5);
+  function chooseWeightStep(step) {
+    setWeightStep(step);
+    localStorage.setItem(WEIGHT_STEP_STORAGE_KEY, String(step));
+  }
 
   useEffect(() => {
     if (!resting || restPaused || !restStartedAt) return undefined;
@@ -170,7 +177,7 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
       setSheetReps(reps);
       setSheetRepsChoice(REP_CHOICE_OPTIONS.find((o) => repChoiceMatches(o, reps)) ?? null);
     }
-    setSheetWeight(sheetUnit === 'lb' ? Math.round(weight * LB_PER_KG * 10) / 10 : weight);
+    setSheetWeight(weight);
     setSheetRestTarget(restTarget);
     setSheet(name);
   }
@@ -202,7 +209,7 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   }
 
   function confirmWeight() {
-    const kg = sheetUnit === 'lb' ? Math.round((sheetWeight / LB_PER_KG) * 10) / 10 : sheetWeight;
+    const kg = Number(sheetWeight) || 0;
     setWeight(kg);
     persist({ weight_kg: kg });
     setSheet(null);
@@ -443,20 +450,41 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
                 {t('common.save')}
               </button>
             </div>
-            <div className="day-nav-subtitle" style={{ marginTop: 14, marginBottom: 6 }}>
-              {t('activityLog.unit')}
-            </div>
-            <div className="filter-pill-row" style={{ marginTop: 0, marginBottom: 4 }}>
-              <button type="button" className={sheetUnit === 'kg' ? 'filter-pill active' : 'filter-pill'} style={{ flex: 1, textAlign: 'center' }} onClick={() => setSheetUnit('kg')}>
-                kg
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14 }}>
+              <button
+                type="button"
+                className="weight-minus-btn"
+                onClick={() => setSheetWeight((w) => Math.max(0, Math.round((Number(w) - weightStep) * 100) / 100))}
+              >
+                <Icon name="minus" size={18} />
               </button>
-              <button type="button" className={sheetUnit === 'lb' ? 'filter-pill active' : 'filter-pill'} style={{ flex: 1, textAlign: 'center' }} onClick={() => setSheetUnit('lb')}>
-                lb
+              <div className="exercise-session-input-group" style={{ flex: 1, boxSizing: 'border-box' }}>
+                <input type="number" min="0" step="0.5" value={sheetWeight} onChange={(e) => setSheetWeight(e.target.value)} style={{ width: '100%', textAlign: 'left' }} />
+                <span>kg</span>
+              </div>
+              <button
+                type="button"
+                className="weight-plus-btn"
+                onClick={() => setSheetWeight((w) => Math.round((Number(w) + weightStep) * 100) / 100)}
+              >
+                <Icon name="plus" size={18} />
               </button>
             </div>
-            <div className="exercise-session-input-group" style={{ marginTop: 10, width: '100%', boxSizing: 'border-box' }}>
-              <input type="number" min="0" step="0.5" value={sheetWeight} onChange={(e) => setSheetWeight(e.target.value)} style={{ width: '100%', textAlign: 'left' }} />
-              <span>{sheetUnit}</span>
+            <div className="day-nav-subtitle" style={{ marginTop: 18, marginBottom: 6 }}>
+              {t('activityLog.weightStep')}
+            </div>
+            <div className="filter-pill-row" style={{ marginTop: 0 }}>
+              {WEIGHT_STEP_OPTIONS.map((step) => (
+                <button
+                  key={step}
+                  type="button"
+                  className={weightStep === step ? 'filter-pill active' : 'filter-pill'}
+                  style={{ flex: 1, textAlign: 'center' }}
+                  onClick={() => chooseWeightStep(step)}
+                >
+                  {step} kg
+                </button>
+              ))}
             </div>
           </div>
         </div>
