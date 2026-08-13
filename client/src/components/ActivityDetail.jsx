@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import ExercisePicker from './ExercisePicker';
@@ -24,10 +24,22 @@ function parseSetTarget(target) {
   return { value: target, dir: null };
 }
 
-export default function ActivityDetail({ activity, recurringDays = [], onBack, onStart, onDeleted, onUpdated }) {
+export default function ActivityDetail({
+  activity,
+  recurringDays = [],
+  initialExercises,
+  loadExercises,
+  onBack,
+  onStart,
+  onDeleted,
+  onUpdated,
+}) {
   const { t, lang } = useLanguage();
-  const [exercises, setExercises] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Seeded from the list screen's prefetch when it's already landed, so the common case renders
+  // its first frame complete — no loading state to flash through at all.
+  const [exercises, setExercises] = useState(initialExercises ?? []);
+  const [loading, setLoading] = useState(initialExercises == null);
+  const seededRef = useRef(initialExercises != null);
   const [showAdd, setShowAdd] = useState(false);
   const [editingExerciseId, setEditingExerciseId] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
@@ -51,17 +63,27 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setExercises(await api.getActivityExercises(activity.id));
-    setLoading(false);
-  }, [activity.id]);
+  const isForce = activity.type === 'force';
+
+  // force: true after this page has changed the list itself — the cached copy is stale then, and
+  // only then. Never flips back to the loading state: once there is a list on screen it stays put
+  // and is replaced in place, rather than collapsing to a placeholder mid-edit.
+  const refresh = useCallback(
+    async ({ force = false } = {}) => {
+      setExercises(await loadExercises(activity.id, { force }));
+      setLoading(false);
+    },
+    [activity.id, loadExercises]
+  );
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  const isForce = activity.type === 'force';
+    // Only a force activity shows a list; the others used to pay for this request and drop it.
+    if (!isForce) return;
+    // Seeded from the cache: show it immediately, then re-check in the background, since a live
+    // session writes weights and new exercises straight to the server behind this page's back.
+    // Without a seed there's nothing to show yet, so join whatever request is already in flight.
+    refresh({ force: seededRef.current });
+  }, [refresh, isForce]);
 
   function resetExerciseForm() {
     setName('');
@@ -115,7 +137,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
       }
       resetExerciseForm();
       setShowAdd(false);
-      await refresh();
+      await refresh({ force: true });
     } finally {
       setSaving(false);
     }
@@ -123,7 +145,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
 
   async function handleDeleteExercise(id) {
     await api.deleteActivityExercise(id);
-    await refresh();
+    await refresh({ force: true });
   }
 
   async function handleDeleteActivity() {
@@ -202,7 +224,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
   }
 
   return (
-    <div>
+    <div className="page-enter">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <button type="button" className="meal-detail-back-btn" onClick={onBack} aria-label={t('meal.back')}>
           <Icon name="chevron-left" size={20} />
@@ -277,11 +299,12 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
       {isForce && (
         <>
           {templateSaved && <p className="hint success" style={{ marginTop: 8 }}>{t('activityLog.templateSaved')}</p>}
-          {/* Placeholder cards rather than a line of "loading" text: the exercise list is the bulk
-              of this screen, and swapping a one-line hint for a stack of cards shoved everything
-              below it down the page half a second after it appeared. */}
+          {/* Only reached when the prefetch hasn't landed yet (cold open, slow link). Placeholder
+              cards rather than a line of "loading" text: the exercise list is the bulk of this
+              screen, and swapping a one-line hint for a stack of cards shoved everything below it
+              down the page half a second after it appeared. */}
           {loading ? (
-            <div className="entry-list" style={{ marginTop: 8 }}>
+            <div className="entry-list" style={{ marginTop: 8 }} aria-hidden="true">
               {[0, 1, 2].map((i) => (
                 <div className="entry-card" key={i}>
                   <span className="meal-icon-box">
@@ -455,7 +478,7 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
               weight_kg: ex.weight_kg,
               set_targets: ex.set_targets,
             });
-            await refresh();
+            await refresh({ force: true });
           }}
           onCreateNew={() => {
             setShowPicker(false);

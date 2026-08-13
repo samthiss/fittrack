@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useReducer } from 'react';
+import { useState, useEffect, useMemo, useReducer, useRef, useCallback } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import ActivityDetail from './ActivityDetail';
@@ -80,6 +80,43 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
   const [openPlanGroup, setOpenPlanGroup] = useState(null);
   const [, forceRender] = useReducer((x) => x + 1, 0);
   const refresh = onRefresh;
+
+  // Exercise lists are fetched as soon as the day's workouts are on screen, not when one is
+  // opened — that request is the half-second of empty page between tapping a workout and seeing
+  // it. The cache lives here rather than in ActivityDetail so it outlives the detail page being
+  // closed and reopened. Entries hold the in-flight promise too, so opening a workout mid-prefetch
+  // joins the request already running instead of firing a second one.
+  const exerciseCacheRef = useRef(new Map());
+
+  const loadExercises = useCallback((activityId, { force = false } = {}) => {
+    const cache = exerciseCacheRef.current;
+    const hit = cache.get(activityId);
+    if (hit && !force) return hit.promise;
+    const entry = { value: hit?.value, promise: null };
+    entry.promise = api.getActivityExercises(activityId).then(
+      (list) => {
+        entry.value = list;
+        return list;
+      },
+      (err) => {
+        // Don't cache a failure: the next open should retry rather than inherit the error.
+        if (cache.get(activityId) === entry) cache.delete(activityId);
+        throw err;
+      }
+    );
+    cache.set(activityId, entry);
+    return entry.promise;
+  }, []);
+
+  // What's already in hand, synchronously — lets the detail page render its first frame complete
+  // instead of mounting empty and filling in a tick later.
+  const peekExercises = useCallback((activityId) => exerciseCacheRef.current.get(activityId)?.value, []);
+
+  useEffect(() => {
+    for (const a of activities) {
+      if (a.type === 'force') loadExercises(a.id).catch(() => {});
+    }
+  }, [activities, loadExercises]);
 
   const weekDays = useMemo(() => {
     const monday = mondayOfWeek(date);
@@ -255,6 +292,8 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
       <ActivityDetail
         activity={openActivity}
         recurringDays={recurringDays}
+        initialExercises={peekExercises(openActivity.id)}
+        loadExercises={loadExercises}
         onBack={() => setOpenActivity(null)}
         onStart={(exercises) => {
           setSession({ activity: openActivity, exercises, doneIds: new Set(), exerciseProgress: {}, baseElapsed: 0, runStartedAt: Date.now(), running: true });
@@ -353,6 +392,11 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
           <div
             className="activites-row clickable"
             key={a.id}
+            // Second chance for anything the prefetch above missed or failed on: touching the row
+            // starts the request a beat before the tap resolves. Deduped by loadExercises.
+            onPointerDown={() => {
+              if (a.type === 'force') loadExercises(a.id).catch(() => {});
+            }}
             onClick={() => setOpenActivity(a)}
           >
             <span className="activites-row-icon">

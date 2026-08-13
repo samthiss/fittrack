@@ -595,8 +595,23 @@
   50% { opacity: 0.25; }
 }
 
+/* Pushing a sub-page (a workout, opened from the list) in from the side reads as navigation.
+   Without it the swap is a jump cut: same background, entirely different content, no hint of
+   where it came from — which is what made an instant open still feel abrupt. */
+.page-enter {
+  animation: page-enter 180ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes page-enter {
+  from {
+    transform: translateX(14px);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .skeleton-line { animation: none; }
+  .page-enter { animation: none; }
 }
 
 /* Sits between .app-main and .bottom-tabs, as a flex sibling of both — same reasoning as the tab
