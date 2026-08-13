@@ -74,7 +74,6 @@ export default function AddFoodToMeal({
   onParsePhoto,
   onDeleteEntry,
   onUpdateEntry,
-  onAddedRecipe,
 }) {
   const { t } = useLanguage();
   const TOOLS = [
@@ -274,11 +273,10 @@ export default function AddFoodToMeal({
       }
       await syncRecurring(viewingItem.type, viewingItem.id, qty, modalRecurring);
       setViewingItem(null);
-      // Straight into the ingredient list so a specific ingredient can be trimmed/adjusted
-      // before this is really "done" — rather than a silent add with no way to tweak it.
-      if (viewingItem.type === 'recipe' && onAddedRecipe) {
-        onAddedRecipe(viewingItem.id, qty);
-      }
+      // Adding a recipe used to push straight on into its ingredient list, so a specific
+      // ingredient could be trimmed before the add was really "done". It read as the app asking
+      // for the portions twice — that screen opens with the same portions stepper — so the add now
+      // ends here. Tapping the recipe in the meal still opens it for anyone who wants to adjust.
     } finally {
       setSavingModal(false);
     }

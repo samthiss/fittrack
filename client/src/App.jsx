@@ -4,6 +4,7 @@ import RecipeList from './components/RecipeList';
 import HomeDashboard from './components/HomeDashboard';
 import MealDetail from './components/MealDetail';
 import BottomTabBar from './components/BottomTabBar';
+import SessionBanner from './components/SessionBanner';
 import Report from './components/Report';
 import ActivitesScreen from './components/ActivitesScreen';
 import WeightReport from './components/WeightReport';
@@ -13,6 +14,7 @@ import AuthScreen from './components/AuthScreen';
 import Onboarding from './components/Onboarding';
 import { useLanguage } from './i18n/LanguageContext';
 import { parseRestByReps } from './data/restTargets';
+import { loadStoredSession, saveStoredSession } from './data/sessionStorage';
 import './App.css';
 
 function todayStr() {
@@ -27,7 +29,11 @@ function shiftDateStr(dateStr, deltaDays) {
 
 function MainApp({ onLogout, account }) {
   const { t } = useLanguage();
-  const [view, setView] = useState('journal');
+  const [restoredSession] = useState(() => loadStoredSession(account.id));
+  // Come back where the workout was, not on the Journal: a restored session means the app died
+  // under the user mid-exercise, and making them find their way back would be the same annoyance
+  // one step later.
+  const [view, setView] = useState(restoredSession.session ? 'activites' : 'journal');
   const [selectedMeal, setSelectedMeal] = useState(null);
   const [autoOpenAdd, setAutoOpenAdd] = useState(false);
   const [profile, setProfile] = useState(null);
@@ -35,6 +41,16 @@ function MainApp({ onLogout, account }) {
   // Rest-per-rep-range setting (Réglages > Temps de repos), parsed once here and handed to the
   // exercise session's rest timer.
   const restByReps = useMemo(() => parseRestByReps(profile), [profile]);
+  // A workout in progress outlives the Activités tab: ActivitesScreen is only mounted while that
+  // tab is selected, so keeping the session down there meant a detour through Journal threw away
+  // the sets already logged and stopped the session/rest timers. It also outlives the app itself,
+  // via localStorage — see data/sessionStorage.js.
+  const [session, setSession] = useState(restoredSession.session);
+  const [sessionExercise, setSessionExercise] = useState(restoredSession.exercise);
+
+  useEffect(() => {
+    saveStoredSession(account.id, session, sessionExercise);
+  }, [account.id, session, sessionExercise]);
   const [water, setWater] = useState({ logs: [], totalMl: 0 });
   const [recipes, setRecipes] = useState([]);
   const [foods, setFoods] = useState([]);
@@ -260,6 +276,16 @@ function MainApp({ onLogout, account }) {
     setWater(await api.getWater(date));
   }
 
+  // One call, then one refresh — the point of the dedicated route is that the journal is never
+  // rendered mid-rebuild, half its ingredients gone.
+  async function handleSetRecipePortions(recipeId, portions) {
+    await api.setRecipePortions({ date, meal: selectedMeal, recipe_id: recipeId, portions });
+    await refreshMeal(selectedMeal);
+    await refreshDashboard();
+    await refreshFrequentFoods();
+    setWater(await api.getWater(date));
+  }
+
   async function handleUpdateEntry(id, quantity, unit) {
     await api.updateFoodLogEntry(id, quantity, unit);
     await refreshMeal(selectedMeal);
@@ -330,6 +356,7 @@ function MainApp({ onLogout, account }) {
               onAddEntry={handleAddEntry}
               onDeleteEntry={handleDeleteEntry}
               onUpdateEntry={handleUpdateEntry}
+              onSetRecipePortions={handleSetRecipePortions}
               onLookupBarcode={api.lookupFood}
               onSearchOnline={api.searchFoodsOnline}
               onCreateFood={handleCreateFoodInline}
@@ -361,6 +388,10 @@ function MainApp({ onLogout, account }) {
               activities={activites}
               planEntries={activitesPlan}
               restByReps={restByReps}
+              session={session}
+              onSessionChange={setSession}
+              sessionExercise={sessionExercise}
+              onSessionExerciseChange={setSessionExercise}
               onRefresh={refreshActivites}
             />
           )}
@@ -380,6 +411,10 @@ function MainApp({ onLogout, account }) {
           )}
         </main>
       </div>
+
+      {view !== 'activites' && (
+        <SessionBanner session={session} sessionExercise={sessionExercise} onResume={() => handleViewChange('activites')} />
+      )}
 
       <BottomTabBar view={view} onChange={handleViewChange} />
     </div>

@@ -193,6 +193,7 @@ export default function MealDetail({
   onAddEntry,
   onDeleteEntry,
   onUpdateEntry,
+  onSetRecipePortions,
   onLookupBarcode,
   onSearchOnline,
   onCreateFood,
@@ -271,12 +272,18 @@ export default function MealDetail({
     setGroupPortions(currentPortionsForGroup(g, recipe));
   }
 
-  async function handleSaveGroupPortions(g) {
+  async function handleSaveGroupPortions(g, basePortions) {
     if (savingGroupPortions || !groupPortions || groupPortions <= 0) return;
+    // Saving without having touched the stepper is just a way of closing the sheet — rebuilding
+    // the recipe's rows to land on the exact same numbers would be pure churn (and would reset any
+    // per-ingredient tweak made just above).
+    if (groupPortions === basePortions) {
+      setEditingGroupId(null);
+      return;
+    }
     setSavingGroupPortions(true);
     try {
-      await handleDeleteGroup(g.entries.map((e) => e.id));
-      await onAddEntry('recipe', g.recipeId, groupPortions);
+      await onSetRecipePortions(g.recipeId, groupPortions);
       setEditingGroupId(null);
     } finally {
       setSavingGroupPortions(false);
@@ -511,11 +518,6 @@ export default function MealDetail({
               onParsePhoto={onParsePhoto}
               onDeleteEntry={onDeleteEntry}
               onUpdateEntry={onUpdateEntry}
-              onAddedRecipe={(recipeId, portions) => {
-                setShowAdd(false);
-                setEditingGroupId(recipeId);
-                setGroupPortions(portions);
-              }}
             />
           </div>
           <button type="button" className="done-btn" onClick={() => setShowAdd(false)}>
@@ -588,7 +590,7 @@ export default function MealDetail({
             recurring={recurringKeys.has(`recipe-${g.recipeId}`)}
             onToggleRecurring={(checked) => handleToggleRecurring('recipe', g.recipeId, groupPortions, checked)}
             onClose={() => setEditingGroupId(null)}
-            onSave={() => handleSaveGroupPortions(g)}
+            onSave={() => handleSaveGroupPortions(g, basePortions)}
             saving={savingGroupPortions}
           >
             {recipe.description && <p className="hint">{recipe.description}</p>}
