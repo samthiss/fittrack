@@ -194,6 +194,7 @@ export default function MealDetail({
   onDeleteEntry,
   onUpdateEntry,
   onSetRecipePortions,
+  onDeleteRecipeGroup,
   onLookupBarcode,
   onSearchOnline,
   onCreateFood,
@@ -233,8 +234,14 @@ export default function MealDetail({
   const groups = groupEntries(entries);
   const viewingEntry = viewingEntryId ? entries.find((e) => e.id === viewingEntryId) : null;
 
-  async function handleDeleteGroup(ids) {
-    for (const id of ids) await onDeleteEntry(id);
+  // A recipe group goes in one call — deleting its rows one by one refreshed the journal between
+  // each, so the recipe visibly lost an ingredient at a time.
+  async function handleDeleteGroup(g) {
+    if (g.kind === 'recipe') {
+      await onDeleteRecipeGroup(g.recipeId);
+      return;
+    }
+    for (const e of g.entries) await onDeleteEntry(e.id);
   }
 
   // Logged recipe ingredients don't store the portions count directly (only each ingredient's
@@ -424,7 +431,6 @@ export default function MealDetail({
               const groupProtein = g.entries.reduce((s, e) => s + e.protein, 0);
               const groupCarbs = g.entries.reduce((s, e) => s + e.carbs, 0);
               const groupFat = g.entries.reduce((s, e) => s + e.fat, 0);
-              const ids = g.entries.map((e) => e.id);
 
               return (
                 <div className="entry-group-card" key={`recipe-${g.recipeId}`}>
@@ -455,7 +461,7 @@ export default function MealDetail({
                       </div>
                     </div>
                     <div className="entry-card-actions">
-                      <button type="button" className="entry-icon-btn entry-delete-btn" onClick={() => handleDeleteGroup(ids)}>
+                      <button type="button" className="entry-icon-btn entry-delete-btn" onClick={() => handleDeleteGroup(g)}>
                         <Icon name="trash-2" size={16} />
                       </button>
                     </div>
@@ -516,8 +522,6 @@ export default function MealDetail({
               onCreateFood={onCreateFood}
               onParseText={onParseText}
               onParsePhoto={onParsePhoto}
-              onDeleteEntry={onDeleteEntry}
-              onUpdateEntry={onUpdateEntry}
             />
           </div>
           <button type="button" className="done-btn" onClick={() => setShowAdd(false)}>

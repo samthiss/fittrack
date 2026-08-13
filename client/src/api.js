@@ -111,6 +111,15 @@ export const api = {
   // Rebuilds a logged recipe at a new portion count in one atomic call — see the route's comment.
   setRecipePortions: (data) =>
     request('/food-log/recipe-portions', { method: 'PUT', body: JSON.stringify(data) }),
+  // Removes every ingredient row of a logged recipe in one call.
+  deleteRecipeGroup: (data) =>
+    request('/food-log/recipe-group', { method: 'DELETE', body: JSON.stringify(data) }),
+  // Batch forms of addActivityExercise / deleteMealPlanEntry — see their routes for why callers
+  // shouldn't loop over the single-item ones.
+  addActivityExercisesBulk: (activityId, exercises) =>
+    request(`/activities/${activityId}/exercises/bulk`, { method: 'POST', body: JSON.stringify({ exercises }) }),
+  deleteMealPlanEntries: (ids) =>
+    request('/meal-plan/entries', { method: 'DELETE', body: JSON.stringify({ ids }) }),
   updateFoodLogEntry: (id, quantity, unit) =>
     request(`/food-log/${id}`, { method: 'PUT', body: JSON.stringify({ quantity, unit }) }),
   getDashboard: (date) => {

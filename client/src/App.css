@@ -572,6 +572,33 @@
   font-size: 14px;
 }
 
+/* A control held in place while its data loads must still read as not-yet-usable — otherwise it
+   looks live and simply ignores the first tap. */
+.meal-add-cta:disabled,
+.entry-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Stand-in for content still being fetched. It exists to hold the layout still: a screen that
+   renders a "loading" line and then swaps in cards, buttons and toolbar icons reads as two
+   different pages flashing past, which looks like a glitch rather than a load. */
+.skeleton-line {
+  background: var(--surface-raised, var(--line));
+  border-radius: 6px;
+  height: 11px;
+  opacity: 0.55;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  50% { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line { animation: none; }
+}
+
 /* Sits between .app-main and .bottom-tabs, as a flex sibling of both — same reasoning as the tab
    bar below: no fixed positioning, so it can't drift during iOS Safari's chrome transitions. */
 .session-banner {

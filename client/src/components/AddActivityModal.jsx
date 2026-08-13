@@ -143,9 +143,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
       });
       if (kind === 'force') {
         const exercisesToAdd = [...(selectedTemplate?.exercises || []), ...manualExercises];
-        for (const ex of exercisesToAdd) {
-          await api.addActivityExercise(created.id, ex);
-        }
+        if (exercisesToAdd.length > 0) await api.addActivityExercisesBulk(created.id, exercisesToAdd);
       }
       if (groupId) {
         await api.addActivityPlan({ days: [...days], type: selectedType, duration_minutes: duration, label: finalLabel, groupId });

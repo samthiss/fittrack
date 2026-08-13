@@ -208,10 +208,13 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
           <Icon name="chevron-left" size={20} />
         </button>
         <div style={{ flex: 1 }} />
-        {isForce && exercises.length > 0 && (
+        {/* Always present for a force activity, disabled until there's something to save as a
+            template — appearing only once the fetch lands would shuffle the whole toolbar. */}
+        {isForce && (
           <button
             type="button"
             className="entry-icon-btn"
+            disabled={loading || exercises.length === 0}
             onClick={() => {
               setTemplateName(label || t(`activityType.${activity.type}`));
               setShowSaveTemplate(true);
@@ -274,8 +277,23 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
       {isForce && (
         <>
           {templateSaved && <p className="hint success" style={{ marginTop: 8 }}>{t('activityLog.templateSaved')}</p>}
+          {/* Placeholder cards rather than a line of "loading" text: the exercise list is the bulk
+              of this screen, and swapping a one-line hint for a stack of cards shoved everything
+              below it down the page half a second after it appeared. */}
           {loading ? (
-            <p className="hint" style={{ marginTop: 8 }}>{t('weight.loading')}</p>
+            <div className="entry-list" style={{ marginTop: 8 }}>
+              {[0, 1, 2].map((i) => (
+                <div className="entry-card" key={i}>
+                  <span className="meal-icon-box">
+                    <b style={{ fontSize: 14, fontWeight: 700, opacity: 0.35 }}>{i + 1}</b>
+                  </span>
+                  <div className="entry-card-body" style={{ cursor: 'default' }}>
+                    <div className="skeleton-line" style={{ width: '55%' }} />
+                    <div className="skeleton-line" style={{ width: '35%', height: 9, marginTop: 7 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : exercises.length === 0 ? (
             <p className="hint" style={{ marginTop: 8 }}>{t('activityLog.noExercises')}</p>
           ) : (
@@ -311,8 +329,16 @@ export default function ActivityDetail({ activity, recurringDays = [], onBack, o
               <Icon name="plus" size={18} />
               {t('activityLog.add')}
             </button>
-            {exercises.length > 0 && (
-              <button type="button" className="meal-add-cta" style={{ flex: 1 }} onClick={() => onStart(exercises)}>
+            {/* Kept in place (disabled) while the exercises load, so "Ajouter" doesn't start out
+                full-width and then shrink to half under the finger already reaching for it. */}
+            {(loading || exercises.length > 0) && (
+              <button
+                type="button"
+                className="meal-add-cta"
+                style={{ flex: 1 }}
+                disabled={loading}
+                onClick={() => onStart(exercises)}
+              >
                 <Icon name="play" size={18} />
                 {t('activityLog.start')}
               </button>
