@@ -3,10 +3,7 @@ import { api } from '../api';
 import CircularGauge from './CircularGauge';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { todayStr, shiftDateStr } from '../data/dates';
 
 // The 4 fixed meals have a translated mealName.* key; any extra "en-cas" slot (key starting with
 // "snack_") only has the free-text label the user gave it in Réglages > Repas du jour.
@@ -60,15 +57,11 @@ function formatDateLabel(dateStr, t) {
     t('home.weekdayFri'),
     t('home.weekdaySat'),
   ];
-  const todayStr = new Date().toISOString().slice(0, 10);
-  if (dateStr === todayStr) return t('home.today');
+  const today = todayStr();
+  if (dateStr === today) return t('home.today');
+  if (dateStr === shiftDateStr(today, -1)) return t('home.yesterday');
+  if (dateStr === shiftDateStr(today, 1)) return t('home.tomorrow');
   const d = new Date(`${dateStr}T00:00:00Z`);
-  const yesterday = new Date(`${todayStr}T00:00:00Z`);
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  if (dateStr === yesterday.toISOString().slice(0, 10)) return t('home.yesterday');
-  const tomorrow = new Date(`${todayStr}T00:00:00Z`);
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-  if (dateStr === tomorrow.toISOString().slice(0, 10)) return t('home.tomorrow');
   const weekday = WEEKDAY_LABELS[d.getUTCDay()];
   return `${weekday} ${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
 }

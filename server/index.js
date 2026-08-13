@@ -226,8 +226,21 @@ const MEALS = [
 
 const MACRO_SHARES = { carbs: 0.35, protein: 0.3, fat: 0.35 };
 
+// The user's day, not the UTC day. This is the fallback for any route called without an explicit
+// date, and — more importantly — what marks a recurring activity as already applied for today,
+// which has to agree with the date the client sends or the same activity gets auto-logged twice.
+// The container runs on UTC, so a fixed zone is configured rather than read from the host.
+const APP_TIMEZONE = process.env.APP_TIMEZONE || 'Europe/Paris';
+// en-CA formats as YYYY-MM-DD, which is the shape every date is stored in.
+const dateInAppZone = new Intl.DateTimeFormat('en-CA', {
+  timeZone: APP_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return dateInAppZone.format(new Date());
 }
 
 const EXTRA_SNACK_TIMES = ['morning', 'afternoon', 'evening'];
@@ -1211,6 +1224,31 @@ app.post('/api/foods/estimate-missing-nutrients', async (req, res) => {
   }
 });
 
+// A parsed food (from text or from a photo) restated per 100 g, which is how every food is
+// stored. The model states the portion it saw, so the whole conversion hinges on that one
+// number: a missing or zero quantity turns every macro into Infinity and writes a food that
+// poisons every total it's ever added to. Rejected instead — the caller turns a throw here into
+// the same 422 "analyse ratée" the parse itself produces, which is what it is.
+function perHundredGrams(parsed) {
+  const quantity = Number(parsed.quantite_g);
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error("L'analyse n'a pas pu déterminer la quantité — saisis-la à la main.");
+  }
+  const factor = 100 / quantity;
+  const result = {
+    name: parsed.nom,
+    suggestedQuantity: quantity,
+    kcal_per_100g: (Number(parsed.kcal) || 0) * factor,
+    protein_per_100g: (Number(parsed.proteines) || 0) * factor,
+    carbs_per_100g: (Number(parsed.glucides) || 0) * factor,
+    fat_per_100g: (Number(parsed.lipides) || 0) * factor,
+  };
+  for (const key of NUTRIENT_KEYS) {
+    result[`${key}_per_100g`] = (Number(parsed[INGREDIENT_NUTRIENT_FIELDS[key]]) || 0) * factor;
+  }
+  return result;
+}
+
 app.post('/api/foods/parse-text', async (req, res) => {
   const { text } = req.body;
   if (!text || !text.trim()) {
@@ -1218,22 +1256,7 @@ app.post('/api/foods/parse-text', async (req, res) => {
   }
 
   try {
-    const parsed = await parseFoodText(text);
-    const factor = 100 / parsed.quantite_g;
-
-    const result = {
-      name: parsed.nom,
-      suggestedQuantity: parsed.quantite_g,
-      kcal_per_100g: parsed.kcal * factor,
-      protein_per_100g: parsed.proteines * factor,
-      carbs_per_100g: parsed.glucides * factor,
-      fat_per_100g: parsed.lipides * factor,
-    };
-    for (const key of NUTRIENT_KEYS) {
-      result[`${key}_per_100g`] = (parsed[INGREDIENT_NUTRIENT_FIELDS[key]] || 0) * factor;
-    }
-
-    res.json(result);
+    res.json(perHundredGrams(await parseFoodText(text)));
   } catch (err) {
     res.status(422).json({ error: err.message || "Échec de l'analyse" });
   }
@@ -1248,22 +1271,7 @@ app.post('/api/foods/parse-photo', uploadFoodPhoto.single('photo'), async (req, 
   const mediaType = SUPPORTED_PHOTO_MIME_TYPES.has(req.file.mimetype) ? req.file.mimetype : 'image/jpeg';
 
   try {
-    const parsed = await parseFoodPhoto(req.file.buffer.toString('base64'), mediaType);
-    const factor = 100 / parsed.quantite_g;
-
-    const result = {
-      name: parsed.nom,
-      suggestedQuantity: parsed.quantite_g,
-      kcal_per_100g: parsed.kcal * factor,
-      protein_per_100g: parsed.proteines * factor,
-      carbs_per_100g: parsed.glucides * factor,
-      fat_per_100g: parsed.lipides * factor,
-    };
-    for (const key of NUTRIENT_KEYS) {
-      result[`${key}_per_100g`] = (parsed[INGREDIENT_NUTRIENT_FIELDS[key]] || 0) * factor;
-    }
-
-    res.json(result);
+    res.json(perHundredGrams(await parseFoodPhoto(req.file.buffer.toString('base64'), mediaType)));
   } catch (err) {
     res.status(422).json({ error: err.message || "Échec de l'analyse" });
   }
@@ -1656,7 +1664,14 @@ app.put('/api/food-log/:id', (req, res) => {
 
   const newQty = Number(req.body.quantity);
   if (!newQty || newQty <= 0) return res.status(400).json({ error: 'quantity invalide' });
-  const factor = newQty / current.quantity;
+  // A row logged at quantity 0 has no ratio to scale by: dividing gives Infinity, and Infinity
+  // times a macro of 0 is NaN, which is what used to get written back over every macro and
+  // micronutrient on the row. Those rows are real — a recipe ingredient stated without a quantity
+  // (sel, poivre, épices) is logged exactly as the recipe wrote it — and the journal's +/- buttons
+  // send 5 g the moment either one is tapped. Nothing about the row says what 5 g of it would
+  // weigh in kcal, so its macros are carried over untouched and only the quantity moves; whatever
+  // lump figure the recipe stated for it stays that lump figure rather than being zeroed out.
+  const factor = current.quantity > 0 ? newQty / current.quantity : 1;
   // unit is a display/water-tracking tag only (1ml treated as 1g for macro purposes), so
   // changing it alongside quantity doesn't affect the scaling math below.
   const unit = req.body.unit === 'ml' || req.body.unit === 'g' ? req.body.unit : current.unit;
