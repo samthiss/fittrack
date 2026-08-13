@@ -622,6 +622,7 @@ app.put('/api/activities/:id', (req, res) => {
 });
 
 app.delete('/api/activities/:id', (req, res) => {
+  db.prepare('DELETE FROM exercise_sets WHERE activity_log_id = ? AND user_id = ?').run(req.params.id, req.userId);
   db.prepare('DELETE FROM activity_exercises WHERE activity_log_id = ? AND user_id = ?').run(req.params.id, req.userId);
   db.prepare('DELETE FROM activity_logs WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
   res.status(204).end();
@@ -752,8 +753,98 @@ app.put('/api/exercises/:id', (req, res) => {
 });
 
 app.delete('/api/exercises/:id', (req, res) => {
+  db.prepare('DELETE FROM exercise_sets WHERE activity_exercise_id = ? AND user_id = ?').run(req.params.id, req.userId);
   db.prepare('DELETE FROM activity_exercises WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
   res.status(204).end();
+});
+
+// --- Validated sets: what was actually lifted, as opposed to what was planned ---
+// The key two spellings of the same movement have to agree on. Done in JS because SQLite folds
+// case for ASCII only: to it, "DÉVELOPPÉ COUCHÉ" and "développé couché" are two different
+// exercises, which for a French exercise list is most of them.
+function exerciseNameKey(name) {
+  return String(name || '').trim().toLowerCase();
+}
+
+// One row per set, written the moment it's validated mid-session. The exercise's own name and
+// date ride along (see the table comment in db.js) so progression can be followed per movement
+// across months rather than per activity_exercises row, which is recreated every session.
+app.put('/api/exercises/:id/sets/:setIndex', (req, res) => {
+  const exercise = db
+    .prepare(
+      `SELECT ae.id, ae.name, ae.activity_log_id, al.date
+       FROM activity_exercises ae JOIN activity_logs al ON al.id = ae.activity_log_id
+       WHERE ae.id = ? AND ae.user_id = ?`
+    )
+    .get(req.params.id, req.userId);
+  if (!exercise) return res.status(404).json({ error: 'Exercice introuvable' });
+
+  const setIndex = Number(req.params.setIndex);
+  const reps = Number(req.body.reps);
+  if (!Number.isInteger(setIndex) || setIndex < 0) return res.status(400).json({ error: 'set_index invalide' });
+  if (!Number.isFinite(reps) || reps <= 0) return res.status(400).json({ error: 'reps invalide' });
+  const weightKg = req.body.weight_kg == null || req.body.weight_kg === '' ? null : Number(req.body.weight_kg);
+  if (weightKg != null && !Number.isFinite(weightKg)) return res.status(400).json({ error: 'weight_kg invalide' });
+
+  // Correcting an already-validated set rewrites that one row rather than logging the set twice —
+  // the same operation the client performs when it re-sends a set it has just edited.
+  db.prepare(
+    `INSERT INTO exercise_sets (user_id, activity_log_id, activity_exercise_id, exercise_name, name_key, date, set_index, weight_kg, reps)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (activity_exercise_id, set_index)
+     DO UPDATE SET weight_kg = excluded.weight_kg, reps = excluded.reps`
+  ).run(
+    req.userId,
+    exercise.activity_log_id,
+    exercise.id,
+    exercise.name,
+    exerciseNameKey(exercise.name),
+    exercise.date,
+    setIndex,
+    weightKg,
+    Math.round(reps)
+  );
+
+  res.status(200).json(
+    db
+      .prepare('SELECT * FROM exercise_sets WHERE activity_exercise_id = ? AND set_index = ?')
+      .get(exercise.id, setIndex)
+  );
+});
+
+// Past sessions of one movement, most recent first, each with the sets it was actually done with.
+// `exclude_activity_id` drops the session in progress, so an exercise being performed right now
+// compares against the last time rather than against itself.
+const HISTORY_SESSION_LIMIT = 20;
+
+app.get('/api/exercise-history', (req, res) => {
+  const name = String(req.query.name || '').trim();
+  if (!name) return res.json({ name: '', sessions: [] });
+  const limit = Math.min(HISTORY_SESSION_LIMIT, Number(req.query.limit) || 10);
+
+  const rows = db
+    .prepare(
+      `SELECT activity_log_id, date, set_index, weight_kg, reps
+       FROM exercise_sets
+       WHERE user_id = ? AND name_key = ? AND activity_log_id != ?
+       ORDER BY date DESC, activity_log_id DESC, set_index ASC`
+    )
+    .all(req.userId, exerciseNameKey(name), Number(req.query.exclude_activity_id) || -1);
+
+  // Grouped in JS rather than with a windowed query: the rows are already ordered, the volume is
+  // one user's sets for one movement, and the limit applies to sessions, not rows.
+  const sessions = [];
+  for (const row of rows) {
+    let session = sessions[sessions.length - 1];
+    if (!session || session.activity_log_id !== row.activity_log_id) {
+      if (sessions.length === limit) break;
+      session = { activity_log_id: row.activity_log_id, date: row.date, sets: [] };
+      sessions.push(session);
+    }
+    session.sets.push({ set_index: row.set_index, weight_kg: row.weight_kg, reps: row.reps });
+  }
+
+  res.json({ name, sessions });
 });
 
 // Every distinct exercise this user has ever logged (by name, case-insensitive), with its most

@@ -595,6 +595,27 @@
   50% { opacity: 0.25; }
 }
 
+/* What the same movement went for last time, sat just above the sets of the current one. Quiet on
+   purpose — it's a reference while choosing the next weight, not something to act on. */
+.exercise-last-time {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle, var(--line));
+  color: var(--text-secondary, var(--dim));
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.exercise-last-time b {
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
 /* Pushing a sub-page (a workout, opened from the list) in from the side reads as navigation.
    Without it the swap is a jump cut: same background, entirely different content, no hint of
    where it came from — which is what made an instant open still feel abrupt. */

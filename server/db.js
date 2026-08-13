@@ -65,6 +65,40 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- What was actually lifted, one row per validated set. activity_exercises holds the plan for an
+  -- exercise (4 séries × 10 reps @ 40kg); this holds the performance, which is what makes a set
+  -- worth validating one at a time — until now that record lived only in the phone's memory and
+  -- was gone the moment the workout ended.
+  --
+  -- exercise_name is denormalized on purpose: progression is followed per movement across months
+  -- ("développé couché"), not per activity_exercises row, since every session creates brand-new
+  -- rows for the same exercise. date likewise, so a history query never joins back to activity_logs.
+  --
+  -- name_key is that name lowercased in JS, and is what history actually matches on. SQLite's own
+  -- case-insensitivity (COLLATE NOCASE, and LOWER()) folds ASCII only, so "DÉVELOPPÉ COUCHÉ" and
+  -- "développé couché" would count as two different movements — which, for a French exercise list,
+  -- is most of them.
+  --
+  -- (activity_exercise_id, set_index) is unique: re-validating or correcting a set afterwards
+  -- overwrites it rather than logging the same set twice.
+  CREATE TABLE IF NOT EXISTS exercise_sets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    activity_log_id INTEGER NOT NULL,
+    activity_exercise_id INTEGER NOT NULL,
+    exercise_name TEXT NOT NULL,
+    name_key TEXT NOT NULL,
+    date TEXT NOT NULL,
+    set_index INTEGER NOT NULL,
+    weight_kg REAL,
+    reps INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (activity_exercise_id, set_index)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_exercise_sets_history
+    ON exercise_sets (user_id, name_key, date DESC);
+
   -- A saved, reusable list of exercises (e.g. "Lower Body") the user can pick when starting a
   -- new force session instead of re-adding every exercise by hand each time. exercises is a JSON
   -- array of { name, sets, reps, weight_kg }, mirroring activity_exercises' shape but detached
