@@ -226,8 +226,21 @@ const MEALS = [
 
 const MACRO_SHARES = { carbs: 0.35, protein: 0.3, fat: 0.35 };
 
+// The user's day, not the UTC day. This is the fallback for any route called without an explicit
+// date, and — more importantly — what marks a recurring activity as already applied for today,
+// which has to agree with the date the client sends or the same activity gets auto-logged twice.
+// The container runs on UTC, so a fixed zone is configured rather than read from the host.
+const APP_TIMEZONE = process.env.APP_TIMEZONE || 'Europe/Paris';
+// en-CA formats as YYYY-MM-DD, which is the shape every date is stored in.
+const dateInAppZone = new Intl.DateTimeFormat('en-CA', {
+  timeZone: APP_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return dateInAppZone.format(new Date());
 }
 
 const EXTRA_SNACK_TIMES = ['morning', 'afternoon', 'evening'];

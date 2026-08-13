@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../api';
 import { useLanguage } from '../i18n/LanguageContext';
+import { todayStr, shiftDateStr } from '../data/dates';
 import Icon from './Icon';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -21,21 +22,11 @@ function displayOrder(meals) {
   return meals.map((m) => m.key);
 }
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function mondayOfWeek(dateStr) {
   const d = new Date(`${dateStr}T00:00:00Z`);
   const jsDay = d.getUTCDay();
   const diff = (jsDay + 6) % 7;
   d.setUTCDate(d.getUTCDate() - diff);
-  return d.toISOString().slice(0, 10);
-}
-
-function shiftDateStr(dateStr, delta) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + delta);
   return d.toISOString().slice(0, 10);
 }
 
@@ -123,7 +114,9 @@ function ToggleSwitch({ on, onChange, disabled }) {
 export default function MealPlanner({ recipes, foods }) {
   const { t, lang } = useLanguage();
   const [plan, setPlan] = useState(null);
-  const [day, setDay] = useState(DAY_ORDER[(new Date().getUTCDay() + 6) % 7]);
+  // Derived from today's date string rather than the Date object's own weekday, so it lands on the
+  // same day the rest of the app calls today (see data/dates.js).
+  const [day, setDay] = useState(DAY_ORDER[(new Date(`${todayStr()}T00:00:00Z`).getUTCDay() + 6) % 7]);
   const [loading, setLoading] = useState(true);
   const [screen, setScreen] = useState('home'); // 'home' | 'generate' | 'add'
   const [addMeal, setAddMeal] = useState('breakfast');

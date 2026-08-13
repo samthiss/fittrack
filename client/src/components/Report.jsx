@@ -3,11 +3,10 @@ import TodayReport from './TodayReport';
 import WeekReport from './WeekReport';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
+import { todayStr, shiftDateStr } from '../data/dates';
 
 function yesterdayStr() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);
+  return shiftDateStr(todayStr(), -1);
 }
 
 export default function Report() {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useLanguage } from '../i18n/LanguageContext';
+import { todayStr } from '../data/dates';
 import Icon from './Icon';
 
 const GOAL_KEYS = ['lose', 'maintain', 'gain'];
@@ -128,7 +129,7 @@ export default function Onboarding({ onDone }) {
         });
       }
 
-      const summary = await api.getSummary(new Date().toISOString().slice(0, 10));
+      const summary = await api.getSummary(todayStr());
       const targetIntake = summary.targetIntake;
       setResult({
         targetIntake,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { api } from './api';
 import RecipeList from './components/RecipeList';
 import HomeDashboard from './components/HomeDashboard';
@@ -15,17 +15,8 @@ import Onboarding from './components/Onboarding';
 import { useLanguage } from './i18n/LanguageContext';
 import { parseRestByReps } from './data/restTargets';
 import { loadStoredSession, saveStoredSession } from './data/sessionStorage';
+import { todayStr, shiftDateStr } from './data/dates';
 import './App.css';
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function shiftDateStr(dateStr, deltaDays) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + deltaDays);
-  return d.toISOString().slice(0, 10);
-}
 
 function MainApp({ onLogout, account }) {
   const { t } = useLanguage();
@@ -64,6 +55,32 @@ function MainApp({ onLogout, account }) {
   const [activitesDate, setActivitesDate] = useState(todayStr());
   const [activites, setActivites] = useState([]);
   const [activitesPlan, setActivitesPlan] = useState([]);
+
+  // Both dates are picked once, at mount — and FitTrack is a standalone home-screen app that can
+  // sit open for days, so past midnight it kept showing yesterday as "today": yesterday's journal,
+  // yesterday's activities, and no auto-apply of the meal plan or the recurring activities (both
+  // are gated on the shown date being today). Rechecked when the app comes back to the foreground
+  // and once a minute while it's up, which is enough for a boundary that moves once a day.
+  //
+  // Only a view still sitting on the old today follows the rollover: a date the user navigated to
+  // deliberately is theirs, and must not be yanked out from under them.
+  const lastKnownToday = useRef(todayStr());
+  useEffect(() => {
+    function checkRollover() {
+      const today = todayStr();
+      const previous = lastKnownToday.current;
+      if (today === previous) return;
+      lastKnownToday.current = today;
+      setDate((d) => (d === previous ? today : d));
+      setActivitesDate((d) => (d === previous ? today : d));
+    }
+    const id = setInterval(checkRollover, 60000);
+    document.addEventListener('visibilitychange', checkRollover);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', checkRollover);
+    };
+  }, []);
 
   const refreshCore = useCallback(async () => {
     // Today's recurring activities flow in automatically, same idea as the meal plan auto-apply.
