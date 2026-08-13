@@ -616,6 +616,102 @@
   font-weight: 650;
 }
 
+/* It's a button (it opens the full history) but must stay the quiet reference line it was — so it
+   resets the button chrome rather than inheriting any. */
+button.exercise-last-time {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  align-items: center;
+}
+
+button.exercise-last-time span {
+  flex: 1;
+}
+
+/* Fires on the set that earned it and clears itself a few seconds later. Loud on purpose — this is
+   the one moment in a workout worth interrupting for. */
+.strength-record-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: rgba(245, 194, 107, 0.15);
+  border: 1px solid rgba(245, 194, 107, 0.4);
+  color: var(--warning);
+  font-size: 13px;
+  font-weight: 650;
+  animation: page-enter 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.strength-record-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 7px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(245, 194, 107, 0.15);
+  color: var(--warning);
+  font-size: 10.5px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+
+.strength-chart-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* Eight weeks of volume. Bars rather than a line: discrete weeks, compared against each other,
+   sitting on a baseline of zero — the only honest baseline for a magnitude. */
+.muscle-volume-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 132px;
+  margin-top: 4px;
+}
+
+.muscle-volume-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  min-width: 0;
+}
+
+.muscle-volume-bar-track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.muscle-volume-bar-fill {
+  width: 100%;
+  border-radius: 4px 4px 2px 2px;
+  background: linear-gradient(180deg, #a893ff, #7c5cfc);
+  min-height: 2px;
+}
+
+.muscle-volume-bar-label {
+  color: var(--text-muted);
+  font-size: 9.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
 /* Pushing a sub-page (a workout, opened from the list) in from the side reads as navigation.
    Without it the swap is a jump cut: same background, entirely different content, no hint of
    where it came from — which is what made an instant open still feel abrupt. */

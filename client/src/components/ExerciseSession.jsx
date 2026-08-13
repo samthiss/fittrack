@@ -1,6 +1,7 @@
 import { useState, useEffect, useReducer } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
+import ExerciseHistory from './ExerciseHistory';
 import { useLanguage } from '../i18n/LanguageContext';
 import { REP_RANGE_OPTIONS, REST_STEP_SECONDS, restSecondsFor } from '../data/restTargets';
 import { computeRestLeft, formatClock } from '../data/sessionTiming';
@@ -85,6 +86,18 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   // The last time this movement was done, excluding the session in progress so an exercise never
   // compares against itself. By name, so it spans every past workout rather than this one's row.
   const [lastSession, setLastSession] = useState(null);
+  const [recordBanner, setRecordBanner] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Clears itself: the banner belongs to the set that just earned it, not to the rest of the
+  // exercise. Every record makes a new object, so a second one during the same exercise restarts
+  // the countdown rather than inheriting what was left of the first.
+  useEffect(() => {
+    if (!recordBanner) return undefined;
+    const id = setTimeout(() => setRecordBanner(null), 6000);
+    return () => clearTimeout(id);
+  }, [recordBanner]);
+
   useEffect(() => {
     let cancelled = false;
     api
@@ -204,7 +217,15 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   // screen's writes: setHistory is already kept locally and survives a restart via localStorage,
   // so a failed request costs the long-term record, never the session in progress.
   function recordSet(setIndex, entry) {
-    api.saveExerciseSet(exercise.id, setIndex, { weight_kg: entry.weight, reps: entry.reps }).catch(() => {});
+    api
+      .saveExerciseSet(exercise.id, setIndex, { weight_kg: entry.weight, reps: entry.reps })
+      .then((saved) => {
+        // The server compares the set against every other set of this movement and says whether it
+        // beat anything. Worth showing only right now, while the user is still at the bar — so it
+        // appears as a banner that clears itself rather than as a permanent mark on the row.
+        if (saved?.achieved?.length > 0) setRecordBanner({ kinds: saved.achieved });
+      })
+      .catch(() => {});
   }
 
   function validateSet() {
@@ -388,15 +409,31 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
       {/* The whole point of validating sets one at a time: knowing what the same movement went for
           last time, right where the next weight is chosen. Absent on the first ever session of an
           exercise, and never a placeholder — an empty line here would just be noise. */}
+      {recordBanner && (
+        <div className="strength-record-banner" role="status">
+          <Icon name="trophy" size={16} />
+          <span>
+            {recordBanner.kinds.includes('top_weight')
+              ? t('strength.newRecordWeight')
+              : t('strength.newRecordEstimate')}
+          </span>
+        </div>
+      )}
+
+      {/* Tapping it opens the full history: the line answers "what did I do last time", and the
+          next question it provokes is "and before that". */}
       {lastSession && (
-        <div className="exercise-last-time">
+        <button type="button" className="exercise-last-time" onClick={() => setShowHistory(true)}>
           <Icon name="history" size={13} />
           <span>
             <b>{t('activityLog.lastTime').replace('{date}', formatSessionDate(lastSession.date, lang))}</b>{' '}
             {lastSession.sets.map((s) => `${s.weight_kg ?? 0} kg × ${s.reps}`).join(' · ')}
           </span>
-        </div>
+          <Icon name="chevron-right" size={14} />
+        </button>
       )}
+
+      {showHistory && <ExerciseHistory exerciseName={exercise.name} onClose={() => setShowHistory(false)} />}
 
       <div style={{ color: 'var(--success)', fontSize: 12, fontWeight: 700, margin: '10px 0 6px' }}>
         {t('activityLog.setsDoneCount').replace('{done}', completedSets).replace('{total}', sets)}
