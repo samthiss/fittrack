@@ -251,7 +251,7 @@ function MainApp({ onLogout, account }) {
     return food;
   }
 
-  async function handleAddEntry(sourceType, sourceId, quantity, unit = 'g') {
+  async function handleAddEntry(sourceType, sourceId, quantity, unit = 'g', ingredientAdjustments = null) {
     const rows = await api.addFoodLogEntry({
       date,
       meal: selectedMeal,
@@ -259,6 +259,7 @@ function MainApp({ onLogout, account }) {
       source_id: sourceId,
       quantity,
       unit,
+      ingredient_adjustments: ingredientAdjustments,
     });
     await refreshMeal(selectedMeal);
     await refreshDashboard();
@@ -280,6 +281,14 @@ function MainApp({ onLogout, account }) {
   // rendered mid-rebuild, half its ingredients gone.
   async function handleSetRecipePortions(recipeId, portions) {
     await api.setRecipePortions({ date, meal: selectedMeal, recipe_id: recipeId, portions });
+    await refreshMeal(selectedMeal);
+    await refreshDashboard();
+    await refreshFrequentFoods();
+    setWater(await api.getWater(date));
+  }
+
+  async function handleDeleteRecipeGroup(recipeId) {
+    await api.deleteRecipeGroup({ date, meal: selectedMeal, recipe_id: recipeId });
     await refreshMeal(selectedMeal);
     await refreshDashboard();
     await refreshFrequentFoods();
@@ -357,6 +366,7 @@ function MainApp({ onLogout, account }) {
               onDeleteEntry={handleDeleteEntry}
               onUpdateEntry={handleUpdateEntry}
               onSetRecipePortions={handleSetRecipePortions}
+              onDeleteRecipeGroup={handleDeleteRecipeGroup}
               onLookupBarcode={api.lookupFood}
               onSearchOnline={api.searchFoodsOnline}
               onCreateFood={handleCreateFoodInline}

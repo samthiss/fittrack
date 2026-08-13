@@ -228,7 +228,7 @@ export default function MealPlanner({ recipes, foods }) {
       const idsToDelete = allTargetSlots.flatMap((slot) =>
         plan.entries.filter((e) => e.day === slot.day && e.meal === slot.meal).map((e) => e.id)
       );
-      for (const id of idsToDelete) await api.deleteMealPlanEntry(id);
+      if (idsToDelete.length > 0) await api.deleteMealPlanEntries(idsToDelete);
     }
 
     const proteinTarget = (targetIntake * proteinPct) / 100 / 4;

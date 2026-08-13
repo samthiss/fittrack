@@ -72,8 +72,6 @@ export default function AddFoodToMeal({
   onCreateFood,
   onParseText,
   onParsePhoto,
-  onDeleteEntry,
-  onUpdateEntry,
 }) {
   const { t } = useLanguage();
   const TOOLS = [
@@ -220,8 +218,8 @@ export default function AddFoodToMeal({
     const mealEntries = currentPlan.entries.filter((e) => e.meal === mealKey);
     const recurring = findRecurringItems(currentPlan.entries, mealKey, currentPlan.days);
     const isCleanlyRecurring = recurring.length > 0 && mealEntries.length === recurring.length * currentPlan.days.length;
-    if (!isCleanlyRecurring) {
-      for (const e of mealEntries) await api.deleteMealPlanEntry(e.id);
+    if (!isCleanlyRecurring && mealEntries.length > 0) {
+      await api.deleteMealPlanEntries(mealEntries.map((e) => e.id));
     }
     await api.applyMealPlanToWeek({ meal: mealKey, source_type: sourceType, source_id: sourceId, quantity });
     await refreshRecurringKeys();
@@ -258,19 +256,14 @@ export default function AddFoodToMeal({
     if (!qty) return;
     setSavingModal(true);
     try {
-      const createdRows = await onAddEntry(viewingItem.type, viewingItem.id, qty, viewingItem.type === 'food' ? modalUnit : 'g');
-      // The server always logs every ingredient at its default scaled quantity — ingredients
-      // excluded or manually resized in the preview are patched right back out/adjusted before
-      // anything is shown as "added".
-      if (viewingItem.type === 'recipe' && Array.isArray(createdRows)) {
-        for (const row of createdRows) {
-          if (excludedIngredients.has(row.label)) {
-            if (onDeleteEntry) await onDeleteEntry(row.id);
-          } else if (row.label in ingredientOverrides && onUpdateEntry) {
-            await onUpdateEntry(row.id, ingredientOverrides[row.label], row.unit || 'g');
-          }
-        }
-      }
+      // Ingredients excluded or resized in the preview travel with the add itself. They used to be
+      // patched back out afterwards, one request per touched ingredient with a full journal
+      // refresh behind each — visible churn, and an interruption left the excluded ones logged.
+      const adjustments =
+        viewingItem.type === 'recipe' && (excludedIngredients.size > 0 || Object.keys(ingredientOverrides).length > 0)
+          ? { excluded: [...excludedIngredients], overrides: ingredientOverrides }
+          : null;
+      await onAddEntry(viewingItem.type, viewingItem.id, qty, viewingItem.type === 'food' ? modalUnit : 'g', adjustments);
       await syncRecurring(viewingItem.type, viewingItem.id, qty, modalRecurring);
       setViewingItem(null);
       // Adding a recipe used to push straight on into its ingredient list, so a specific

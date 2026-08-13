@@ -653,16 +653,8 @@ function repsFromSetTargets(setTargetsJson) {
   }
 }
 
-app.post('/api/activities/:id/exercises', (req, res) => {
-  const { name, sets, reps, weight_kg, muscle_group, set_targets } = req.body;
-  if (!name) return res.status(400).json({ error: 'name requis' });
-  const activity = db.prepare('SELECT id FROM activity_logs WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
-  if (!activity) return res.status(404).json({ error: 'Activité introuvable' });
-
-  const { maxOrder } = db
-    .prepare('SELECT COALESCE(MAX(order_index), -1) AS maxOrder FROM activity_exercises WHERE activity_log_id = ? AND user_id = ?')
-    .get(req.params.id, req.userId);
-
+function insertActivityExercise(userId, activityId, exercise, orderIndex) {
+  const { name, sets, reps, weight_kg, muscle_group, set_targets } = exercise;
   const normalizedTargets = normalizeSetTargets(set_targets);
 
   const result = db
@@ -671,18 +663,51 @@ app.post('/api/activities/:id/exercises', (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
-      req.userId,
-      req.params.id,
+      userId,
+      activityId,
       name,
       normalizedTargets ? JSON.parse(normalizedTargets).length : Number(sets) || 3,
       normalizedTargets ? repsFromSetTargets(normalizedTargets) || Number(reps) || 10 : Number(reps) || 10,
       weight_kg != null && weight_kg !== '' ? Number(weight_kg) : null,
       muscle_group && muscle_group.trim() ? muscle_group.trim() : null,
-      maxOrder + 1,
+      orderIndex,
       normalizedTargets
     );
 
-  res.status(201).json(serializeExercise(db.prepare('SELECT * FROM activity_exercises WHERE id = ?').get(result.lastInsertRowid)));
+  return serializeExercise(db.prepare('SELECT * FROM activity_exercises WHERE id = ?').get(result.lastInsertRowid));
+}
+
+function nextExerciseOrder(userId, activityId) {
+  const { maxOrder } = db
+    .prepare('SELECT COALESCE(MAX(order_index), -1) AS maxOrder FROM activity_exercises WHERE activity_log_id = ? AND user_id = ?')
+    .get(activityId, userId);
+  return maxOrder + 1;
+}
+
+app.post('/api/activities/:id/exercises', (req, res) => {
+  if (!req.body.name) return res.status(400).json({ error: 'name requis' });
+  const activity = db.prepare('SELECT id FROM activity_logs WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
+  if (!activity) return res.status(404).json({ error: 'Activité introuvable' });
+
+  res.status(201).json(insertActivityExercise(req.userId, req.params.id, req.body, nextExerciseOrder(req.userId, req.params.id)));
+});
+
+// Starting a workout from a saved template adds every one of its exercises at once. One request
+// and one transaction rather than a POST per exercise: a dozen sequential round trips on a phone
+// is a visible wait, and an interruption halfway left the new activity holding an arbitrary prefix
+// of its own template.
+app.post('/api/activities/:id/exercises/bulk', (req, res) => {
+  const { exercises } = req.body;
+  if (!Array.isArray(exercises)) return res.status(400).json({ error: 'exercises requis' });
+  if (exercises.some((ex) => !ex?.name)) return res.status(400).json({ error: 'name requis pour chaque exercice' });
+  const activity = db.prepare('SELECT id FROM activity_logs WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
+  if (!activity) return res.status(404).json({ error: 'Activité introuvable' });
+
+  const insertAll = db.transaction(() => {
+    let order = nextExerciseOrder(req.userId, req.params.id);
+    return exercises.map((ex) => insertActivityExercise(req.userId, req.params.id, ex, order++));
+  });
+  res.status(201).json(insertAll());
 });
 
 app.put('/api/exercises/:id', (req, res) => {
@@ -1498,7 +1523,12 @@ function insertFoodLogRow(userId, date, meal, source_type, source_id, label, qty
 // `unit` is purely a display/water-tracking tag (a food's macros are still keyed per 100g,
 // treating an ml of a drink as equivalent to a gram) — logging a food in ml means "this was a
 // drink", so its quantity also counts toward the day's water total (see GET /api/water).
-function insertFoodLog(userId, date, meal, source_type, source_id, quantity, unit = 'g') {
+// `adjustments` only applies to recipes: { excluded: ["Riz"], overrides: { "Poulet": 200 } } drops
+// an ingredient or pins it to an absolute quantity, applied as the rows are built. The client used
+// to log the recipe whole and then patch it — one request per touched ingredient, each refreshing
+// the journal — which showed as the meal churning after the add, and left the excluded
+// ingredients logged if anything interrupted the patching.
+function insertFoodLog(userId, date, meal, source_type, source_id, quantity, unit = 'g', adjustments = null) {
   const qty = Number(quantity);
 
   if (source_type === 'food') {
@@ -1522,26 +1552,36 @@ function insertFoodLog(userId, date, meal, source_type, source_id, quantity, uni
     if (!recipe) throw new Error('recette introuvable');
     const ingredients = JSON.parse(recipe.ingredients);
     const scale = qty / (recipe.portions || 1);
+    const excluded = new Set(Array.isArray(adjustments?.excluded) ? adjustments.excluded : []);
+    const overrides = adjustments?.overrides && typeof adjustments.overrides === 'object' ? adjustments.overrides : {};
 
-    return ingredients.map((ing) => {
-      const nutrients = {};
-      for (const key of NUTRIENT_KEYS) {
-        nutrients[key] = (Number(ing[INGREDIENT_NUTRIENT_FIELDS[key]]) || 0) * scale;
-      }
-      return insertFoodLogRow(
-        userId, date, meal, 'recipe_ingredient', source_id, ing.nom, (Number(ing.qte) || 0) * scale,
-        (Number(ing.kcal) || 0) * scale, (Number(ing.proteines) || 0) * scale,
-        (Number(ing.glucides) || 0) * scale, (Number(ing.lipides) || 0) * scale, nutrients, ing.unite || 'g',
-        { plant_name: ing.plant_name || null, is_fermented: ing.is_fermented, is_prebiotic: ing.is_prebiotic, is_polyphenol: ing.is_polyphenol }
-      );
-    });
+    return ingredients
+      .filter((ing) => !excluded.has(ing.nom))
+      .map((ing) => {
+        const defaultQty = (Number(ing.qte) || 0) * scale;
+        const override = Number(overrides[ing.nom]);
+        const rowQty = Number.isFinite(override) && override > 0 ? override : defaultQty;
+        // Macros are stated per `ing.qte` in the recipe, so they follow the row's quantity — which
+        // is the same proportional rule PUT /api/food-log/:id applies when a quantity is edited.
+        const ratio = Number(ing.qte) > 0 ? rowQty / Number(ing.qte) : 0;
+        const nutrients = {};
+        for (const key of NUTRIENT_KEYS) {
+          nutrients[key] = (Number(ing[INGREDIENT_NUTRIENT_FIELDS[key]]) || 0) * ratio;
+        }
+        return insertFoodLogRow(
+          userId, date, meal, 'recipe_ingredient', source_id, ing.nom, rowQty,
+          (Number(ing.kcal) || 0) * ratio, (Number(ing.proteines) || 0) * ratio,
+          (Number(ing.glucides) || 0) * ratio, (Number(ing.lipides) || 0) * ratio, nutrients, ing.unite || 'g',
+          { plant_name: ing.plant_name || null, is_fermented: ing.is_fermented, is_prebiotic: ing.is_prebiotic, is_polyphenol: ing.is_polyphenol }
+        );
+      });
   }
 
   throw new Error('source_type invalide');
 }
 
 app.post('/api/food-log', (req, res) => {
-  const { date, meal, source_type, source_id, quantity, unit } = req.body;
+  const { date, meal, source_type, source_id, quantity, unit, ingredient_adjustments } = req.body;
   if (!source_type || !source_id || !quantity) {
     return res.status(400).json({ error: 'source_type, source_id et quantity requis' });
   }
@@ -1550,7 +1590,7 @@ app.post('/api/food-log', (req, res) => {
   }
 
   try {
-    const rows = insertFoodLog(req.userId, date || todayStr(), meal, source_type, source_id, quantity, unit || 'g');
+    const rows = insertFoodLog(req.userId, date || todayStr(), meal, source_type, source_id, quantity, unit || 'g', ingredient_adjustments);
     res.status(201).json(rows);
   } catch (err) {
     res.status(404).json({ error: err.message });
@@ -1592,6 +1632,22 @@ app.put('/api/food-log/recipe-portions', (req, res) => {
   } catch (err) {
     res.status(404).json({ error: err.message });
   }
+});
+
+// Deleting a logged recipe as a whole. Same reasoning as the route above — one request, one
+// transaction — because doing it row by row from the client made the recipe disappear one
+// ingredient at a time, and an interruption left a partly-deleted recipe behind.
+app.delete('/api/food-log/recipe-group', (req, res) => {
+  const { date, meal, recipe_id } = req.body;
+  if (!recipe_id) return res.status(400).json({ error: 'recipe_id requis' });
+
+  const info = db
+    .prepare(
+      `DELETE FROM food_logs
+       WHERE user_id = ? AND date = ? AND meal = ? AND source_type = 'recipe_ingredient' AND source_id = ?`
+    )
+    .run(req.userId, date || todayStr(), meal, recipe_id);
+  res.json({ deleted: info.changes });
 });
 
 app.put('/api/food-log/:id', (req, res) => {
@@ -2942,9 +2998,9 @@ app.post('/api/meal-plan/apply-all', (req, res) => {
   res.json(db.prepare('SELECT * FROM meal_plan_entries WHERE user_id = ? AND meal = ?').all(req.userId, meal));
 });
 
-app.delete('/api/meal-plan/entry/:id', (req, res) => {
-  const entry = db.prepare('SELECT * FROM meal_plan_entries WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
-  db.prepare('DELETE FROM meal_plan_entries WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
+function deletePlanEntry(userId, id) {
+  const entry = db.prepare('SELECT * FROM meal_plan_entries WHERE id = ? AND user_id = ?').get(id, userId);
+  db.prepare('DELETE FROM meal_plan_entries WHERE id = ? AND user_id = ?').run(id, userId);
 
   // If this was today's planned entry, also clear its reflection in the Journal — the daily
   // auto-apply (apply-to-journal) may have already logged it, and changing your mind about a
@@ -2956,10 +3012,27 @@ app.delete('/api/meal-plan/entry/:id', (req, res) => {
       const logSourceType = entry.source_type === 'recipe' ? 'recipe_ingredient' : entry.source_type;
       db.prepare(
         'DELETE FROM food_logs WHERE user_id = ? AND date = ? AND meal = ? AND source_type = ? AND source_id = ?'
-      ).run(req.userId, today, entry.meal, logSourceType, entry.source_id);
+      ).run(userId, today, entry.meal, logSourceType, entry.source_id);
     }
   }
+}
 
+app.delete('/api/meal-plan/entry/:id', (req, res) => {
+  deletePlanEntry(req.userId, req.params.id);
+  res.status(204).end();
+});
+
+// Clearing a set of plan entries at once — regenerating a week, or wiping a meal's leftovers
+// before marking something recurring. One transaction, so the plan can't be left half-cleared if
+// the request is interrupted, and one request instead of one per entry (a full week's worth is
+// dozens of them).
+app.delete('/api/meal-plan/entries', (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids requis' });
+
+  db.transaction(() => {
+    for (const id of ids) deletePlanEntry(req.userId, id);
+  })();
   res.status(204).end();
 });
 
