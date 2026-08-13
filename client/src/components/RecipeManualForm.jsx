@@ -83,7 +83,9 @@ function rescaleIngredient(ing, newQty) {
   return next;
 }
 
-const EMPTY_CUSTOM = { nom: '', qte: '100', kcal: '', proteines: '', glucides: '', lipides: '' };
+const EMPTY_CUSTOM = { nom: '', qte: '100', unite: 'g', kcal: '', proteines: '', glucides: '', lipides: '' };
+
+const INGREDIENT_UNITS = ['g', 'ml'];
 
 // Full-screen "Créer/Modifier une recette" form. mode='create' posts via onCreate (optionally
 // auto-categorizing via presetCategory); mode='edit' patches the existing recipe via onUpdate.
@@ -104,6 +106,7 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
   const [customForm, setCustomForm] = useState(EMPTY_CUSTOM);
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingQty, setEditingQty] = useState(0);
+  const [editingUnit, setEditingUnit] = useState('g');
 
   const totals = ingredients.reduce(
     (acc, i) => {
@@ -117,8 +120,14 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
   );
   const p = Number(portions) || 1;
 
+  // Picking a food drops straight into the quantity editor: the ingredient's own quantity is the
+  // next thing anyone wants to set, and leaving it at a silent 100 g sent people to the "portions"
+  // stepper above instead — the only quantity control visible on the form.
   function addFromFood(food) {
     setIngredients((prev) => [...prev, ingredientFromFood(food)]);
+    setEditingIndex(ingredients.length);
+    setEditingQty(100);
+    setEditingUnit('g');
     setShowPicker(false);
     setPickerSearch('');
   }
@@ -130,7 +139,7 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
       {
         nom: customForm.nom.trim(),
         qte: Number(customForm.qte) || 0,
-        unite: 'g',
+        unite: customForm.unite || 'g',
         kcal: Number(customForm.kcal) || 0,
         proteines: Number(customForm.proteines) || 0,
         glucides: Number(customForm.glucides) || 0,
@@ -149,10 +158,13 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
   function openQtyEditor(index) {
     setEditingIndex(index);
     setEditingQty(Number(ingredients[index].qte) || 0);
+    setEditingUnit(ingredients[index].unite || 'g');
   }
 
   function saveQtyEditor() {
-    setIngredients((prev) => prev.map((ing, i) => (i === editingIndex ? rescaleIngredient(ing, editingQty) : ing)));
+    setIngredients((prev) =>
+      prev.map((ing, i) => (i === editingIndex ? { ...rescaleIngredient(ing, editingQty), unite: editingUnit } : ing))
+    );
     setEditingIndex(null);
   }
 
@@ -405,8 +417,20 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
                   <label>{t('recipeManual.qty')}</label>
                   <div className="field">
                     <input type="number" min="0" step="any" value={customForm.qte} onChange={(e) => setCustomForm((f) => ({ ...f, qte: e.target.value }))} />
-                    <span className="unit">g</span>
+                    <span className="unit">{customForm.unite || 'g'}</span>
                   </div>
+                </div>
+                <div className="type-list-row">
+                  {INGREDIENT_UNITS.map((u) => (
+                    <button
+                      key={u}
+                      type="button"
+                      className={(customForm.unite || 'g') === u ? 'type-pill active' : 'type-pill'}
+                      onClick={() => setCustomForm((f) => ({ ...f, unite: u }))}
+                    >
+                      {u}
+                    </button>
+                  ))}
                 </div>
                 <div className="row">
                   <label>{t('recipeManual.kcal')}</label>
@@ -457,11 +481,23 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
                 <Icon name="minus" size={18} />
               </button>
               <div className="qty-stepper-value">
-                <span className="weight-value">{editingQty}</span> <span className="rate">{ingredients[editingIndex].unite || 'g'}</span>
+                <span className="weight-value">{editingQty}</span> <span className="rate">{editingUnit}</span>
               </div>
               <button type="button" className="weight-plus-btn qty-stepper-plus" onClick={() => setEditingQty((v) => v + 10)}>
                 <Icon name="plus" size={18} />
               </button>
+            </div>
+            <div className="type-list-row" style={{ marginTop: 10 }}>
+              {INGREDIENT_UNITS.map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  className={editingUnit === u ? 'type-pill active' : 'type-pill'}
+                  onClick={() => setEditingUnit(u)}
+                >
+                  {u}
+                </button>
+              ))}
             </div>
             <button type="button" className="btn btn-block" style={{ marginTop: 16 }} onClick={saveQtyEditor}>
               {t('meal.save')}
