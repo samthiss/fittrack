@@ -585,6 +585,12 @@ if (!profileCols2.includes('default_water_ml')) {
 if (!profileCols2.includes('water_goal_ml')) {
   db.exec(`ALTER TABLE profile ADD COLUMN water_goal_ml REAL`);
 }
+// Rest between sets per rep range, as a JSON object keyed by the set-target vocabulary
+// (e.g. {"5-9":90,"8-12":60,...}) — set via Réglages > Temps de repos, applied automatically by
+// the exercise session's rest timer. NULL falls back to DEFAULT_REST_BY_REPS on the client.
+if (!profileCols2.includes('rest_by_reps')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN rest_by_reps TEXT`);
+}
 
 // Free-text muscle/body-part tag per exercise (e.g. "Quadriceps") — shown above the exercise
 // name and rolled up into a pill row on the exercise's saved workout_templates card.

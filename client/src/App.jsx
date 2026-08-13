@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from './api';
 import RecipeList from './components/RecipeList';
 import HomeDashboard from './components/HomeDashboard';
@@ -12,6 +12,7 @@ import Settings from './components/Settings';
 import AuthScreen from './components/AuthScreen';
 import Onboarding from './components/Onboarding';
 import { useLanguage } from './i18n/LanguageContext';
+import { parseRestByReps } from './data/restTargets';
 import './App.css';
 
 function todayStr() {
@@ -31,6 +32,9 @@ function MainApp({ onLogout, account }) {
   const [autoOpenAdd, setAutoOpenAdd] = useState(false);
   const [profile, setProfile] = useState(null);
   const [activityTypes, setActivityTypes] = useState([]);
+  // Rest-per-rep-range setting (Réglages > Temps de repos), parsed once here and handed to the
+  // exercise session's rest timer.
+  const restByReps = useMemo(() => parseRestByReps(profile), [profile]);
   const [water, setWater] = useState({ logs: [], totalMl: 0 });
   const [recipes, setRecipes] = useState([]);
   const [foods, setFoods] = useState([]);
@@ -356,6 +360,7 @@ function MainApp({ onLogout, account }) {
               activityTypes={activityTypes}
               activities={activites}
               planEntries={activitesPlan}
+              restByReps={restByReps}
               onRefresh={refreshActivites}
             />
           )}

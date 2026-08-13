@@ -2,6 +2,14 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
+import {
+  REP_RANGE_OPTIONS,
+  REST_STEP_SECONDS,
+  MIN_REST_SECONDS,
+  MAX_REST_SECONDS,
+  parseRestByReps,
+  formatRestLabel,
+} from '../data/restTargets';
 
 const GOAL_KEYS = ['lose', 'maintain', 'gain'];
 const PACE_OPTIONS = [500, 750, 1000];
@@ -315,6 +323,32 @@ export default function Settings({
       setScreen('home');
     } finally {
       setSavingWater(false);
+    }
+  }
+
+  // --- Rest-between-sets screen state (one duration per rep range) ---
+  const [restByReps, setRestByReps] = useState(() => parseRestByReps(null));
+  const [savingRest, setSavingRest] = useState(false);
+
+  useEffect(() => {
+    if (profile) setRestByReps(parseRestByReps(profile));
+  }, [profile]);
+
+  function stepRest(range, delta) {
+    setRestByReps((prev) => ({
+      ...prev,
+      [range]: Math.min(MAX_REST_SECONDS, Math.max(MIN_REST_SECONDS, (prev[range] || 0) + delta)),
+    }));
+  }
+
+  async function handleSaveRestScreen() {
+    if (savingRest) return;
+    setSavingRest(true);
+    try {
+      await onSaveProfile({ rest_by_reps: restByReps });
+      setScreen('home');
+    } finally {
+      setSavingRest(false);
     }
   }
 
@@ -755,6 +789,65 @@ export default function Settings({
     );
   }
 
+  // --- Rest-between-sets screen ---
+  if (screen === 'rest') {
+    return (
+      <div>
+        <SubHeader title={t('settings.rest')} onBack={() => setScreen('home')} t={t} />
+
+        <p className="hint">{t('settings.restHint')}</p>
+
+        <h4 className="section-label">{t('settings.restPerRepRange')}</h4>
+        <div className="settings-list-card">
+          {REP_RANGE_OPTIONS.map((range) => (
+            <div className="settings-list-row" key={range} style={{ cursor: 'default' }}>
+              <span className="settings-list-icon">
+                <Icon name="repeat-2" size={19} />
+              </span>
+              <span className="settings-list-label">
+                {range === 'Max' ? t('settings.restRangeMax') : t('settings.restRangeReps').replace('{range}', range)}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  type="button"
+                  className="weight-minus-btn"
+                  style={{ width: 32, height: 32 }}
+                  onClick={() => stepRest(range, -REST_STEP_SECONDS)}
+                  aria-label={t('meal.decrease')}
+                >
+                  <Icon name="minus" size={15} />
+                </button>
+                <span style={{ minWidth: 62, textAlign: 'center', fontWeight: 700, fontSize: 13.5 }}>
+                  {formatRestLabel(restByReps[range])}
+                </span>
+                <button
+                  type="button"
+                  className="weight-plus-btn"
+                  style={{ width: 32, height: 32 }}
+                  onClick={() => stepRest(range, REST_STEP_SECONDS)}
+                  aria-label={t('meal.increase')}
+                >
+                  <Icon name="plus" size={15} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className="meal-add-cta"
+          style={{ marginTop: 20, marginBottom: 20 }}
+          onClick={handleSaveRestScreen}
+          disabled={savingRest}
+        >
+          <Icon name="check" size={20} />
+          {savingRest ? t('addFood.saving') : t('meal.save')}
+        </button>
+      </div>
+    );
+  }
+
   // --- Custom activities screen ---
   if (screen === 'activities') {
     const filtered = activityTypes.filter((a) =>
@@ -1008,6 +1101,19 @@ export default function Settings({
         </span>
         <span className="settings-list-label">{t('activitySettings.title')}</span>
         <span className="settings-list-value">{activityTypes.length}</span>
+        <Icon name="chevron-right" size={18} color="var(--text-muted)" />
+      </button>
+
+      <button
+        type="button"
+        className="settings-list-row"
+        style={{ marginTop: 10, background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', borderRadius: 18 }}
+        onClick={() => setScreen('rest')}
+      >
+        <span className="settings-list-icon" style={{ background: 'rgba(245,194,107,0.15)', color: 'var(--warning)' }}>
+          <Icon name="timer" size={19} />
+        </span>
+        <span className="settings-list-label">{t('settings.rest')}</span>
         <Icon name="chevron-right" size={18} color="var(--text-muted)" />
       </button>
 

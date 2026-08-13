@@ -69,7 +69,7 @@ function resetSessionElapsed(session) {
 // Data (activityTypes/activities/planEntries/date) is owned by App.jsx and passed in as props —
 // same pattern as the Journal dashboard — so switching tabs and back doesn't remount this
 // component's state to empty and flash "0 kcal" while it refetches from scratch.
-export default function ActivitesScreen({ date, onDateChange, activityTypes, activities, planEntries, onRefresh }) {
+export default function ActivitesScreen({ date, onDateChange, activityTypes, activities, planEntries, restByReps, onRefresh }) {
   const { t, lang } = useLanguage();
   const [weekPresence, setWeekPresence] = useState({});
   const [showAdd, setShowAdd] = useState(false);
@@ -167,6 +167,7 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
     return (
       <ExerciseSession
         exercise={sessionExercise}
+        restByReps={restByReps}
         activityLabel={session.activity.label || t(`activityType.${session.activity.type}`)}
         index={exIndex + 1}
         total={session.exercises.length}

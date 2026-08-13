@@ -2,16 +2,16 @@ import { useState, useEffect, useReducer } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
+import { REP_RANGE_OPTIONS, REST_STEP_SECONDS, restSecondsFor } from '../data/restTargets';
 
-const REST_SECONDS = 90;
-const REST_STEP_SECONDS = 15;
 const WEIGHT_STEP_OPTIONS = [1.25, 2.5, 5];
 const WEIGHT_STEP_STORAGE_KEY = 'fittrack_weight_step';
 
 // Same fixed rep-range choices as the set-target picker elsewhere (ActivityDetail,
 // WorkoutTemplateEditor, ActivitySession) — quick-editing reps mid-session picks from the same
-// vocabulary instead of free-stepping an arbitrary number.
-const REP_CHOICE_OPTIONS = ['5-9', '8-12', '10-15', '15-20', 'Max'];
+// vocabulary instead of free-stepping an arbitrary number, and it's what the per-range rest
+// setting is keyed on.
+const REP_CHOICE_OPTIONS = REP_RANGE_OPTIONS;
 function repChoiceToNumber(opt) {
   if (opt === 'Max') return 1;
   return parseInt(opt, 10);
@@ -84,8 +84,9 @@ function computeRestLeft({ resting, restPaused, restTarget, restRemainingFrozen,
   return Math.max(0, restRemainingFrozen - elapsed);
 }
 
-export default function ExerciseSession({ exercise, activityLabel, index, total, onBack, onComplete, onUpdateExercise }) {
+export default function ExerciseSession({ exercise, activityLabel, index, total, restByReps, onBack, onComplete, onUpdateExercise }) {
   const { t } = useLanguage();
+  const initialRest = restSecondsFor(restByReps, { setTarget: exercise.set_targets?.[0], reps: exercise.reps });
   const [completedSets, setCompletedSets] = useState(0);
   // Weight/reps used for each already-validated set, frozen at the moment it was validated —
   // adjusting the weight pill afterward must only affect the current/upcoming sets, not rewrite
@@ -93,10 +94,13 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   const [setHistory, setSetHistory] = useState([]);
   const [resting, setResting] = useState(false);
   const [restPaused, setRestPaused] = useState(false);
-  const [restTarget, setRestTarget] = useState(REST_SECONDS);
+  const [restTarget, setRestTarget] = useState(initialRest);
+  // Set once the user edits the rest time by hand mid-exercise — from then on the per-rep-range
+  // setting stops overwriting it, so a deliberate choice isn't undone by moving to the next set.
+  const [restOverridden, setRestOverridden] = useState(false);
   // Remaining seconds as of restStartedAt (or the frozen value itself while paused/idle); actual
   // displayed value is computeRestLeft(...), recomputed live from Date.now().
-  const [restRemainingFrozen, setRestRemainingFrozen] = useState(REST_SECONDS);
+  const [restRemainingFrozen, setRestRemainingFrozen] = useState(initialRest);
   const [restStartedAt, setRestStartedAt] = useState(null);
   const [, forceRender] = useReducer((x) => x + 1, 0);
   const restLeft = computeRestLeft({ resting, restPaused, restTarget, restRemainingFrozen, restStartedAt });
@@ -107,7 +111,10 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   // stays open) — sets/weight/reps already had their own local state for this reason; set_targets
   // needs the same treatment so editing a set's target actually updates what's on screen.
   const [setTargets, setSetTargetsState] = useState(exercise.set_targets || null);
-  const [sheet, setSheet] = useState(null); // null | 'sets' | 'weight' | 'reps' | 'rest'
+  const [sheet, setSheet] = useState(null); // null | 'sets' | 'weight' | 'reps' | 'rest' | 'doneSet'
+  // Which already-validated set the 'doneSet' sheet is editing — a set can be misremembered or
+  // mis-tapped, and the row is the natural place to fix it after the fact.
+  const [editingSetIndex, setEditingSetIndex] = useState(null);
   const [sheetSets, setSheetSets] = useState(exercise.sets);
   const [sheetReps, setSheetReps] = useState(exercise.reps);
   // Which rep-choice pill is highlighted — tracked directly instead of inferred from sheetReps
@@ -115,7 +122,7 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   // could both/neither match depending on the value).
   const [sheetRepsChoice, setSheetRepsChoice] = useState(null);
   const [sheetWeight, setSheetWeight] = useState(exercise.weight_kg ?? 0);
-  const [sheetRestTarget, setSheetRestTarget] = useState(REST_SECONDS);
+  const [sheetRestTarget, setSheetRestTarget] = useState(initialRest);
   // How much the weight +/- buttons move by — a personal preference, kept on the device rather
   // than round-tripping through the server for something this minor.
   const [weightStep, setWeightStep] = useState(() => Number(localStorage.getItem(WEIGHT_STEP_STORAGE_KEY)) || 2.5);
@@ -144,6 +151,16 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [resting, restPaused, restStartedAt, restTarget, restRemainingFrozen]);
+
+  // Rest configured for the set about to be done (Réglages > Temps de repos). Applied only while
+  // idle: the countdown that follows a set belongs to the set just finished, so re-targeting it
+  // mid-rest would move the goalposts (and the ring) under a running timer.
+  const autoRest = restSecondsFor(restByReps, { setTarget: setTargets?.[completedSets], reps });
+  useEffect(() => {
+    if (resting || restOverridden || autoRest === restTarget) return;
+    setRestTarget(autoRest);
+    setRestRemainingFrozen(autoRest);
+  }, [autoRest, resting, restOverridden, restTarget]);
 
   function persist(patch) {
     api.updateActivityExercise(exercise.id, patch).catch(() => {});
@@ -182,8 +199,30 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
     setSheet(name);
   }
 
+  // Editing a set that's already been validated. Seeded from what that set actually recorded
+  // (setHistory), not from the current weight/reps — the whole point of freezing history is that
+  // the two can differ.
+  function openDoneSetSheet(i) {
+    const done = setHistory[i] || { weight, reps };
+    setEditingSetIndex(i);
+    setSheetWeight(done.weight);
+    setSheetReps(done.reps);
+    setSheet('doneSet');
+  }
+
+  // Rewrites that one row of history and nothing else: not the exercise's current weight/reps, not
+  // the other sets. Purely local, like the rest of setHistory — the server only stores the
+  // exercise-level values.
+  function confirmDoneSet() {
+    const kg = Number(sheetWeight) || 0;
+    setSetHistory((h) => h.map((entry, i) => (i === editingSetIndex ? { weight: kg, reps: sheetReps } : entry)));
+    setEditingSetIndex(null);
+    setSheet(null);
+  }
+
   function confirmRestTarget() {
     setRestTarget(sheetRestTarget);
+    setRestOverridden(true);
     if (!resting) setRestRemainingFrozen(sheetRestTarget);
     setSheet(null);
   }
@@ -311,16 +350,22 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
           const done = i < completedSets;
           const current = i === completedSets;
           return (
-            <div className={current ? 'entry-card activity-session-exercise current' : 'entry-card'} key={i}>
+            <div
+              className={current ? 'entry-card activity-session-exercise current' : 'entry-card'}
+              key={i}
+              onClick={done ? () => openDoneSetSheet(i) : undefined}
+              style={done ? { cursor: 'pointer' } : undefined}
+            >
               <span className={done ? 'activity-session-exercise-check done' : 'activity-session-exercise-check'}>
                 {done ? <Icon name="check" size={16} /> : i + 1}
               </span>
-              <div className="entry-card-body" style={{ cursor: 'default' }}>
+              <div className="entry-card-body" style={{ cursor: done ? 'pointer' : 'default' }}>
                 <div className="entry-card-name">{t('activityLog.setLabel').replace('{n}', i + 1)}</div>
               </div>
               {done ? (
-                <span className="activites-row-kcal">
+                <span className="activites-row-kcal" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   {setHistory[i]?.weight ?? weight} kg × {setHistory[i]?.reps ?? reps}
+                  <Icon name="pencil" size={13} color="var(--text-muted)" />
                 </span>
               ) : setTargets?.[i] ? (
                 <span className="activites-row-kcal">
@@ -345,6 +390,56 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
             <Icon name="check" size={20} />
             {t('activityLog.validateSet')}
           </button>
+        </div>
+      )}
+
+      {sheet === 'doneSet' && (
+        <div className="modal-overlay bottom-sheet-overlay" onClick={() => setSheet(null)}>
+          <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="bottom-sheet-handle" />
+            <div className="bottom-sheet-header-row">
+              <div className="bottom-sheet-title" style={{ margin: 0 }}>
+                {t('activityLog.editDoneSetTitle').replace('{n}', (editingSetIndex ?? 0) + 1)}
+              </div>
+              <button type="button" className="bottom-sheet-save-link" onClick={confirmDoneSet}>
+                {t('common.save')}
+              </button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14 }}>
+              <button
+                type="button"
+                className="weight-minus-btn"
+                onClick={() => setSheetWeight((w) => Math.max(0, Math.round((Number(w) - weightStep) * 100) / 100))}
+              >
+                <Icon name="minus" size={18} />
+              </button>
+              <div className="exercise-session-input-group" style={{ flex: 1, boxSizing: 'border-box' }}>
+                <input type="number" min="0" step="0.5" value={sheetWeight} onChange={(e) => setSheetWeight(e.target.value)} style={{ width: '100%', textAlign: 'left' }} />
+                <span>kg</span>
+              </div>
+              <button
+                type="button"
+                className="weight-plus-btn"
+                onClick={() => setSheetWeight((w) => Math.round((Number(w) + weightStep) * 100) / 100)}
+              >
+                <Icon name="plus" size={18} />
+              </button>
+            </div>
+            {/* A finished set recorded a real rep count, not a target range — so this steps a plain
+                number rather than offering the REP_CHOICE_OPTIONS pills used for targets. */}
+            <div className="day-nav-subtitle" style={{ marginTop: 18, marginBottom: 6 }}>
+              {t('activityLog.reps')}
+            </div>
+            <div className="bottom-sheet-stepper">
+              <button type="button" className="weight-minus-btn" onClick={() => setSheetReps((n) => Math.max(1, Number(n) - 1))}>
+                <Icon name="minus" size={18} />
+              </button>
+              <span className="bottom-sheet-stepper-value">{sheetReps}</span>
+              <button type="button" className="weight-plus-btn" onClick={() => setSheetReps((n) => Number(n) + 1)}>
+                <Icon name="plus" size={18} />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

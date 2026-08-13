@@ -387,9 +387,13 @@ app.get('/api/profile', (req, res) => {
 });
 
 const SEX_OPTIONS = ['male', 'female', 'other'];
+// Rep ranges the rest-timer setting can be keyed on — same vocabulary as the client's set-target
+// pickers (client/src/data/restTargets.js).
+const REP_RANGE_KEYS = ['5-9', '8-12', '10-15', '15-20', 'Max'];
+const MAX_REST_SECONDS = 600;
 
 app.put('/api/profile', (req, res) => {
-  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks, default_water_ml, water_goal_ml } = req.body;
+  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks, default_water_ml, water_goal_ml, rest_by_reps } = req.body;
 
   if (goal !== undefined && !GOALS.includes(goal)) {
     return res.status(400).json({ error: 'goal invalide' });
@@ -411,6 +415,17 @@ app.put('/api/profile', (req, res) => {
       new Set(extra_snacks.map((s) => s.key)).size !== extra_snacks.length)
   ) {
     return res.status(400).json({ error: 'extra_snacks invalide' });
+  }
+
+  if (rest_by_reps !== undefined && rest_by_reps !== null) {
+    const entries = Object.entries(rest_by_reps || {});
+    if (
+      typeof rest_by_reps !== 'object' ||
+      Array.isArray(rest_by_reps) ||
+      entries.some(([key, value]) => !REP_RANGE_KEYS.includes(key) || !Number.isFinite(Number(value)) || Number(value) <= 0 || Number(value) > MAX_REST_SECONDS)
+    ) {
+      return res.status(400).json({ error: 'rest_by_reps invalide' });
+    }
   }
 
   const current = getProfile(req.userId);
@@ -443,12 +458,14 @@ app.put('/api/profile', (req, res) => {
     extra_snacks: nextExtraSnacksJson,
     default_water_ml: default_water_ml !== undefined ? default_water_ml : current.default_water_ml,
     water_goal_ml: water_goal_ml !== undefined ? water_goal_ml : current.water_goal_ml,
+    rest_by_reps: rest_by_reps !== undefined ? (rest_by_reps === null ? null : JSON.stringify(rest_by_reps)) : current.rest_by_reps,
   };
 
   db.prepare(
     `UPDATE profile SET bmr = ?, daily_movement_kcal = ?, digestion_kcal = ?, weight_kg = ?, goal = ?, goal_kcal = ?,
      sex = ?, birthdate = ?, height_cm = ?, body_fat_pct = ?, manual_target_kcal = ?, target_weight_kg = ?, steps_per_day = ?,
-     protein_pct = ?, carbs_pct = ?, meal_shares = ?, extra_snacks = ?, default_water_ml = ?, water_goal_ml = ?
+     protein_pct = ?, carbs_pct = ?, meal_shares = ?, extra_snacks = ?, default_water_ml = ?, water_goal_ml = ?,
+     rest_by_reps = ?
      WHERE user_id = ?`
   ).run(
     next.bmr,
@@ -470,6 +487,7 @@ app.put('/api/profile', (req, res) => {
     next.extra_snacks,
     next.default_water_ml,
     next.water_goal_ml,
+    next.rest_by_reps,
     req.userId
   );
 
