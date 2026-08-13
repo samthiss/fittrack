@@ -163,6 +163,14 @@ function EditEntrySheet({
   );
 }
 
+// Only a whole-recipe row is counted in portions. An ingredient of a logged recipe is a
+// 'recipe_ingredient' row measured in its own unit, exactly like a plain food — it's 100 g of rice,
+// not 100 portions of it. ('recipe' rows are the older aggregate shape; a recipe logged today
+// becomes one row per ingredient.)
+function entryUnitLabel(entry) {
+  return entry.source_type === 'recipe' ? 'portion(s)' : entry.unit || 'g';
+}
+
 // Ingredients from the same recipe are logged as separate 'recipe_ingredient' rows sharing
 // source_id — group them back under the recipe so the Journal shows "which dish" they came from.
 function groupEntries(entries) {
@@ -258,7 +266,7 @@ export default function MealDetail({
   function openViewingEntry(e) {
     setViewingEntryId(e.id);
     setEntryQty(e.source_type === 'recipe' ? e.quantity : Math.round(e.quantity));
-    setEntryUnit(e.source_type === 'food' ? e.unit || 'g' : 'portion(s)');
+    setEntryUnit(entryUnitLabel(e));
   }
 
   async function handleSaveEntry() {
@@ -395,7 +403,7 @@ export default function MealDetail({
                         )}
                       </div>
                       <div className="entry-card-sub">
-                        {Math.round(e.quantity)} {e.source_type === 'recipe' ? 'portion(s)' : e.unit || 'g'} · {Math.round(e.kcal)} kcal
+                        {Math.round(e.quantity)} {entryUnitLabel(e)} · {Math.round(e.kcal)} kcal
                       </div>
                       <div className="entry-card-macros">
                         <span>
