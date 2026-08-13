@@ -1,6 +1,7 @@
 import { useState, useEffect, useReducer } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
+import ExerciseHistory from './ExerciseHistory';
 import { useLanguage } from '../i18n/LanguageContext';
 import { REP_RANGE_OPTIONS, REST_STEP_SECONDS, restSecondsFor } from '../data/restTargets';
 import { computeRestLeft, formatClock } from '../data/sessionTiming';
@@ -35,6 +36,16 @@ function arrowOf(target) {
 }
 
 const formatRest = formatClock;
+
+// "mar. 5 août" — a past session is placed by its day, not by how long ago it was.
+function formatSessionDate(dateStr, lang) {
+  return new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  }).format(new Date(`${dateStr}T00:00:00Z`));
+}
 
 function RestRing({ restLeft, restTarget, size = 176 }) {
   const radius = (size - 14) / 2;
@@ -71,7 +82,37 @@ function RestRing({ restLeft, restTarget, size = 176 }) {
 }
 
 export default function ExerciseSession({ exercise, activityLabel, index, total, restByReps, progress, onProgressChange, onBack, onComplete, onUpdateExercise }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  // The last time this movement was done, excluding the session in progress so an exercise never
+  // compares against itself. By name, so it spans every past workout rather than this one's row.
+  const [lastSession, setLastSession] = useState(null);
+  const [recordBanner, setRecordBanner] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Clears itself: the banner belongs to the set that just earned it, not to the rest of the
+  // exercise. Every record makes a new object, so a second one during the same exercise restarts
+  // the countdown rather than inheriting what was left of the first.
+  useEffect(() => {
+    if (!recordBanner) return undefined;
+    const id = setTimeout(() => setRecordBanner(null), 6000);
+    return () => clearTimeout(id);
+  }, [recordBanner]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getExerciseHistory(exercise.name, { excludeActivityId: exercise.activity_log_id, limit: 1 })
+      .then((history) => {
+        if (!cancelled) setLastSession(history.sessions[0] ?? null);
+      })
+      .catch(() => {
+        // No history to show is the normal state for a new exercise; a failed lookup is the same
+        // from the screen's point of view.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [exercise.name, exercise.activity_log_id]);
   const initialRest = restSecondsFor(restByReps, { setTarget: exercise.set_targets?.[0], reps: exercise.reps });
   // Everything about how far into the exercise we are — the rest countdown included — is held by
   // the parent and passed back in, so backing out to the exercise list (which unmounts this
@@ -171,9 +212,26 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
     onUpdateExercise?.(exercise.id, patch);
   }
 
+  // What was actually lifted, sent as each set is validated (and again if it's corrected
+  // afterwards — the route overwrites by set index). Fire-and-forget like the rest of this
+  // screen's writes: setHistory is already kept locally and survives a restart via localStorage,
+  // so a failed request costs the long-term record, never the session in progress.
+  function recordSet(setIndex, entry) {
+    api
+      .saveExerciseSet(exercise.id, setIndex, { weight_kg: entry.weight, reps: entry.reps })
+      .then((saved) => {
+        // The server compares the set against every other set of this movement and says whether it
+        // beat anything. Worth showing only right now, while the user is still at the bar — so it
+        // appears as a banner that clears itself rather than as a permanent mark on the row.
+        if (saved?.achieved?.length > 0) setRecordBanner({ kinds: saved.achieved });
+      })
+      .catch(() => {});
+  }
+
   function validateSet() {
     const next = completedSets + 1;
     const nextHistory = [...setHistory, { weight, reps }];
+    recordSet(completedSets, { weight, reps });
     if (next >= sets) {
       updateProgress({ completedSets: next, setHistory: nextHistory, resting: false });
       onComplete(exercise.id);
@@ -219,13 +277,13 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   }
 
   // Rewrites that one row of history and nothing else: not the exercise's current weight/reps, not
-  // the other sets. Purely local, like the rest of setHistory — the server only stores the
-  // exercise-level values.
+  // the other sets. The correction goes to the server too, over the set it's fixing.
   function confirmDoneSet() {
     const kg = Number(sheetWeight) || 0;
     updateProgress({
       setHistory: setHistory.map((entry, i) => (i === editingSetIndex ? { weight: kg, reps: sheetReps } : entry)),
     });
+    recordSet(editingSetIndex, { weight: kg, reps: sheetReps });
     setEditingSetIndex(null);
     setSheet(null);
   }
@@ -347,6 +405,35 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
           </button>
         </div>
       </div>
+
+      {/* The whole point of validating sets one at a time: knowing what the same movement went for
+          last time, right where the next weight is chosen. Absent on the first ever session of an
+          exercise, and never a placeholder — an empty line here would just be noise. */}
+      {recordBanner && (
+        <div className="strength-record-banner" role="status">
+          <Icon name="trophy" size={16} />
+          <span>
+            {recordBanner.kinds.includes('top_weight')
+              ? t('strength.newRecordWeight')
+              : t('strength.newRecordEstimate')}
+          </span>
+        </div>
+      )}
+
+      {/* Tapping it opens the full history: the line answers "what did I do last time", and the
+          next question it provokes is "and before that". */}
+      {lastSession && (
+        <button type="button" className="exercise-last-time" onClick={() => setShowHistory(true)}>
+          <Icon name="history" size={13} />
+          <span>
+            <b>{t('activityLog.lastTime').replace('{date}', formatSessionDate(lastSession.date, lang))}</b>{' '}
+            {lastSession.sets.map((s) => `${s.weight_kg ?? 0} kg × ${s.reps}`).join(' · ')}
+          </span>
+          <Icon name="chevron-right" size={14} />
+        </button>
+      )}
+
+      {showHistory && <ExerciseHistory exerciseName={exercise.name} onClose={() => setShowHistory(false)} />}
 
       <div style={{ color: 'var(--success)', fontSize: 12, fontWeight: 700, margin: '10px 0 6px' }}>
         {t('activityLog.setsDoneCount').replace('{done}', completedSets).replace('{total}', sets)}

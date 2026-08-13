@@ -622,6 +622,7 @@ app.put('/api/activities/:id', (req, res) => {
 });
 
 app.delete('/api/activities/:id', (req, res) => {
+  db.prepare('DELETE FROM exercise_sets WHERE activity_log_id = ? AND user_id = ?').run(req.params.id, req.userId);
   db.prepare('DELETE FROM activity_exercises WHERE activity_log_id = ? AND user_id = ?').run(req.params.id, req.userId);
   db.prepare('DELETE FROM activity_logs WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
   res.status(204).end();
@@ -752,8 +753,223 @@ app.put('/api/exercises/:id', (req, res) => {
 });
 
 app.delete('/api/exercises/:id', (req, res) => {
+  db.prepare('DELETE FROM exercise_sets WHERE activity_exercise_id = ? AND user_id = ?').run(req.params.id, req.userId);
   db.prepare('DELETE FROM activity_exercises WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
   res.status(204).end();
+});
+
+// --- Validated sets: what was actually lifted, as opposed to what was planned ---
+// The key two spellings of the same movement have to agree on. Done in JS because SQLite folds
+// case for ASCII only: to it, "DÉVELOPPÉ COUCHÉ" and "développé couché" are two different
+// exercises, which for a French exercise list is most of them.
+function exerciseNameKey(name) {
+  return String(name || '').trim().toLowerCase();
+}
+
+// Plain YYYY-MM-DD arithmetic, anchored at UTC midnight so a step of a day is always a day (see
+// client/src/data/dates.js for the same reasoning on the other side).
+function shiftDays(dateStr, delta) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+function mondayOf(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  return shiftDays(dateStr, -((d.getUTCDay() + 6) % 7));
+}
+
+// Epley: a set of 8 at 60kg and a set of 5 at 65kg aren't comparable as they stand, and picking
+// the heavier one calls a dropped-rep session progress. This is the usual way to put both on one
+// scale — an estimate, and treated as one: it's what the progression curve plots, never a number
+// presented as a max the user has actually lifted. A bodyweight set (no weight) has no estimate.
+function estimatedOneRepMax(weightKg, reps) {
+  if (weightKg == null || weightKg <= 0 || !reps) return null;
+  return weightKg * (1 + reps / 30);
+}
+
+function sessionStats(sets) {
+  let volume = 0;
+  let topWeight = null;
+  let bestEst1rm = null;
+  for (const s of sets) {
+    volume += (s.weight_kg || 0) * s.reps;
+    if (s.weight_kg != null && (topWeight == null || s.weight_kg > topWeight)) topWeight = s.weight_kg;
+    const est = estimatedOneRepMax(s.weight_kg, s.reps);
+    if (est != null && (bestEst1rm == null || est > bestEst1rm)) bestEst1rm = est;
+  }
+  return { volume, top_weight: topWeight, best_est_1rm: bestEst1rm };
+}
+
+// Groups ordered set rows into sessions. `limit` caps sessions, not rows — a session is the unit
+// the history screen and the "last time" line both think in.
+function groupSetsIntoSessions(rows, limit = Infinity) {
+  const sessions = [];
+  for (const row of rows) {
+    let session = sessions[sessions.length - 1];
+    if (!session || session.activity_log_id !== row.activity_log_id) {
+      if (sessions.length === limit) break;
+      session = { activity_log_id: row.activity_log_id, date: row.date, sets: [] };
+      sessions.push(session);
+    }
+    session.sets.push({ set_index: row.set_index, weight_kg: row.weight_kg, reps: row.reps });
+  }
+  return sessions.map((s) => ({ ...s, ...sessionStats(s.sets) }));
+}
+
+// Personal bests for one movement: the heaviest set, the best estimated 1RM, and the biggest
+// single session by volume. Computed over every set of that movement, so a record survives the
+// history screen's session limit.
+function exerciseRecords(userId, key, { excludeSetId } = {}) {
+  const rows = db
+    .prepare(
+      `SELECT id, activity_log_id, date, set_index, weight_kg, reps
+       FROM exercise_sets WHERE user_id = ? AND name_key = ? AND id != ?
+       ORDER BY date DESC, activity_log_id DESC, set_index ASC`
+    )
+    .all(userId, key, excludeSetId ?? -1);
+  if (rows.length === 0) return { top_weight: null, best_est_1rm: null, best_volume: null };
+
+  const sessions = groupSetsIntoSessions(rows);
+  const best = (values) => (values.length > 0 ? Math.max(...values) : null);
+  return {
+    top_weight: best(rows.filter((r) => r.weight_kg != null).map((r) => r.weight_kg)),
+    best_est_1rm: best(rows.map((r) => estimatedOneRepMax(r.weight_kg, r.reps)).filter((v) => v != null)),
+    best_volume: best(sessions.map((s) => s.volume).filter((v) => v > 0)),
+  };
+}
+
+// One row per set, written the moment it's validated mid-session. The exercise's own name and
+// date ride along (see the table comment in db.js) so progression can be followed per movement
+// across months rather than per activity_exercises row, which is recreated every session.
+app.put('/api/exercises/:id/sets/:setIndex', (req, res) => {
+  const exercise = db
+    .prepare(
+      `SELECT ae.id, ae.name, ae.activity_log_id, al.date
+       FROM activity_exercises ae JOIN activity_logs al ON al.id = ae.activity_log_id
+       WHERE ae.id = ? AND ae.user_id = ?`
+    )
+    .get(req.params.id, req.userId);
+  if (!exercise) return res.status(404).json({ error: 'Exercice introuvable' });
+
+  const setIndex = Number(req.params.setIndex);
+  const reps = Number(req.body.reps);
+  if (!Number.isInteger(setIndex) || setIndex < 0) return res.status(400).json({ error: 'set_index invalide' });
+  if (!Number.isFinite(reps) || reps <= 0) return res.status(400).json({ error: 'reps invalide' });
+  const weightKg = req.body.weight_kg == null || req.body.weight_kg === '' ? null : Number(req.body.weight_kg);
+  if (weightKg != null && !Number.isFinite(weightKg)) return res.status(400).json({ error: 'weight_kg invalide' });
+
+  // Correcting an already-validated set rewrites that one row rather than logging the set twice —
+  // the same operation the client performs when it re-sends a set it has just edited.
+  db.prepare(
+    `INSERT INTO exercise_sets (user_id, activity_log_id, activity_exercise_id, exercise_name, name_key, date, set_index, weight_kg, reps)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (activity_exercise_id, set_index)
+     DO UPDATE SET weight_kg = excluded.weight_kg, reps = excluded.reps`
+  ).run(
+    req.userId,
+    exercise.activity_log_id,
+    exercise.id,
+    exercise.name,
+    exerciseNameKey(exercise.name),
+    exercise.date,
+    setIndex,
+    weightKg,
+    Math.round(reps)
+  );
+
+  const saved = db
+    .prepare('SELECT * FROM exercise_sets WHERE activity_exercise_id = ? AND set_index = ?')
+    .get(exercise.id, setIndex);
+
+  // Did this set just beat something? Compared against every other set of the movement, this one
+  // excluded — otherwise it would be measured against itself and every set would be a record.
+  // Answered here, on the write, because this is the only moment the answer is worth anything:
+  // the screen can say so while the user is still standing at the bar.
+  const previous = exerciseRecords(req.userId, exerciseNameKey(exercise.name), { excludeSetId: saved.id });
+  const est1rm = estimatedOneRepMax(saved.weight_kg, saved.reps);
+  const achieved = [];
+  if (saved.weight_kg != null && (previous.top_weight == null || saved.weight_kg > previous.top_weight)) {
+    achieved.push('top_weight');
+  }
+  if (est1rm != null && (previous.best_est_1rm == null || est1rm > previous.best_est_1rm)) {
+    achieved.push('best_est_1rm');
+  }
+
+  // A first-ever set of a movement isn't a personal best, it's a first data point — calling it a
+  // record would make the badge meaningless by firing on every new exercise.
+  const isFirstEver = previous.top_weight == null && previous.best_est_1rm == null;
+
+  res.status(200).json({ ...saved, est_1rm: est1rm, achieved: isFirstEver ? [] : achieved });
+});
+
+// Past sessions of one movement, most recent first, each with the sets it was actually done with.
+// `exclude_activity_id` drops the session in progress, so an exercise being performed right now
+// compares against the last time rather than against itself.
+const HISTORY_SESSION_LIMIT = 20;
+
+app.get('/api/exercise-history', (req, res) => {
+  const name = String(req.query.name || '').trim();
+  if (!name) return res.json({ name: '', sessions: [], records: { top_weight: null, best_est_1rm: null, best_volume: null } });
+  const key = exerciseNameKey(name);
+  const limit = Math.min(HISTORY_SESSION_LIMIT, Number(req.query.limit) || 10);
+
+  const rows = db
+    .prepare(
+      `SELECT activity_log_id, date, set_index, weight_kg, reps
+       FROM exercise_sets
+       WHERE user_id = ? AND name_key = ? AND activity_log_id != ?
+       ORDER BY date DESC, activity_log_id DESC, set_index ASC`
+    )
+    .all(req.userId, key, Number(req.query.exclude_activity_id) || -1);
+
+  // Records are computed over every set of the movement, not over the page of sessions returned:
+  // a best set from a year ago is still the best, whether or not it fits in this response.
+  res.json({ name, sessions: groupSetsIntoSessions(rows, limit), records: exerciseRecords(req.userId, key) });
+});
+
+// Weekly training volume per muscle group (Monday-anchored weeks, most recent last so it reads
+// left to right as a chart). muscle_group is joined live from activity_exercises rather than
+// copied onto each set: regrouping an exercise should reshape past weeks too, since the point of
+// the number is comparing like with like.
+app.get('/api/muscle-volume', (req, res) => {
+  const weeks = Math.min(26, Math.max(1, Number(req.query.weeks) || 8));
+  const firstMonday = mondayOf(shiftDays(todayStr(), -7 * (weeks - 1)));
+
+  const rows = db
+    .prepare(
+      `SELECT es.date, es.weight_kg, es.reps, ae.muscle_group
+       FROM exercise_sets es
+       LEFT JOIN activity_exercises ae ON ae.id = es.activity_exercise_id
+       WHERE es.user_id = ? AND es.date >= ?`
+    )
+    .all(req.userId, firstMonday);
+
+  const buckets = new Map();
+  for (let i = 0; i < weeks; i++) {
+    buckets.set(shiftDays(firstMonday, i * 7), new Map());
+  }
+  for (const row of rows) {
+    const weekStart = mondayOf(row.date);
+    const week = buckets.get(weekStart);
+    if (!week) continue; // a set from before the window, pulled in by the date >= filter
+    const group = row.muscle_group?.trim() || null;
+    const entry = week.get(group) || { volume: 0, sets: 0 };
+    entry.volume += (row.weight_kg || 0) * row.reps;
+    entry.sets += 1;
+    week.set(group, entry);
+  }
+
+  res.json({
+    weeks: [...buckets].map(([weekStart, groups]) => ({
+      week_start: weekStart,
+      groups: [...groups]
+        .map(([muscle_group, v]) => ({ muscle_group, ...v }))
+        .sort((a, b) => b.volume - a.volume),
+      volume: [...groups.values()].reduce((s, v) => s + v.volume, 0),
+      sets: [...groups.values()].reduce((s, v) => s + v.sets, 0),
+    })),
+  });
 });
 
 // Every distinct exercise this user has ever logged (by name, case-insensitive), with its most

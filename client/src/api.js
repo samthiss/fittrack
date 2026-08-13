@@ -50,6 +50,16 @@ export const api = {
   updateActivityExercise: (id, data) =>
     request(`/exercises/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteActivityExercise: (id) => request(`/exercises/${id}`, { method: 'DELETE' }),
+  // Idempotent per (exercise, set index): re-sending a set the user has corrected overwrites it.
+  saveExerciseSet: (exerciseId, setIndex, data) =>
+    request(`/exercises/${exerciseId}/sets/${setIndex}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getMuscleVolume: (weeks = 8) => request(`/muscle-volume?weeks=${weeks}`),
+  getExerciseHistory: (name, { excludeActivityId, limit } = {}) => {
+    const params = new URLSearchParams({ name });
+    if (excludeActivityId != null) params.set('exclude_activity_id', String(excludeActivityId));
+    if (limit != null) params.set('limit', String(limit));
+    return request(`/exercise-history?${params}`);
+  },
   getExerciseLibrary: () => request('/exercise-library'),
   getWorkoutTemplates: () => request('/workout-templates'),
   createWorkoutTemplate: (data) => request('/workout-templates', { method: 'POST', body: JSON.stringify(data) }),

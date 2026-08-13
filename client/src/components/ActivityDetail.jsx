@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import ExercisePicker from './ExercisePicker';
+import ExerciseHistory from './ExerciseHistory';
 import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -41,6 +42,7 @@ export default function ActivityDetail({
   const [loading, setLoading] = useState(initialExercises == null);
   const seededRef = useRef(initialExercises != null);
   const [showAdd, setShowAdd] = useState(false);
+  const [historyExercise, setHistoryExercise] = useState(null);
   const [editingExerciseId, setEditingExerciseId] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
   const [label, setLabel] = useState(activity.label || '');
@@ -336,6 +338,14 @@ export default function ActivityDetail({
                       {ex.weight_kg != null ? ` · ${ex.weight_kg} kg` : ''}
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    className="entry-icon-btn"
+                    onClick={() => setHistoryExercise(ex.name)}
+                    aria-label={t('strength.historyTitle')}
+                  >
+                    <Icon name="trending-up" size={15} />
+                  </button>
                   <button type="button" className="entry-icon-btn" onClick={() => openEditExercise(ex)} aria-label={t('activityLog.editExercise')}>
                     <Icon name="pencil" size={15} />
                   </button>
@@ -629,6 +639,10 @@ export default function ActivityDetail({
             {saving ? t('activityLog.saving') : editingExerciseId ? t('meal.save') : t('activityLog.add')}
           </button>
         </div>
+      )}
+
+      {historyExercise && (
+        <ExerciseHistory exerciseName={historyExercise} onClose={() => setHistoryExercise(null)} />
       )}
 
       {showMuscleGroupPicker && (

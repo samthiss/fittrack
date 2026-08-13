@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import TodayReport from './TodayReport';
 import WeekReport from './WeekReport';
+import MuscleVolumeReport from './MuscleVolumeReport';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 import { todayStr, shiftDateStr } from '../data/dates';
@@ -21,6 +22,7 @@ export default function Report() {
     { key: 'week-past', label: t('report.viewWeekPast') },
     { key: 'month', label: t('report.viewMonth') },
     { key: 'quarter', label: t('report.viewQuarter') },
+    { key: 'strength', label: t('report.viewStrength') },
   ];
 
   const current = VIEWS.find((v) => v.key === activeView);
@@ -58,6 +60,7 @@ export default function Report() {
       {activeView === 'week-past' && <WeekReport period="past" />}
       {activeView === 'month' && <WeekReport period="month" />}
       {activeView === 'quarter' && <WeekReport period="quarter" />}
+      {activeView === 'strength' && <MuscleVolumeReport />}
     </div>
   );
 }
