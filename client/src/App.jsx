@@ -260,6 +260,16 @@ function MainApp({ onLogout, account }) {
     setWater(await api.getWater(date));
   }
 
+  // One call, then one refresh — the point of the dedicated route is that the journal is never
+  // rendered mid-rebuild, half its ingredients gone.
+  async function handleSetRecipePortions(recipeId, portions) {
+    await api.setRecipePortions({ date, meal: selectedMeal, recipe_id: recipeId, portions });
+    await refreshMeal(selectedMeal);
+    await refreshDashboard();
+    await refreshFrequentFoods();
+    setWater(await api.getWater(date));
+  }
+
   async function handleUpdateEntry(id, quantity, unit) {
     await api.updateFoodLogEntry(id, quantity, unit);
     await refreshMeal(selectedMeal);
@@ -330,6 +340,7 @@ function MainApp({ onLogout, account }) {
               onAddEntry={handleAddEntry}
               onDeleteEntry={handleDeleteEntry}
               onUpdateEntry={handleUpdateEntry}
+              onSetRecipePortions={handleSetRecipePortions}
               onLookupBarcode={api.lookupFood}
               onSearchOnline={api.searchFoodsOnline}
               onCreateFood={handleCreateFoodInline}

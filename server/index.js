@@ -1557,6 +1557,43 @@ app.post('/api/food-log', (req, res) => {
   }
 });
 
+// Re-logging a recipe at a different portion count replaces its ingredient rows wholesale: the
+// rows carry no portions field of their own, the count exists only as the scale baked into each
+// ingredient's quantity, so there's nothing to UPDATE — they have to be rebuilt.
+//
+// It's one request, and one transaction, because the client used to do this as a delete-per-row
+// followed by a re-add — a dozen round trips, each one refreshing the journal, so the meal
+// visibly emptied out ingredient by ingredient before filling back in. Worse, an interruption
+// partway through (a dropped connection, the app being evicted) left the meal holding half a
+// recipe, or none of it.
+//
+// Declared above PUT /api/food-log/:id: Express matches in order, and ":id" would otherwise
+// swallow "recipe-portions" as an id.
+app.put('/api/food-log/recipe-portions', (req, res) => {
+  const { date, meal, recipe_id, portions } = req.body;
+  const qty = Number(portions);
+  if (!recipe_id || !Number.isFinite(qty) || qty <= 0) {
+    return res.status(400).json({ error: 'recipe_id et portions requis' });
+  }
+  if (!mealsFor(getProfile(req.userId)).some((m) => m.key === meal)) {
+    return res.status(400).json({ error: 'meal invalide' });
+  }
+  const day = date || todayStr();
+
+  try {
+    const replace = db.transaction(() => {
+      db.prepare(
+        `DELETE FROM food_logs
+         WHERE user_id = ? AND date = ? AND meal = ? AND source_type = 'recipe_ingredient' AND source_id = ?`
+      ).run(req.userId, day, meal, recipe_id);
+      return insertFoodLog(req.userId, day, meal, 'recipe', recipe_id, qty);
+    });
+    res.json(replace());
+  } catch (err) {
+    res.status(404).json({ error: err.message });
+  }
+});
+
 app.put('/api/food-log/:id', (req, res) => {
   const current = db.prepare('SELECT * FROM food_logs WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   if (!current) return res.status(404).json({ error: 'entrée introuvable' });

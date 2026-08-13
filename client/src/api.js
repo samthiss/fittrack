@@ -108,6 +108,9 @@ export const api = {
   addFoodLogEntry: (data) =>
     request('/food-log', { method: 'POST', body: JSON.stringify(data) }),
   deleteFoodLogEntry: (id) => request(`/food-log/${id}`, { method: 'DELETE' }),
+  // Rebuilds a logged recipe at a new portion count in one atomic call — see the route's comment.
+  setRecipePortions: (data) =>
+    request('/food-log/recipe-portions', { method: 'PUT', body: JSON.stringify(data) }),
   updateFoodLogEntry: (id, quantity, unit) =>
     request(`/food-log/${id}`, { method: 'PUT', body: JSON.stringify({ quantity, unit }) }),
   getDashboard: (date) => {
