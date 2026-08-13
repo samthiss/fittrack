@@ -572,6 +572,81 @@
   font-size: 14px;
 }
 
+/* Sits between .app-main and .bottom-tabs, as a flex sibling of both — same reasoning as the tab
+   bar below: no fixed positioning, so it can't drift during iOS Safari's chrome transitions. */
+.session-banner {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 16px;
+  background: var(--surface-glass-strong, var(--card));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 0;
+  border-top: 1px solid var(--border-subtle, var(--line));
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.session-banner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  animation: session-banner-pulse 2s ease-in-out infinite;
+}
+
+.session-banner.resting .session-banner-dot {
+  background: var(--warning);
+}
+
+@keyframes session-banner-pulse {
+  50% { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-banner-dot { animation: none; }
+}
+
+.session-banner-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.session-banner-label {
+  font-size: 13px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-banner-sub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-banner-time {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.session-banner.resting .session-banner-time {
+  color: var(--warning);
+}
+
 .bottom-tabs {
   /* A normal flex item (last child of .app, which is the exact height of the viewport and never
      scrolls itself — see .app below) instead of position: fixed. Fixed positioning is relative to

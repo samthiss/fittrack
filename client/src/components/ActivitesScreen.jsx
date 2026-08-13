@@ -9,6 +9,7 @@ import ExerciseSession from './ExerciseSession';
 import AddActivityModal from './AddActivityModal';
 import PlanGroupModal from './PlanGroupModal';
 import { useLanguage } from '../i18n/LanguageContext';
+import { computeSessionElapsed } from '../data/sessionTiming';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
@@ -47,12 +48,6 @@ function shiftDateStr(dateStr, delta) {
 // setInterval while the screen is locked or the app is backgrounded, so a tick-counted timer
 // silently loses time. Recomputing from Date.now() self-corrects the moment the app is active
 // again, whether that was 2 seconds or 2 minutes later.
-function computeSessionElapsed(session) {
-  if (!session) return 0;
-  if (!session.running || !session.runStartedAt) return session.baseElapsed;
-  return session.baseElapsed + Math.floor((Date.now() - session.runStartedAt) / 1000);
-}
-
 function toggleSessionRunning(session) {
   if (!session) return session;
   if (session.running) {
@@ -69,14 +64,19 @@ function resetSessionElapsed(session) {
 // Data (activityTypes/activities/planEntries/date) is owned by App.jsx and passed in as props —
 // same pattern as the Journal dashboard — so switching tabs and back doesn't remount this
 // component's state to empty and flash "0 kcal" while it refetches from scratch.
-export default function ActivitesScreen({ date, onDateChange, activityTypes, activities, planEntries, restByReps, onRefresh }) {
+//
+// A workout in progress (`session`, and which exercise is open) is owned up there for a sharper
+// reason: App renders this screen only while the Activités tab is selected, so a local session
+// would be destroyed outright by a detour through Journal — losing the sets already logged and
+// stopping both timers mid-workout.
+export default function ActivitesScreen({ date, onDateChange, activityTypes, activities, planEntries, restByReps, session, onSessionChange, sessionExercise, onSessionExerciseChange, onRefresh }) {
   const { t, lang } = useLanguage();
   const [weekPresence, setWeekPresence] = useState({});
   const [showAdd, setShowAdd] = useState(false);
   const [openActivity, setOpenActivity] = useState(null);
-  const [session, setSession] = useState(null);
   const [finishingSession, setFinishingSession] = useState(false);
-  const [sessionExercise, setSessionExercise] = useState(null);
+  const setSession = onSessionChange;
+  const setSessionExercise = onSessionExerciseChange;
   const [openPlanGroup, setOpenPlanGroup] = useState(null);
   const [, forceRender] = useReducer((x) => x + 1, 0);
   const refresh = onRefresh;
@@ -86,9 +86,11 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
     return DAY_ORDER.map((key, i) => ({ key, date: shiftDateStr(monday, i) }));
   }, [date]);
 
-  // The session's elapsed time lives here (not inside ActivitySession) because ActivitesScreen
-  // renders either ActivitySession or ExerciseSession, never both — opening an exercise unmounts
-  // ActivitySession, which would reset a local timer state back to 0 on the way back.
+  // The session's elapsed time is a timestamp in `session` (not state inside ActivitySession)
+  // because this screen renders either ActivitySession or ExerciseSession, never both — opening an
+  // exercise unmounts ActivitySession, which would reset a local timer back to 0 on the way back.
+  // This effect only drives the redraw, so it's fine that it stops while the tab is away: elapsed
+  // is recomputed from the timestamp, not accumulated from ticks.
   useEffect(() => {
     if (!session || !session.running) return undefined;
     const id = setInterval(forceRender, 1000);
@@ -168,6 +170,12 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
       <ExerciseSession
         exercise={sessionExercise}
         restByReps={restByReps}
+        // Rest countdown and per-set progress live in `session` (like the session stopwatch above)
+        // so stepping back to the exercise list doesn't unmount them — the rest keeps running.
+        progress={session.exerciseProgress?.[sessionExercise.id]}
+        onProgressChange={(id, update) =>
+          setSession((s) => ({ ...s, exerciseProgress: { ...s.exerciseProgress, [id]: update(s.exerciseProgress?.[id]) } }))
+        }
         activityLabel={session.activity.label || t(`activityType.${session.activity.type}`)}
         index={exIndex + 1}
         total={session.exercises.length}
@@ -249,7 +257,7 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         recurringDays={recurringDays}
         onBack={() => setOpenActivity(null)}
         onStart={(exercises) => {
-          setSession({ activity: openActivity, exercises, doneIds: new Set(), baseElapsed: 0, runStartedAt: Date.now(), running: true });
+          setSession({ activity: openActivity, exercises, doneIds: new Set(), exerciseProgress: {}, baseElapsed: 0, runStartedAt: Date.now(), running: true });
           setOpenActivity(null);
         }}
         onDeleted={() => {

@@ -3,6 +3,7 @@ import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 import { REP_RANGE_OPTIONS, REST_STEP_SECONDS, restSecondsFor } from '../data/restTargets';
+import { computeRestLeft, formatClock } from '../data/sessionTiming';
 
 const WEIGHT_STEP_OPTIONS = [1.25, 2.5, 5];
 const WEIGHT_STEP_STORAGE_KEY = 'fittrack_weight_step';
@@ -33,11 +34,7 @@ function arrowOf(target) {
   return m ? m[0] : '';
 }
 
-function formatRest(s) {
-  const m = Math.floor(Math.max(0, s) / 60);
-  const sec = Math.max(0, s) % 60;
-  return `${m}:${String(sec).padStart(2, '0')}`;
-}
+const formatRest = formatClock;
 
 function RestRing({ restLeft, restTarget, size = 176 }) {
   const radius = (size - 14) / 2;
@@ -73,35 +70,39 @@ function RestRing({ restLeft, restTarget, size = 176 }) {
   );
 }
 
-// Rest countdown derived from wall-clock timestamps (Date.now()), not counted ticks — iOS
-// suspends setInterval while the screen is locked or the app is backgrounded, so a tick-counted
-// timer silently loses time. Recomputing from a real start timestamp self-corrects the moment the
-// screen unlocks, whether that was 2 seconds or 2 minutes later.
-function computeRestLeft({ resting, restPaused, restTarget, restRemainingFrozen, restStartedAt }) {
-  if (!resting) return restTarget;
-  if (restPaused || !restStartedAt) return restRemainingFrozen;
-  const elapsed = Math.floor((Date.now() - restStartedAt) / 1000);
-  return Math.max(0, restRemainingFrozen - elapsed);
-}
-
-export default function ExerciseSession({ exercise, activityLabel, index, total, restByReps, onBack, onComplete, onUpdateExercise }) {
+export default function ExerciseSession({ exercise, activityLabel, index, total, restByReps, progress, onProgressChange, onBack, onComplete, onUpdateExercise }) {
   const { t } = useLanguage();
   const initialRest = restSecondsFor(restByReps, { setTarget: exercise.set_targets?.[0], reps: exercise.reps });
-  const [completedSets, setCompletedSets] = useState(0);
-  // Weight/reps used for each already-validated set, frozen at the moment it was validated —
-  // adjusting the weight pill afterward must only affect the current/upcoming sets, not rewrite
-  // history for sets already done.
-  const [setHistory, setSetHistory] = useState([]);
-  const [resting, setResting] = useState(false);
-  const [restPaused, setRestPaused] = useState(false);
-  const [restTarget, setRestTarget] = useState(initialRest);
-  // Set once the user edits the rest time by hand mid-exercise — from then on the per-rep-range
-  // setting stops overwriting it, so a deliberate choice isn't undone by moving to the next set.
-  const [restOverridden, setRestOverridden] = useState(false);
-  // Remaining seconds as of restStartedAt (or the frozen value itself while paused/idle); actual
-  // displayed value is computeRestLeft(...), recomputed live from Date.now().
-  const [restRemainingFrozen, setRestRemainingFrozen] = useState(initialRest);
-  const [restStartedAt, setRestStartedAt] = useState(null);
+  // Everything about how far into the exercise we are — the rest countdown included — is held by
+  // the parent and passed back in, so backing out to the exercise list (which unmounts this
+  // screen) doesn't wipe it. Absent progress means the exercise hasn't been started yet.
+  //   completedSets/setHistory: sets done so far, and the weight/reps each was validated with,
+  //     frozen at that moment — adjusting the weight pill afterward must only affect the
+  //     current/upcoming sets, not rewrite history for sets already done.
+  //   restRemainingFrozen: remaining seconds as of restStartedAt (or the frozen value itself while
+  //     paused/idle); the displayed value is computeRestLeft(...), recomputed live from Date.now().
+  //   restOverridden: set once the user edits the rest time by hand mid-exercise — from then on
+  //     the per-rep-range setting stops overwriting it, so a deliberate choice isn't undone by
+  //     moving to the next set.
+  const freshProgress = {
+    completedSets: 0,
+    setHistory: [],
+    resting: false,
+    restPaused: false,
+    restTarget: initialRest,
+    restRemainingFrozen: initialRest,
+    restStartedAt: null,
+    restOverridden: false,
+  };
+  const { completedSets, setHistory, resting, restPaused, restTarget, restRemainingFrozen, restStartedAt, restOverridden } =
+    progress ?? freshProgress;
+  // Patches merge onto the *latest* progress, not onto this render's copy: the rest-countdown
+  // interval below outlives renders, so a patch it fires at 0:00 would otherwise write back
+  // whatever setHistory/completedSets it captured when the interval was created — silently undoing
+  // a set edited while the rest was running.
+  function updateProgress(patch) {
+    onProgressChange(exercise.id, (prev) => ({ ...(prev ?? freshProgress), ...patch }));
+  }
   const [, forceRender] = useReducer((x) => x + 1, 0);
   const restLeft = computeRestLeft({ resting, restPaused, restTarget, restRemainingFrozen, restStartedAt });
   const [sets, setSets] = useState(exercise.sets);
@@ -136,11 +137,15 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
     function tick() {
       const left = computeRestLeft({ resting, restPaused, restTarget, restRemainingFrozen, restStartedAt });
       if (left <= 0) {
-        setResting(false);
+        updateProgress({ resting: false });
       } else {
         forceRender();
       }
     }
+    // Tick once on mount too: coming back from the exercise list, the rest may well have run out
+    // while this screen was unmounted, and waiting a full second to notice would show a live-looking
+    // 0:00.
+    tick();
     const id = setInterval(tick, 1000);
     function onVisible() {
       if (document.visibilityState === 'visible') tick();
@@ -158,8 +163,7 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   const autoRest = restSecondsFor(restByReps, { setTarget: setTargets?.[completedSets], reps });
   useEffect(() => {
     if (resting || restOverridden || autoRest === restTarget) return;
-    setRestTarget(autoRest);
-    setRestRemainingFrozen(autoRest);
+    updateProgress({ restTarget: autoRest, restRemainingFrozen: autoRest });
   }, [autoRest, resting, restOverridden, restTarget]);
 
   function persist(patch) {
@@ -169,16 +173,20 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
 
   function validateSet() {
     const next = completedSets + 1;
-    setSetHistory((h) => [...h, { weight, reps }]);
-    setCompletedSets(next);
+    const nextHistory = [...setHistory, { weight, reps }];
     if (next >= sets) {
+      updateProgress({ completedSets: next, setHistory: nextHistory, resting: false });
       onComplete(exercise.id);
       return;
     }
-    setRestRemainingFrozen(restTarget);
-    setRestStartedAt(Date.now());
-    setRestPaused(false);
-    setResting(true);
+    updateProgress({
+      completedSets: next,
+      setHistory: nextHistory,
+      restRemainingFrozen: restTarget,
+      restStartedAt: Date.now(),
+      restPaused: false,
+      resting: true,
+    });
   }
 
   function openSheet(name) {
@@ -215,15 +223,19 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
   // exercise-level values.
   function confirmDoneSet() {
     const kg = Number(sheetWeight) || 0;
-    setSetHistory((h) => h.map((entry, i) => (i === editingSetIndex ? { weight: kg, reps: sheetReps } : entry)));
+    updateProgress({
+      setHistory: setHistory.map((entry, i) => (i === editingSetIndex ? { weight: kg, reps: sheetReps } : entry)),
+    });
     setEditingSetIndex(null);
     setSheet(null);
   }
 
   function confirmRestTarget() {
-    setRestTarget(sheetRestTarget);
-    setRestOverridden(true);
-    if (!resting) setRestRemainingFrozen(sheetRestTarget);
+    updateProgress({
+      restTarget: sheetRestTarget,
+      restOverridden: true,
+      ...(resting ? {} : { restRemainingFrozen: sheetRestTarget }),
+    });
     setSheet(null);
   }
 
@@ -283,10 +295,7 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
           <button
             type="button"
             className="weight-minus-btn"
-            onClick={() => {
-              setRestRemainingFrozen(restTarget);
-              setRestStartedAt(restPaused ? null : Date.now());
-            }}
+            onClick={() => updateProgress({ restRemainingFrozen: restTarget, restStartedAt: restPaused ? null : Date.now() })}
             disabled={!resting}
             aria-label={t('activityLog.resetTimer')}
           >
@@ -299,12 +308,9 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
             disabled={!resting}
             onClick={() => {
               if (restPaused) {
-                setRestStartedAt(Date.now());
-                setRestPaused(false);
+                updateProgress({ restStartedAt: Date.now(), restPaused: false });
               } else {
-                setRestRemainingFrozen(restLeft);
-                setRestStartedAt(null);
-                setRestPaused(true);
+                updateProgress({ restRemainingFrozen: restLeft, restStartedAt: null, restPaused: true });
               }
             }}
           >
@@ -316,7 +322,7 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
           </button>
         </div>
         {resting && (
-          <button type="button" className="btn-ghost" style={{ display: 'block', margin: '10px auto 0' }} onClick={() => setResting(false)}>
+          <button type="button" className="btn-ghost" style={{ display: 'block', margin: '10px auto 0' }} onClick={() => updateProgress({ resting: false })}>
             {t('activityLog.skipRest')}
           </button>
         )}
