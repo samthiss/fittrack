@@ -85,7 +85,6 @@ export default function HomeDashboard({
   onOpenTdeeSettings,
 }) {
   const { t, lang } = useLanguage();
-  const [improvementIndex, setImprovementIndex] = useState(0);
   const [latestWeight, setLatestWeight] = useState(null);
   const [weightSaving, setWeightSaving] = useState(false);
   // Sticks to whatever the user last picked for the rest of the session — only resets to the
@@ -104,11 +103,6 @@ export default function HomeDashboard({
     refreshLatestWeight();
   }, [refreshLatestWeight]);
 
-  const previousDayImprovements = dashboard?.previousDayImprovements;
-  useEffect(() => {
-    setImprovementIndex(0);
-  }, [previousDayImprovements?.date]);
-
   async function handleAdjustWeight(delta) {
     if (weightSaving) return;
     const next = Math.round(((latestWeight ?? 70) + delta) * 10) / 10;
@@ -124,13 +118,6 @@ export default function HomeDashboard({
 
   if (!dashboard) return null;
   const { targetIntake, consumedKcal, remainingKcal, burnedKcal, macros, meals, tdee, energyBalance } = dashboard;
-  const improvementItems = previousDayImprovements?.items || [];
-  const currentImprovementIndex = improvementItems.length > 0 ? improvementIndex % improvementItems.length : 0;
-  const currentImprovement = improvementItems[currentImprovementIndex];
-
-  function nextImprovement() {
-    setImprovementIndex((i) => (i + 1) % improvementItems.length);
-  }
 
   return (
     <div>
@@ -146,43 +133,6 @@ export default function HomeDashboard({
           <Icon name="chevron-right" size={20} />
         </button>
       </header>
-
-      {currentImprovement && (
-        <div
-          className={improvementItems.length > 1 ? 'insight-card clickable' : 'insight-card'}
-          onClick={improvementItems.length > 1 ? nextImprovement : undefined}
-        >
-          <div className="insight-card-icon">
-            <Icon name="sparkles" size={19} color="var(--acc)" />
-          </div>
-          <div className="insight-card-content">
-            <h3 className="insight-card-title">{currentImprovement.label}</h3>
-            <p className="insight-card-body">{currentImprovement.detail}</p>
-            <div className="insight-bottom-row">
-              {improvementItems.length > 1 ? (
-                <div className="insight-dots">
-                  {improvementItems.map((item, i) => (
-                    <span key={item.key} className={i === currentImprovementIndex ? 'insight-dot active' : 'insight-dot'} />
-                  ))}
-                </div>
-              ) : (
-                <span />
-              )}
-              <button
-                type="button"
-                className="report-link"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenReport?.();
-                }}
-              >
-                {t('home.viewReport')}
-                <Icon name="chevron-right" size={14} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {tdee && (
         <>
@@ -217,6 +167,15 @@ export default function HomeDashboard({
             )}
           </div>
         </>
+      )}
+
+      {onOpenReport && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 16 }}>
+          <button type="button" className="report-link" onClick={onOpenReport}>
+            {t('home.viewReport')}
+            <Icon name="chevron-right" size={14} />
+          </button>
+        </div>
       )}
 
       <div className="section-header">
