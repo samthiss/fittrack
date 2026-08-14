@@ -92,14 +92,12 @@ export default function Onboarding({ onDone }) {
   async function finishAndCompute() {
     setSaving(true);
     try {
+      // The server derives the whole TDEE from the profile now (server/tdee.js): BMR from these
+      // measurements, NEAT from steps_per_day, TEF from the macro split, EAT from the workouts
+      // logged each day. The planned workouts entered below are therefore *not* averaged into a
+      // movement figure any more — doing so would count them twice, once here and once when the
+      // session is actually logged. bmr is still sent as the manual-method fallback.
       const bmr = Math.round(estimateBmr(sex, weightKg, heightCm, age));
-      const stepsKcal = stepsPerDay * 0.04 * (weightKg / 70);
-      const workoutsKcalPerDay = workouts.reduce((sum, w) => {
-        const rate = activityTypes.find((a) => a.type === w.type)?.kcal_per_hour || 0;
-        return sum + ((w.duration_minutes / 60) * rate * w.frequency) / 7;
-      }, 0);
-      const dailyMovementKcal = Math.round(stepsKcal + workoutsKcalPerDay);
-      const digestionKcal = Math.round(bmr * 0.08);
 
       const birthdateGuess = new Date();
       birthdateGuess.setUTCFullYear(birthdateGuess.getUTCFullYear() - Number(age));
@@ -107,8 +105,7 @@ export default function Onboarding({ onDone }) {
 
       await api.updateProfile({
         bmr,
-        daily_movement_kcal: dailyMovementKcal,
-        digestion_kcal: digestionKcal,
+        bmr_method: 'mifflin',
         goal: goalType,
         goal_kcal: 500,
         sex,

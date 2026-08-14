@@ -4331,3 +4331,189 @@ textarea.wide {
   border-radius: 5px;
   background: transparent;
 }
+
+/* --- TDEE (journal card + Réglages > TDEE) ------------------------------------------------- */
+/* One colour per part of the day's expenditure, reused by the stacked bar and its legend so the
+   journal card and the settings screen read as the same object. */
+.tdee-seg-bmr { background: var(--acc); }
+.tdee-seg-neat { background: var(--macro-carb); }
+.tdee-seg-tef { background: var(--macro-protein); }
+.tdee-seg-eat { background: var(--macro-fat); }
+
+.tdee-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tdee-card-total {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.tdee-card-total b {
+  font-size: 28px;
+  letter-spacing: -0.5px;
+}
+
+.tdee-card-total span {
+  font-size: 13.5px;
+  color: var(--text-muted, var(--dim));
+}
+
+.tdee-bar {
+  display: flex;
+  width: 100%;
+  height: 10px;
+  gap: 2px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.tdee-bar-seg {
+  flex-basis: 0;
+  min-width: 2px;
+}
+
+.tdee-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 13px;
+  color: var(--text-muted, var(--dim));
+}
+
+.tdee-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tdee-legend-item b {
+  color: var(--text, inherit);
+  font-weight: 600;
+}
+
+.tdee-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.tdee-total-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tdee-total-label {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, var(--dim));
+}
+
+.tdee-total-value {
+  font-size: 34px;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.tdee-total-unit {
+  font-size: 13.5px;
+  color: var(--text-muted, var(--dim));
+  margin-top: -6px;
+}
+
+/* The "BMR"/"NEAT" acronym carries the section, the full name trails it in a lighter weight. */
+.tdee-part-full {
+  text-transform: none;
+  font-weight: 400;
+  color: var(--text-muted, var(--dim));
+}
+
+.tdee-badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: color-mix(in srgb, var(--acc) 18%, transparent);
+  color: var(--acc);
+}
+
+.tdee-badge.manual {
+  background: color-mix(in srgb, var(--macro-carb) 18%, transparent);
+  color: var(--macro-carb);
+}
+
+.tdee-method-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle, var(--line));
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tdee-method-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.tdee-method-row:first-child {
+  padding-top: 0;
+}
+
+.tdee-method-row:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.tdee-method-row.active .tdee-method-label {
+  color: var(--acc);
+  font-weight: 600;
+}
+
+.tdee-method-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tdee-method-label {
+  font-size: 15px;
+}
+
+.tdee-method-sub {
+  font-size: 12.5px;
+  color: var(--text-muted, var(--dim));
+}
+
+.tdee-method-value {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tdee-input-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tdee-derived {
+  margin-top: 10px;
+  font-size: 13.5px;
+  color: var(--text-muted, var(--dim));
+}

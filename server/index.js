@@ -15,6 +15,7 @@ import { parseFoodPhoto } from './foodPhotoParse.js';
 import { buildMicroList, MICRO_REFERENCE, NUTRIENT_SUGGESTIONS, SUPPLEMENT_SUGGESTIONS, hasDailyGoal } from './nutrientReference.js';
 import { estimateMissingNutrients, estimateNutrientsForFood } from './nutrientEstimation.js';
 import { classifyFoodsBatch, classifyFood, classifyIngredientsBatch } from './microbiomeClassification.js';
+import { computeTdee, BMR_METHODS } from './tdee.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // DATA_DIR points at a mounted persistent volume in production (e.g. Railway) so uploaded
@@ -349,8 +350,11 @@ function computeSummary(userId, date, profileOverride) {
     .all(userId, date);
   const activitiesKcal = logs.reduce((sum, l) => sum + l.kcal, 0);
 
-  const tdee =
-    profile.bmr + profile.daily_movement_kcal + profile.digestion_kcal + activitiesKcal;
+  // BMR + NEAT + TEF + EAT, all four recomputed from the profile and the day's activities rather
+  // than read back from the stored bmr/daily_movement/digestion columns — those are now only a
+  // fallback for a manually pinned BMR. See server/tdee.js for each part.
+  const tdeeBreakdown = computeTdee(profile, { activitiesKcal });
+  const tdee = tdeeBreakdown.total;
 
   let targetIntake = tdee;
   if (profile.goal === 'lose') targetIntake = tdee - profile.goal_kcal;
@@ -365,6 +369,7 @@ function computeSummary(userId, date, profileOverride) {
     activities: logs,
     activitiesKcal,
     tdee,
+    tdeeBreakdown,
     targetIntake,
   };
 }
@@ -406,10 +411,17 @@ const REP_RANGE_KEYS = ['5-9', '8-12', '10-15', '15-20', 'Max'];
 const MAX_REST_SECONDS = 600;
 
 app.put('/api/profile', (req, res) => {
-  const { bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks, default_water_ml, water_goal_ml, rest_by_reps } = req.body;
+  const { bmr, bmr_method, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks, default_water_ml, water_goal_ml, rest_by_reps } = req.body;
 
   if (goal !== undefined && !GOALS.includes(goal)) {
     return res.status(400).json({ error: 'goal invalide' });
+  }
+  // NULL is meaningful here ("choisir pour moi"), so only a non-null value is checked.
+  if (bmr_method !== undefined && bmr_method !== null && !BMR_METHODS.includes(bmr_method)) {
+    return res.status(400).json({ error: 'bmr_method invalide' });
+  }
+  if (steps_per_day !== undefined && steps_per_day !== null && (!Number.isFinite(Number(steps_per_day)) || Number(steps_per_day) < 0 || Number(steps_per_day) > 100000)) {
+    return res.status(400).json({ error: 'steps_per_day invalide' });
   }
   if (sex !== undefined && sex !== null && !SEX_OPTIONS.includes(sex)) {
     return res.status(400).json({ error: 'sex invalide' });
@@ -453,6 +465,7 @@ app.put('/api/profile', (req, res) => {
 
   const next = {
     bmr: bmr ?? current.bmr,
+    bmr_method: bmr_method !== undefined ? bmr_method : current.bmr_method,
     daily_movement_kcal: daily_movement_kcal ?? current.daily_movement_kcal,
     digestion_kcal: digestion_kcal ?? current.digestion_kcal,
     weight_kg: weight_kg ?? current.weight_kg,
@@ -475,13 +488,14 @@ app.put('/api/profile', (req, res) => {
   };
 
   db.prepare(
-    `UPDATE profile SET bmr = ?, daily_movement_kcal = ?, digestion_kcal = ?, weight_kg = ?, goal = ?, goal_kcal = ?,
+    `UPDATE profile SET bmr = ?, bmr_method = ?, daily_movement_kcal = ?, digestion_kcal = ?, weight_kg = ?, goal = ?, goal_kcal = ?,
      sex = ?, birthdate = ?, height_cm = ?, body_fat_pct = ?, manual_target_kcal = ?, target_weight_kg = ?, steps_per_day = ?,
      protein_pct = ?, carbs_pct = ?, meal_shares = ?, extra_snacks = ?, default_water_ml = ?, water_goal_ml = ?,
      rest_by_reps = ?
      WHERE user_id = ?`
   ).run(
     next.bmr,
+    next.bmr_method,
     next.daily_movement_kcal,
     next.digestion_kcal,
     next.weight_kg,
@@ -507,9 +521,9 @@ app.put('/api/profile', (req, res) => {
   // One snapshot per save (not per day) — profileAsOf() below picks the latest one at or before
   // a given date, so "Semaine passée" judges against the targets that were live that week.
   db.prepare(
-    `INSERT INTO profile_history (user_id, date, bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(req.userId, todayStr(), next.bmr, next.daily_movement_kcal, next.digestion_kcal, next.weight_kg, next.goal, next.goal_kcal);
+    `INSERT INTO profile_history (user_id, date, bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, steps_per_day, bmr_method)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(req.userId, todayStr(), next.bmr, next.daily_movement_kcal, next.digestion_kcal, next.weight_kg, next.goal, next.goal_kcal, next.steps_per_day, next.bmr_method);
 
   res.json(getProfile(req.userId));
 });
@@ -520,7 +534,12 @@ function profileAsOf(userId, date) {
   const row =
     db.prepare('SELECT * FROM profile_history WHERE user_id = ? AND date <= ? ORDER BY date DESC, id DESC LIMIT 1').get(userId, date) ||
     db.prepare('SELECT * FROM profile_history WHERE user_id = ? ORDER BY date ASC, id ASC LIMIT 1').get(userId);
-  return row || getProfile(userId);
+  if (!row) return getProfile(userId);
+  // History only snapshots the numbers that move (bmr, steps, weight, goal); the TDEE formulas
+  // also need sex/height/birthdate/body fat/macro split, which history has never carried. Layering
+  // the snapshot over the current profile gives those a value instead of letting computeTdee fall
+  // back to its generic defaults for every past day.
+  return { ...getProfile(userId), ...row };
 }
 
 // Weight actually logged closest to (at or before) `date`, falling back to whatever the profile
@@ -2300,6 +2319,9 @@ app.get('/api/dashboard', (req, res) => {
     consumedKcal: consumed.kcal,
     remainingKcal: summary.targetIntake - consumed.kcal,
     burnedKcal: summary.activitiesKcal,
+    // Total expenditure and its four parts, so the journal's TDEE card doesn't have to refetch the
+    // profile and redo the arithmetic the server already did for targetIntake.
+    tdee: summary.tdeeBreakdown,
     macros: {
       carbs: { consumed: consumed.carbs, target: macroTargets.carbs },
       protein: { consumed: consumed.protein, target: macroTargets.protein },

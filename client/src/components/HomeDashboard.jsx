@@ -68,6 +68,10 @@ function formatDateLabel(dateStr, t) {
 
 const WATER_PRESETS_ML = [250, 500, 700, 1000];
 
+// The four parts of the day's expenditure, in the order they stack: resting burn first, the day's
+// deliberate exercise last. Same keys the server's tdee breakdown uses.
+const TDEE_PARTS = ['bmr', 'neat', 'tef', 'eat'];
+
 export default function HomeDashboard({
   dashboard,
   date,
@@ -82,6 +86,7 @@ export default function HomeDashboard({
   onOpenWeight,
   onOpenReport,
   onOpenWeightReport,
+  onOpenTdeeSettings,
 }) {
   const { t, lang } = useLanguage();
   const [improvementIndex, setImprovementIndex] = useState(0);
@@ -122,7 +127,7 @@ export default function HomeDashboard({
   }
 
   if (!dashboard) return null;
-  const { targetIntake, consumedKcal, remainingKcal, burnedKcal, macros, meals } = dashboard;
+  const { targetIntake, consumedKcal, remainingKcal, burnedKcal, macros, meals, tdee } = dashboard;
   const improvementItems = previousDayImprovements?.items || [];
   const currentImprovementIndex = improvementItems.length > 0 ? improvementIndex % improvementItems.length : 0;
   const currentImprovement = improvementItems[currentImprovementIndex];
@@ -181,6 +186,39 @@ export default function HomeDashboard({
             </div>
           </div>
         </div>
+      )}
+
+      {tdee && (
+        <>
+          <div className="section-header">
+            <span className="section-title">{t('tdee.title')}</span>
+            {onOpenTdeeSettings && (
+              <button type="button" className="report-link" onClick={onOpenTdeeSettings}>
+                {t('tdee.viewDetail')}
+                <Icon name="chevron-right" size={14} />
+              </button>
+            )}
+          </div>
+          <div className="card tdee-card">
+            <div className="tdee-card-total">
+              <b>{tdee.total}</b>
+              <span>kcal</span>
+            </div>
+            <div className="tdee-bar">
+              {TDEE_PARTS.map((key) => (
+                <span key={key} className={`tdee-bar-seg tdee-seg-${key}`} style={{ flexGrow: Math.max(0, tdee[key]) }} />
+              ))}
+            </div>
+            <div className="tdee-legend">
+              {TDEE_PARTS.map((key) => (
+                <span key={key} className="tdee-legend-item">
+                  <span className={`tdee-dot tdee-seg-${key}`} />
+                  {t(`tdee.${key}`)} <b>{tdee[key]}</b>
+                </span>
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       <div className="section-header">
