@@ -169,17 +169,14 @@ export default function HomeDashboard({
         </>
       )}
 
-      {onOpenReport && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 16 }}>
+      <div className="section-header">
+        <span className="section-title">{t('home.summary')}</span>
+        {onOpenReport && (
           <button type="button" className="report-link" onClick={onOpenReport}>
             {t('home.viewReport')}
             <Icon name="chevron-right" size={14} />
           </button>
-        </div>
-      )}
-
-      <div className="section-header">
-        <span className="section-title">{t('home.summary')}</span>
+        )}
       </div>
       <div className="card resume-card">
         <div className="gauge-row">
