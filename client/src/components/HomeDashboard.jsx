@@ -180,9 +180,6 @@ export default function HomeDashboard({
 
       <div className="section-header">
         <span className="section-title">{t('home.summary')}</span>
-        <span className="section-hint">
-          {t('home.goal')} <b>{Math.round(targetIntake)}</b> {t('home.perDay')}
-        </span>
       </div>
       <div className="card resume-card">
         <div className="gauge-row">
