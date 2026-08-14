@@ -123,7 +123,7 @@ export default function HomeDashboard({
   }
 
   if (!dashboard) return null;
-  const { targetIntake, consumedKcal, remainingKcal, burnedKcal, macros, meals, tdee, energyBalance } = dashboard;
+  const { targetIntake, consumedKcal, remainingKcal, burnedKcal, macros, meals, tdee } = dashboard;
   const improvementItems = previousDayImprovements?.items || [];
   const currentImprovementIndex = improvementItems.length > 0 ? improvementIndex % improvementItems.length : 0;
   const currentImprovement = improvementItems[currentImprovementIndex];
@@ -184,39 +184,13 @@ export default function HomeDashboard({
         </div>
       )}
 
-      {tdee && (
-        <>
-          <div className="section-header">
-            <span className="section-title">{t('balance.title')}</span>
-            {onOpenTdeeSettings && (
-              <button type="button" className="report-link" onClick={onOpenTdeeSettings}>
-                {t('tdee.viewDetail')}
-                <Icon name="chevron-right" size={14} />
-              </button>
-            )}
-          </div>
-          <div className="tdee-summary-row">
-            <div className="card tdee-total-card tdee-summary-half">
-              <span className="tdee-total-label">{t('tdee.total')}</span>
-              <b className="tdee-total-value">{tdee.total}</b>
-              <span className="tdee-total-unit">kcal</span>
-            </div>
-            {energyBalance && (
-              <div className="card tdee-total-card tdee-summary-half">
-                <span className="tdee-total-label">
-                  {energyBalance.forecast ? t('balance.forecast') : t('balance.gap')}
-                </span>
-                <b className="tdee-total-value">
-                  {energyBalance.balance >= 0 ? '−' : '+'}
-                  {Math.abs(energyBalance.balance)}
-                </b>
-                <span className="tdee-total-unit">
-                  kcal {energyBalance.balance >= 0 ? t('balance.deficit') : t('balance.surplus')}
-                </span>
-              </div>
-            )}
-          </div>
-        </>
+      {tdee && onOpenTdeeSettings && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 16 }}>
+          <button type="button" className="report-link" onClick={onOpenTdeeSettings}>
+            {t('tdee.viewDetail')}
+            <Icon name="chevron-right" size={14} />
+          </button>
+        </div>
       )}
 
       <div className="section-header">
