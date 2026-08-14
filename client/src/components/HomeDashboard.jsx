@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import CircularGauge from './CircularGauge';
-import EnergyBalance from './EnergyBalance';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 import { todayStr, shiftDateStr } from '../data/dates';
@@ -68,10 +67,6 @@ function formatDateLabel(dateStr, t) {
 }
 
 const WATER_PRESETS_ML = [250, 500, 700, 1000];
-
-// The four parts of the day's expenditure, in the order they stack: resting burn first, the day's
-// deliberate exercise last. Same keys the server's tdee breakdown uses.
-const TDEE_PARTS = ['bmr', 'neat', 'tef', 'eat'];
 
 export default function HomeDashboard({
   dashboard,
@@ -200,26 +195,27 @@ export default function HomeDashboard({
               </button>
             )}
           </div>
-          <div className="card tdee-card">
-            <div className="tdee-card-total">
-              <b>{tdee.total}</b>
-              <span>kcal</span>
+          <div className="tdee-summary-row">
+            <div className="card tdee-total-card tdee-summary-half">
+              <span className="tdee-total-label">{t('tdee.total')}</span>
+              <b className="tdee-total-value">{tdee.total}</b>
+              <span className="tdee-total-unit">kcal</span>
             </div>
-            <div className="tdee-bar">
-              {TDEE_PARTS.map((key) => (
-                <span key={key} className={`tdee-bar-seg tdee-seg-${key}`} style={{ flexGrow: Math.max(0, tdee[key]) }} />
-              ))}
-            </div>
-            <div className="tdee-legend">
-              {TDEE_PARTS.map((key) => (
-                <span key={key} className="tdee-legend-item">
-                  <span className={`tdee-dot tdee-seg-${key}`} />
-                  {t(`tdee.${key}`)} <b>{tdee[key]}</b>
+            {energyBalance && (
+              <div className="card tdee-total-card tdee-summary-half">
+                <span className="tdee-total-label">
+                  {energyBalance.forecast ? t('balance.forecast') : t('balance.gap')}
                 </span>
-              ))}
-            </div>
+                <b className="tdee-total-value">
+                  {energyBalance.balance >= 0 ? '−' : '+'}
+                  {Math.abs(energyBalance.balance)}
+                </b>
+                <span className="tdee-total-unit">
+                  kcal {energyBalance.balance >= 0 ? t('balance.deficit') : t('balance.surplus')}
+                </span>
+              </div>
+            )}
           </div>
-          <EnergyBalance balance={energyBalance} />
         </>
       )}
 

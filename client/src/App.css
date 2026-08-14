@@ -4414,6 +4414,18 @@ textarea.wide {
   gap: 10px;
 }
 
+/* Journal: TDEE total and balance total side by side, each half width — full breakdowns live
+   behind "Voir le détail" instead of taking up the journal's space. */
+.tdee-summary-row {
+  display: flex;
+  gap: 10px;
+}
+
+.tdee-summary-half {
+  flex: 1;
+  min-width: 0;
+}
+
 .tdee-total-label {
   font-size: 13px;
   text-transform: uppercase;
