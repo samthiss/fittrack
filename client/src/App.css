@@ -2798,6 +2798,10 @@ textarea.wide {
   padding: 0;
   margin: 0;
   font-size: 14.5px;
+  /* A flex item's min-width defaults to auto, which for an <input> is its intrinsic field width
+     (~96px) — so in a narrow row the input refuses to shrink and pushes the trailing .unit out
+     past the rounded border instead. Only the input should give up width here. */
+  min-width: 0;
 }
 
 .search-input:focus {
@@ -4511,7 +4515,7 @@ textarea.wide {
 /* Inputs sitting inside a TDEE row, not stacked under a label: no top margin to break the row's
    vertical centering, and wide enough for a 4-digit value plus its unit. */
 .tdee-field {
-  width: 136px;
+  width: 150px;
   margin-top: 0;
   flex-shrink: 0;
 }
