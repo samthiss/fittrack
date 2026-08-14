@@ -561,7 +561,7 @@ export default function Settings({
                   </span>
                 </div>
                 {method === 'manual' ? (
-                  <div className="search-input-row" style={{ width: 116 }} onClick={(e) => e.stopPropagation()}>
+                  <div className="search-input-row tdee-field" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="number"
                       min="0"
@@ -589,7 +589,7 @@ export default function Settings({
         <div className="settings-goal-card">
           <div className="tdee-input-row">
             <span className="settings-list-label">{t('tdee.steps')}</span>
-            <div className="search-input-row" style={{ width: 140 }}>
+            <div className="search-input-row tdee-field">
               <input
                 type="number"
                 min="0"
