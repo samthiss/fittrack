@@ -124,6 +124,7 @@ export default function Settings({
   activityTypes,
   email,
   mustChangePassword,
+  onRefreshSummary,
   onSaveProfile,
   onUpdateActivityType,
   onLogout,
@@ -166,6 +167,14 @@ export default function Settings({
       setCarbsPct(profile.carbs_pct ?? 35);
     }
   }, [profile]);
+
+  // The TDEE screen's EAT part is the day's logged activities, so it goes stale the moment one is
+  // added from the Activités tab. Refreshing when the screen itself opens covers every way in —
+  // the tab bar, the Réglages list, and the journal card's "Voir le détail", which sets the view
+  // directly and so never passed through handleViewChange's refresh.
+  useEffect(() => {
+    if (screen === 'metabolism') onRefreshSummary?.();
+  }, [screen, onRefreshSummary]);
 
   const fatPct = Math.max(0, 100 - proteinPct - carbsPct);
 
