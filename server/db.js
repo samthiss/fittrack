@@ -625,6 +625,38 @@ if (!profileCols2.includes('water_goal_ml')) {
 if (!profileCols2.includes('rest_by_reps')) {
   db.exec(`ALTER TABLE profile ADD COLUMN rest_by_reps TEXT`);
 }
+// The two TDEE inputs that move over time and so need a snapshot per save, alongside the bmr /
+// weight / goal ones profile_history already tracked (see profileAsOf in index.js).
+const profileHistoryCols = db.prepare('PRAGMA table_info(profile_history)').all().map((c) => c.name);
+if (!profileHistoryCols.includes('steps_per_day')) {
+  db.exec(`ALTER TABLE profile_history ADD COLUMN steps_per_day REAL`);
+}
+if (!profileHistoryCols.includes('bmr_method')) {
+  db.exec(`ALTER TABLE profile_history ADD COLUMN bmr_method TEXT`);
+}
+
+// Which formula estimates the BMR half of the TDEE: 'katch' (body fat % + weight), 'mifflin'
+// (age/height/weight/sex) or 'manual' (the typed-in profile.bmr). NULL means "pick for me" —
+// Katch-McArdle once a body-fat % exists, Mifflin-St Jeor otherwise. See server/tdee.js.
+if (!profileCols2.includes('bmr_method')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN bmr_method TEXT`);
+}
+
+// NEAT used to be folded into daily_movement_kcal (steps + an average of the planned workouts);
+// it's now derived from steps_per_day alone, with the workout half coming from the day's actual
+// activity logs instead. Profiles predating steps_per_day get a step count back-solved from their
+// old movement figure so their TDEE doesn't jump on upgrade — inflated by the workout share it
+// used to include, which is why Réglages > TDEE shows the number for the user to correct.
+const legacyProfiles = db
+  .prepare('SELECT user_id, daily_movement_kcal, weight_kg FROM profile WHERE steps_per_day IS NULL AND daily_movement_kcal > 0')
+  .all();
+if (legacyProfiles.length > 0) {
+  const setSteps = db.prepare('UPDATE profile SET steps_per_day = ? WHERE user_id = ?');
+  for (const p of legacyProfiles) {
+    const steps = p.daily_movement_kcal / (0.04 * ((p.weight_kg || 70) / 70));
+    setSteps.run(Math.min(30000, Math.round(steps)), p.user_id);
+  }
+}
 
 // Free-text muscle/body-part tag per exercise (e.g. "Quadriceps") — shown above the exercise
 // name and rolled up into a pill row on the exercise's saved workout_templates card.

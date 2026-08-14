@@ -51,6 +51,8 @@ function MainApp({ onLogout, account }) {
   const [recipeFavorites, setRecipeFavorites] = useState([]);
   const [frequentFoods, setFrequentFoods] = useState([]);
   const [summary, setSummary] = useState(null);
+  // Sub-screen Réglages should open on when entered from elsewhere (null = its home list).
+  const [settingsScreen, setSettingsScreen] = useState(null);
   const [date, setDate] = useState(todayStr());
   const [activitesDate, setActivitesDate] = useState(todayStr());
   const [activites, setActivites] = useState([]);
@@ -341,6 +343,9 @@ function MainApp({ onLogout, account }) {
 
   function handleViewChange(next) {
     setView(next);
+    // Only the journal's TDEE card deep-links into a settings sub-screen; reaching Réglages any
+    // other way (the tab bar) must land on its home list as before.
+    setSettingsScreen(null);
     setSelectedMeal(null);
     setMealData(null);
     setMealFavorites([]);
@@ -368,6 +373,10 @@ function MainApp({ onLogout, account }) {
               onOpenWeight={() => setView('poids-rapport')}
               onOpenReport={() => setView('rapport')}
               onOpenWeightReport={() => setView('poids-rapport')}
+              onOpenTdeeSettings={() => {
+                setSettingsScreen('metabolism');
+                setView('reglages');
+              }}
             />
           )}
           {view === 'journal' && selectedMeal && (
@@ -428,6 +437,7 @@ function MainApp({ onLogout, account }) {
             <Settings
               profile={profile}
               summary={summary}
+              initialScreen={settingsScreen}
               activityTypes={activityTypes}
               email={account.email}
               mustChangePassword={account.mustChangePassword}

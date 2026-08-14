@@ -12,6 +12,8 @@ import {
 } from '../data/restTargets';
 
 const GOAL_KEYS = ['lose', 'maintain', 'gain'];
+// Same order and keys as BMR_METHODS in server/tdee.js, best estimate first.
+const BMR_METHODS = ['katch', 'mifflin', 'manual'];
 const PACE_OPTIONS = [500, 750, 1000];
 const WATER_ML_PRESETS = [250, 500, 700, 1000];
 const WATER_GOAL_PRESETS = [3000, 4000];
@@ -110,6 +112,7 @@ function SubHeader({ title, onBack, t }) {
 export default function Settings({
   profile,
   summary,
+  initialScreen,
   activityTypes,
   email,
   mustChangePassword,
@@ -118,12 +121,14 @@ export default function Settings({
   onLogout,
 }) {
   const { t, lang, setLang } = useLanguage();
-  const [screen, setScreen] = useState('home');
+  // Read once on mount — Settings unmounts when the tab changes, so a later deep-link arrives as a
+  // fresh mount rather than a prop update on a live screen the user is already navigating.
+  const [screen, setScreen] = useState(initialScreen || 'home');
 
   // --- Shared profile-field state (sourced once from `profile`, saved piecemeal per screen) ---
   const [bmr, setBmr] = useState('');
-  const [movement, setMovement] = useState('');
-  const [digestion, setDigestion] = useState('');
+  const [bmrMethod, setBmrMethod] = useState('mifflin');
+  const [stepsPerDay, setStepsPerDay] = useState('');
   const [sex, setSex] = useState('');
   const [birthdate, setBirthdate] = useState('');
   const [heightCm, setHeightCm] = useState('');
@@ -138,8 +143,10 @@ export default function Settings({
   useEffect(() => {
     if (profile) {
       setBmr(profile.bmr);
-      setMovement(profile.daily_movement_kcal);
-      setDigestion(profile.digestion_kcal);
+      // NULL bmr_method means "choisir pour moi" — mirror the server's rule (server/tdee.js) so
+      // the screen opens on the method actually in use rather than on an empty selection.
+      setBmrMethod(profile.bmr_method || (profile.body_fat_pct != null ? 'katch' : 'mifflin'));
+      setStepsPerDay(profile.steps_per_day ?? '');
       setSex(profile.sex || '');
       setBirthdate(profile.birthdate || '');
       setHeightCm(profile.height_cm ?? '');
@@ -195,9 +202,11 @@ export default function Settings({
     setSaving(true);
     try {
       await onSaveProfile({
-        bmr: Number(bmr),
-        daily_movement_kcal: Number(movement),
-        digestion_kcal: Number(digestion),
+        bmr_method: bmrMethod,
+        // Only meaningful for the 'manual' method, but saved either way so switching to manual
+        // and back doesn't lose the number that was typed.
+        bmr: Number(bmr) || 0,
+        steps_per_day: stepsPerDay !== '' ? Number(stepsPerDay) : null,
       });
       setScreen('home');
     } finally {
@@ -483,28 +492,152 @@ export default function Settings({
     );
   }
 
-  // --- Métabolisme screen ---
+  // --- TDEE screen ---
+  // BMR + NEAT + TEF + EAT. Only the step count (NEAT) and the manual-BMR escape hatch are typed
+  // in; everything else is what the server computed for today, shown read-only so the screen can't
+  // drift from the number the journal and the daily target actually use.
   if (screen === 'metabolism') {
+    const breakdown = summary?.tdeeBreakdown;
+    const parts = breakdown
+      ? [
+          { key: 'bmr', value: breakdown.bmr },
+          { key: 'neat', value: breakdown.neat },
+          { key: 'tef', value: breakdown.tef },
+          { key: 'eat', value: breakdown.eat },
+        ]
+      : [];
+
     return (
       <div>
-        <SubHeader title={t('settings.metabolism')} onBack={() => setScreen('home')} t={t} />
+        <SubHeader title={t('tdee.title')} onBack={() => setScreen('home')} t={t} />
+        <p className="hint" style={{ marginTop: -4 }}>{t('tdee.subtitle')}</p>
 
-        <h4 className="section-label" style={{ marginTop: 0 }}>{t('profile.bmr')}</h4>
-        <div className="search-input-row">
-          <input type="number" min="0" step="any" className="search-input" value={bmr} onChange={(e) => setBmr(e.target.value)} />
-          <span className="unit">kcal</span>
+        {breakdown && (
+          <div className="card tdee-total-card">
+            <span className="tdee-total-label">{t('tdee.total')}</span>
+            <b className="tdee-total-value">{breakdown.total}</b>
+            <span className="tdee-total-unit">kcal</span>
+            <div className="tdee-bar">
+              {parts.map((p) => (
+                <span
+                  key={p.key}
+                  className={`tdee-bar-seg tdee-seg-${p.key}`}
+                  style={{ flexGrow: Math.max(0, p.value) }}
+                />
+              ))}
+            </div>
+            <div className="tdee-legend">
+              {parts.map((p) => (
+                <span key={p.key} className="tdee-legend-item">
+                  <span className={`tdee-dot tdee-seg-${p.key}`} />
+                  {t(`tdee.${p.key}`)} <b>{p.value}</b>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* --- BMR --- */}
+        <h4 className="section-label">
+          {t('tdee.bmr')} <span className="tdee-part-full">{t('tdee.bmrFull')}</span>
+        </h4>
+        <p className="hint" style={{ marginTop: -4 }}>{t('tdee.bmrHint')}</p>
+        <div className="settings-goal-card">
+          {BMR_METHODS.map((method) => {
+            const estimate = breakdown?.bmrOptions?.[method] ?? null;
+            const unavailable = method !== 'manual' && estimate == null;
+            return (
+              <button
+                key={method}
+                type="button"
+                className={bmrMethod === method ? 'tdee-method-row active' : 'tdee-method-row'}
+                onClick={() => setBmrMethod(method)}
+                disabled={unavailable}
+              >
+                <div className="tdee-method-text">
+                  <span className="tdee-method-label">{t(`tdee.method.${method}`)}</span>
+                  <span className="tdee-method-sub">
+                    {unavailable ? t('tdee.methodUnavailable') : t(`tdee.method.${method}Sub`)}
+                  </span>
+                </div>
+                {method === 'manual' ? (
+                  <div className="search-input-row" style={{ width: 116 }} onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      className="search-input"
+                      value={bmr}
+                      onChange={(e) => setBmr(e.target.value)}
+                    />
+                    <span className="unit">kcal</span>
+                  </div>
+                ) : (
+                  <span className="tdee-method-value">{estimate != null ? `${estimate} kcal` : '—'}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        <h4 className="section-label">{t('profile.movement')}</h4>
-        <div className="search-input-row">
-          <input type="number" min="0" step="any" className="search-input" value={movement} onChange={(e) => setMovement(e.target.value)} />
-          <span className="unit">kcal</span>
+        {/* --- NEAT --- */}
+        <h4 className="section-label">
+          {t('tdee.neat')} <span className="tdee-part-full">{t('tdee.neatFull')}</span>
+          <span className="tdee-badge manual">{t('tdee.manual')}</span>
+        </h4>
+        <p className="hint" style={{ marginTop: -4 }}>{t('tdee.neatHint')}</p>
+        <div className="settings-goal-card">
+          <div className="tdee-input-row">
+            <span className="settings-list-label">{t('tdee.steps')}</span>
+            <div className="search-input-row" style={{ width: 140 }}>
+              <input
+                type="number"
+                min="0"
+                max="100000"
+                step="500"
+                className="search-input"
+                value={stepsPerDay}
+                onChange={(e) => setStepsPerDay(e.target.value)}
+              />
+            </div>
+          </div>
+          {breakdown && (
+            <div className="tdee-derived">
+              = <b>{breakdown.neat}</b> kcal
+            </div>
+          )}
         </div>
 
-        <h4 className="section-label">{t('profile.digestion')}</h4>
-        <div className="search-input-row">
-          <input type="number" min="0" step="any" className="search-input" value={digestion} onChange={(e) => setDigestion(e.target.value)} />
-          <span className="unit">kcal</span>
+        {/* --- TEF --- */}
+        <h4 className="section-label">
+          {t('tdee.tef')} <span className="tdee-part-full">{t('tdee.tefFull')}</span>
+          <span className="tdee-badge">{t('tdee.auto')}</span>
+        </h4>
+        <p className="hint" style={{ marginTop: -4 }}>{t('tdee.tefHint')}</p>
+        <div className="settings-goal-card">
+          <div className="tdee-input-row">
+            <span className="settings-list-label">
+              {breakdown ? `${breakdown.tefPct}% ${t('tdee.tefShare')}` : '—'}
+            </span>
+            <span className="tdee-method-value">{breakdown ? `${breakdown.tef} kcal` : '—'}</span>
+          </div>
+        </div>
+
+        {/* --- EAT --- */}
+        <h4 className="section-label">
+          {t('tdee.eat')} <span className="tdee-part-full">{t('tdee.eatFull')}</span>
+          <span className="tdee-badge">{t('tdee.auto')}</span>
+        </h4>
+        <p className="hint" style={{ marginTop: -4 }}>{t('tdee.eatHint')}</p>
+        <div className="settings-goal-card">
+          <div className="tdee-input-row">
+            <span className="settings-list-label">
+              {summary?.activities?.length > 0
+                ? summary.activities.map((a) => a.label || a.type).join(' · ')
+                : t('tdee.eatEmpty')}
+            </span>
+            <span className="tdee-method-value">{breakdown ? `${breakdown.eat} kcal` : '—'}</span>
+          </div>
         </div>
 
         <button
@@ -1044,6 +1177,9 @@ export default function Settings({
             <Icon name="flame" size={19} />
           </span>
           <span className="settings-list-label">{t('settings.metabolism')}</span>
+          {summary?.tdeeBreakdown && (
+            <span className="settings-list-value">{summary.tdeeBreakdown.total} kcal</span>
+          )}
           <Icon name="chevron-right" size={18} color="var(--text-muted)" />
         </button>
         <button type="button" className="settings-list-row" onClick={() => setScreen('meals')}>
