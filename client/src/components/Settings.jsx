@@ -128,6 +128,7 @@ export default function Settings({
   // --- Shared profile-field state (sourced once from `profile`, saved piecemeal per screen) ---
   const [bmr, setBmr] = useState('');
   const [bmrMethod, setBmrMethod] = useState('mifflin');
+  const [metabolismSaved, setMetabolismSaved] = useState(false);
   const [stepsPerDay, setStepsPerDay] = useState('');
   const [sex, setSex] = useState('');
   const [birthdate, setBirthdate] = useState('');
@@ -208,7 +209,11 @@ export default function Settings({
         bmr: Number(bmr) || 0,
         steps_per_day: stepsPerDay !== '' ? Number(stepsPerDay) : null,
       });
-      setScreen('home');
+      // Stay put rather than jumping back to Réglages: onSaveProfile refreshes the summary, so the
+      // total and its four parts visibly settle on their new values — which is the whole point of
+      // having changed a method or a step count. Same pattern as the Repas du jour screen.
+      setMetabolismSaved(true);
+      setTimeout(() => setMetabolismSaved(false), 2500);
     } finally {
       setSaving(false);
     }
@@ -561,7 +566,7 @@ export default function Settings({
                   </span>
                 </div>
                 {method === 'manual' ? (
-                  <div className="search-input-row" style={{ width: 116 }} onClick={(e) => e.stopPropagation()}>
+                  <div className="search-input-row tdee-field" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="number"
                       min="0"
@@ -589,7 +594,7 @@ export default function Settings({
         <div className="settings-goal-card">
           <div className="tdee-input-row">
             <span className="settings-list-label">{t('tdee.steps')}</span>
-            <div className="search-input-row" style={{ width: 140 }}>
+            <div className="search-input-row tdee-field">
               <input
                 type="number"
                 min="0"
@@ -650,6 +655,9 @@ export default function Settings({
           <Icon name="check" size={20} />
           {saving ? t('addFood.saving') : t('meal.save')}
         </button>
+        {metabolismSaved && (
+          <p className="hint success" style={{ textAlign: 'center', marginTop: -12 }}>{t('tdee.saved')}</p>
+        )}
       </div>
     );
   }

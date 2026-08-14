@@ -352,6 +352,11 @@ function MainApp({ onLogout, account }) {
     // Activities logged from the Activités tab can target any day, not just the Journal's
     // currently-selected date — refresh on return so burned-kcal reflects those edits.
     if (next === 'journal') refreshDashboard();
+    // Same reason, for the other screen an activity now moves: Réglages > TDEE reads `summary`,
+    // whose EAT part is the day's logged activities. Without this it keeps showing the breakdown
+    // as it stood when the app was last booted, so a session added minutes ago appears to have no
+    // effect on the total.
+    if (next === 'reglages') refreshCore();
   }
 
   return (
