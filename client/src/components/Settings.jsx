@@ -14,6 +14,14 @@ import {
 const GOAL_KEYS = ['lose', 'maintain', 'gain'];
 // Same order and keys as BMR_METHODS in server/tdee.js, best estimate first.
 const BMR_METHODS = ['katch', 'mifflin', 'manual'];
+
+// An activity log carries a free-text label only when the user typed one; otherwise all it has is
+// the type key ('velo_ville'). The readable name lives in activity_settings, which arrives as the
+// activityTypes prop — without this the TDEE screen shows raw keys.
+function activityLabel(activity, activityTypes) {
+  if (activity.label && activity.label.trim()) return activity.label;
+  return activityTypes?.find((a) => a.type === activity.type)?.label || activity.type;
+}
 const PACE_OPTIONS = [500, 750, 1000];
 const WATER_ML_PRESETS = [250, 500, 700, 1000];
 const WATER_GOAL_PRESETS = [3000, 4000];
@@ -638,7 +646,7 @@ export default function Settings({
           <div className="tdee-input-row">
             <span className="settings-list-label">
               {summary?.activities?.length > 0
-                ? summary.activities.map((a) => a.label || a.type).join(' · ')
+                ? summary.activities.map((a) => activityLabel(a, activityTypes)).join(' · ')
                 : t('tdee.eatEmpty')}
             </span>
             <span className="tdee-method-value">{breakdown ? `${breakdown.eat} kcal` : '—'}</span>

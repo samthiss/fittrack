@@ -89,13 +89,27 @@ export function tefFactor(profile) {
   );
 }
 
-// TEF is a share of what's *eaten*, but the day's intake target is itself derived from TDEE — so
-// computing it from today's food log would make eating more raise the target, which raises the
-// allowance, and so on. Anchoring it to maintenance intake (where intake = TDEE) breaks the loop:
-// TDEE = base + f·TDEE  =>  TEF = base · f/(1−f), with base = BMR + NEAT + EAT.
-export function tefFor(baseKcal, factor) {
+// TEF is a share of what's actually eaten, which is the daily target — not maintenance. On a cut
+// you eat below your TDEE, so you digest less and the thermic effect really is smaller.
+//
+// The target is itself derived from the TDEE that TEF is part of, so this is circular — but it
+// solves in closed form rather than needing iteration. With base = BMR + NEAT + EAT and a goal
+// offset D (positive on a cut, negative on a bulk, 0 on maintain):
+//
+//   target = TDEE − D = base + TEF − D   and   TEF = f · target
+//   => TEF = f(base + TEF − D)  =>  TEF = f(base − D)/(1 − f)
+//
+// A manually pinned target short-circuits all of it: intake is that number, so TEF is f of it.
+export function tefFor(baseKcal, factor, { goal, goalKcal = 0, manualTargetKcal = null } = {}) {
   if (factor <= 0 || factor >= 1) return 0;
-  return baseKcal * (factor / (1 - factor));
+  if (manualTargetKcal != null) return Math.max(0, manualTargetKcal * factor);
+
+  let offset = 0;
+  if (goal === 'lose') offset = goalKcal;
+  if (goal === 'gain') offset = -goalKcal;
+  // An aggressive deficit against a small base could drive this negative; a day's digestion can't
+  // cost less than nothing.
+  return Math.max(0, ((baseKcal - offset) * factor) / (1 - factor));
 }
 
 // EAT — deliberate exercise, i.e. whatever was actually logged that day. Adaptive by construction:
@@ -105,7 +119,11 @@ export function computeTdee(profile, { activitiesKcal = 0, today = new Date() } 
   const neat = neatFromSteps(profile.steps_per_day, profile.weight_kg);
   const eat = activitiesKcal;
   const factor = tefFactor(profile);
-  const tef = tefFor(bmr.value + neat + eat, factor);
+  const tef = tefFor(bmr.value + neat + eat, factor, {
+    goal: profile.goal,
+    goalKcal: profile.goal_kcal || 0,
+    manualTargetKcal: profile.manual_target_kcal,
+  });
 
   return {
     bmr: Math.round(bmr.value),
