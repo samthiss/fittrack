@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import CircularGauge from './CircularGauge';
+import EnergyBalance from './EnergyBalance';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 import { todayStr, shiftDateStr } from '../data/dates';
@@ -127,7 +128,7 @@ export default function HomeDashboard({
   }
 
   if (!dashboard) return null;
-  const { targetIntake, consumedKcal, remainingKcal, burnedKcal, macros, meals, tdee } = dashboard;
+  const { targetIntake, consumedKcal, remainingKcal, burnedKcal, macros, meals, tdee, energyBalance } = dashboard;
   const improvementItems = previousDayImprovements?.items || [];
   const currentImprovementIndex = improvementItems.length > 0 ? improvementIndex % improvementItems.length : 0;
   const currentImprovement = improvementItems[currentImprovementIndex];
@@ -191,7 +192,7 @@ export default function HomeDashboard({
       {tdee && (
         <>
           <div className="section-header">
-            <span className="section-title">{t('tdee.title')}</span>
+            <span className="section-title">{t('balance.title')}</span>
             {onOpenTdeeSettings && (
               <button type="button" className="report-link" onClick={onOpenTdeeSettings}>
                 {t('tdee.viewDetail')}
@@ -218,6 +219,7 @@ export default function HomeDashboard({
               ))}
             </div>
           </div>
+          <EnergyBalance balance={energyBalance} />
         </>
       )}
 

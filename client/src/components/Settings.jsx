@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import EnergyBalance from './EnergyBalance';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
@@ -138,6 +139,8 @@ export default function Settings({
   const [bmr, setBmr] = useState('');
   const [bmrMethod, setBmrMethod] = useState('mifflin');
   const [metabolismSaved, setMetabolismSaved] = useState(false);
+  // Which half of the screen is showing: the TDEE breakdown, or burned-vs-eaten for the day.
+  const [tdeeTab, setTdeeTab] = useState('tdee');
   const [stepsPerDay, setStepsPerDay] = useState('');
   const [sex, setSex] = useState('');
   const [birthdate, setBirthdate] = useState('');
@@ -531,7 +534,25 @@ export default function Settings({
 
     return (
       <div>
-        <SubHeader title={t('tdee.title')} onBack={() => setScreen('home')} t={t} />
+        <SubHeader title={t('balance.title')} onBack={() => setScreen('home')} t={t} />
+
+        <div className="type-list-row" style={{ marginBottom: 4 }}>
+          {['tdee', 'balance'].map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              className={tdeeTab === tab ? 'type-pill active' : 'type-pill'}
+              onClick={() => setTdeeTab(tab)}
+            >
+              {tab === 'tdee' ? t('balance.tabTdee') : t('balance.tabBalance')}
+            </button>
+          ))}
+        </div>
+
+        {tdeeTab === 'balance' && <EnergyBalance balance={summary?.energyBalance} />}
+
+        {tdeeTab === 'tdee' && (
+        <>
         <p className="hint" style={{ marginTop: -4 }}>{t('tdee.subtitle')}</p>
 
         {breakdown && (
@@ -674,6 +695,8 @@ export default function Settings({
         </button>
         {metabolismSaved && (
           <p className="hint success" style={{ textAlign: 'center', marginTop: -12 }}>{t('tdee.saved')}</p>
+        )}
+        </>
         )}
       </div>
     );

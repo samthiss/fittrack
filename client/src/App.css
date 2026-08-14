@@ -4532,3 +4532,104 @@ textarea.wide {
   font-size: 13.5px;
   color: var(--text-muted, var(--dim));
 }
+
+/* --- Dépense vs consommation (section Journal + onglet de l'écran TDEE) --------------------- */
+.balance-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.balance-mode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* The badge is already margin-left'd for its inline use in a section label; not here. */
+.balance-mode .tdee-badge {
+  margin-left: 0;
+}
+
+.balance-meals {
+  font-size: 12.5px;
+  color: var(--text-muted, var(--dim));
+}
+
+.balance-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.balance-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--text-muted, var(--dim));
+  width: 96px;
+  flex-shrink: 0;
+}
+
+.balance-track {
+  flex: 1;
+  min-width: 0;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-sunken, rgba(255, 255, 255, 0.06));
+  overflow: hidden;
+}
+
+.balance-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.balance-fill.burned { background: var(--warning); }
+.balance-fill.eaten { background: var(--macro-carb); }
+
+.balance-value {
+  font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
+  width: 52px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.balance-total {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle, var(--line));
+}
+
+.balance-total .balance-label {
+  width: auto;
+}
+
+.balance-gap {
+  font-size: 24px;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+/* A deficit is the point when cutting, so it reads as the accent rather than a warning. */
+.balance-gap.deficit { color: var(--acc); }
+.balance-gap.surplus { color: var(--warning); }
+
+.balance-gap-word {
+  font-size: 12.5px;
+  color: var(--text-muted, var(--dim));
+}
+
+.balance-hint {
+  padding: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+}

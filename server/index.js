@@ -16,6 +16,7 @@ import { buildMicroList, MICRO_REFERENCE, NUTRIENT_SUGGESTIONS, SUPPLEMENT_SUGGE
 import { estimateMissingNutrients, estimateNutrientsForFood } from './nutrientEstimation.js';
 import { classifyFoodsBatch, classifyFood, classifyIngredientsBatch } from './microbiomeClassification.js';
 import { computeTdee, BMR_METHODS } from './tdee.js';
+import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // DATA_DIR points at a mounted persistent volume in production (e.g. Railway) so uploaded
@@ -372,6 +373,44 @@ function computeSummary(userId, date, profileOverride) {
     tdeeBreakdown,
     targetIntake,
   };
+}
+
+// Burned vs eaten for a day, computed once here so the journal card and Réglages > TDEE can never
+// drift apart the way they did when each screen did its own arithmetic.
+//
+// A day in progress reads misleadingly: nothing is logged yet at 9am, so the gap looks like a
+// huge deficit. Until every meal has something in it, the eaten side therefore stands in as the
+// daily target — "if you eat as planned, here is where you land" — and only switches to the real
+// total once the day is actually complete.
+function computeEnergyBalance(userId, date, summary) {
+  const foodKcal = db
+    .prepare('SELECT COALESCE(SUM(kcal), 0) AS kcal FROM food_logs WHERE user_id = ? AND date = ?')
+    .get(userId, date).kcal;
+  const drinkKcal = db
+    .prepare('SELECT COALESCE(SUM(kcal), 0) AS kcal FROM coffee_logs WHERE user_id = ? AND date = ?')
+    .get(userId, date).kcal;
+  const consumed = foodKcal + drinkKcal;
+
+  const loggedMeals = new Set(
+    db
+      .prepare('SELECT DISTINCT meal FROM food_logs WHERE user_id = ? AND date = ?')
+      .all(userId, date)
+      .map((r) => r.meal)
+  );
+  // Every configured meal, including any custom en-cas — skipping one leaves the day forecast.
+  const allMeals = mealsFor(summary.profile).map((m) => m.key);
+  const mealsLogged = allMeals.filter((k) => loggedMeals.has(k)).length;
+  const complete = allMeals.length > 0 && mealsLogged === allMeals.length;
+
+  // The rule itself (target-vs-real, forecast or not) lives in energyBalance.js so it can be
+  // tested without booting the app; everything above is just the querying it needs.
+  return energyBalanceFor({
+    expenditure: summary.tdee,
+    consumed,
+    targetIntake: summary.targetIntake,
+    mealKeys: allMeals,
+    loggedMealKeys: [...loggedMeals],
+  });
 }
 
 // --- Activity types / settings ---
@@ -1286,7 +1325,8 @@ app.delete('/api/coffee/:id', (req, res) => {
 // --- Daily summary ---
 app.get('/api/summary', (req, res) => {
   const date = req.query.date || todayStr();
-  res.json(computeSummary(req.userId, date));
+  const summary = computeSummary(req.userId, date);
+  res.json({ ...summary, energyBalance: computeEnergyBalance(req.userId, date, summary) });
 });
 
 // --- Recipes ---
@@ -2322,6 +2362,8 @@ app.get('/api/dashboard', (req, res) => {
     // Total expenditure and its four parts, so the journal's TDEE card doesn't have to refetch the
     // profile and redo the arithmetic the server already did for targetIntake.
     tdee: summary.tdeeBreakdown,
+    // Burned vs eaten, plus whether the day is still a forecast.
+    energyBalance: computeEnergyBalance(req.userId, date, summary),
     macros: {
       carbs: { consumed: consumed.carbs, target: macroTargets.carbs },
       protein: { consumed: consumed.protein, target: macroTargets.protein },
