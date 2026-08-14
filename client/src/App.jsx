@@ -446,6 +446,7 @@ function MainApp({ onLogout, account }) {
               activityTypes={activityTypes}
               email={account.email}
               mustChangePassword={account.mustChangePassword}
+              onRefreshSummary={refreshCore}
               onSaveProfile={handleProfileSave}
               onUpdateActivityType={handleActivityTypeUpdate}
               onLogout={onLogout}
