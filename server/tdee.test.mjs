@@ -85,15 +85,35 @@ test('TEF is macro-weighted: more protein means a bigger thermic effect', () => 
   assert.ok(Math.abs(tefFactor({}) - 0.11) < 1e-9);
 });
 
-test('TEF is anchored to maintenance intake, so it stays ~factor of the total', () => {
+test('on maintain, TEF is a share of the total — intake equals TDEE there', () => {
   const factor = 0.11;
   const base = 2225; // BMR + NEAT + EAT
-  const tef = tefFor(base, factor);
-  const total = base + tef;
-  // The point of the base·f/(1−f) form: TEF ends up at exactly `factor` of the *total*, which is
-  // what "10% of what you eat" means at maintenance — without the total feeding back into itself.
-  assert.ok(Math.abs(tef / total - factor) < 1e-9);
-  assert.equal(tefFor(base, 0), 0);
+  const tef = tefFor(base, factor, { goal: 'maintain' });
+  assert.ok(Math.abs(tef / (base + tef) - factor) < 1e-9);
+  assert.equal(tefFor(base, 0, { goal: 'maintain' }), 0);
+});
+
+test('TEF tracks the daily target, not maintenance: a cut digests less', () => {
+  const factor = 0.11;
+  const base = 2225;
+  const cut = tefFor(base, factor, { goal: 'lose', goalKcal: 500 });
+  const maintain = tefFor(base, factor, { goal: 'maintain' });
+  const bulk = tefFor(base, factor, { goal: 'gain', goalKcal: 500 });
+  assert.ok(cut < maintain && maintain < bulk);
+
+  // The closed form has to agree with the definition it came from: TEF = f × target, where the
+  // target is the TDEE it is itself part of, minus the deficit.
+  const target = base + cut - 500;
+  assert.ok(Math.abs(cut - factor * target) < 1e-9);
+});
+
+test('a pinned target sets TEF directly, ignoring the goal offset', () => {
+  const tef = tefFor(2225, 0.11, { goal: 'lose', goalKcal: 500, manualTargetKcal: 2000 });
+  assert.ok(Math.abs(tef - 0.11 * 2000) < 1e-9);
+});
+
+test('an extreme deficit floors TEF at zero rather than going negative', () => {
+  assert.equal(tefFor(1500, 0.11, { goal: 'lose', goalKcal: 5000 }), 0);
 });
 
 test('TDEE sums its four parts and EAT tracks the day logged', () => {
