@@ -1548,6 +1548,9 @@ button.exercise-last-time span {
 .unit {
   color: var(--dim);
   font-size: 12.5px;
+  /* A flex item by default shrinks below its own content, which clips the unit down to "kc" in
+     any narrow .search-input-row — the number field is the one that should give up width. */
+  flex-shrink: 0;
 }
 
 .field b {
@@ -4503,6 +4506,14 @@ textarea.wide {
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* Inputs sitting inside a TDEE row, not stacked under a label: no top margin to break the row's
+   vertical centering, and wide enough for a 4-digit value plus its unit. */
+.tdee-field {
+  width: 136px;
+  margin-top: 0;
+  flex-shrink: 0;
 }
 
 .tdee-input-row {
