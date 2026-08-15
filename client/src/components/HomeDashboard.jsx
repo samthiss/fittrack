@@ -146,13 +146,18 @@ export default function HomeDashboard({
             )}
           </div>
           <div className="tdee-summary-row">
-            <div className="card tdee-total-card tdee-summary-half">
+            <div className="card tdee-total-card tdee-summary-item">
               <span className="tdee-total-label">{t('tdee.total')}</span>
               <b className="tdee-total-value">{tdee.total}</b>
               <span className="tdee-total-unit">kcal</span>
             </div>
+            <div className="card tdee-total-card tdee-summary-item">
+              <span className="tdee-total-label">{t('balance.dailyTarget')}</span>
+              <b className="tdee-total-value">{Math.round(targetIntake)}</b>
+              <span className="tdee-total-unit">kcal</span>
+            </div>
             {energyBalance && (
-              <div className="card tdee-total-card tdee-summary-half">
+              <div className="card tdee-total-card tdee-summary-item">
                 <span className="tdee-total-label">
                   {energyBalance.forecast ? t('balance.forecast') : t('balance.gap')}
                 </span>

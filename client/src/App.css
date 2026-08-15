@@ -4348,16 +4348,28 @@ textarea.wide {
   gap: 10px;
 }
 
-/* Journal: TDEE total and balance total side by side, each half width — full breakdowns live
-   behind "Voir le détail" instead of taking up the journal's space. */
+/* Journal: TDEE / target / balance totals side by side, each an equal share — full breakdowns
+   live behind "Voir le détail" instead of taking up the journal's space. */
 .tdee-summary-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
-.tdee-summary-half {
+.tdee-summary-item {
   flex: 1;
   min-width: 0;
+  padding-left: 12px;
+  padding-right: 12px;
+  gap: 4px;
+}
+
+/* Three narrow cards need a smaller headline than the old two-card layout to avoid clipping. */
+.tdee-summary-item .tdee-total-label {
+  font-size: 11.5px;
+}
+
+.tdee-summary-item .tdee-total-value {
+  font-size: 24px;
 }
 
 .tdee-total-label {

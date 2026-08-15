@@ -510,6 +510,7 @@ export const translations = {
     'tdee.saved': 'TDEE mis à jour.',
     // Dépense vs consommation (section du Journal + 2e onglet de l'écran TDEE)
     'balance.title': 'Dépense vs consommation',
+    'balance.dailyTarget': 'Objectif kcal',
     'balance.tabTdee': 'TDEE',
     'balance.tabBalance': 'Brûlé vs mangé',
     'balance.expenditure': 'Dépense',
@@ -1328,6 +1329,7 @@ export const translations = {
     'tdee.saved': 'TDEE updated.',
     // Burned vs eaten (journal section + 2nd tab of the TDEE screen)
     'balance.title': 'Burned vs eaten',
+    'balance.dailyTarget': 'Kcal target',
     'balance.tabTdee': 'TDEE',
     'balance.tabBalance': 'Burned vs eaten',
     'balance.expenditure': 'Burned',
