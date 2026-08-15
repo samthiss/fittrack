@@ -4352,15 +4352,16 @@ textarea.wide {
    live behind "Voir le détail" instead of taking up the journal's space. */
 .tdee-summary-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
 .tdee-summary-item {
   flex: 1;
   min-width: 0;
-  padding-left: 12px;
-  padding-right: 12px;
-  gap: 4px;
+  min-height: 84px;
+  padding: 14px 12px;
+  gap: 6px;
+  justify-content: center;
 }
 
 /* Three narrow cards need a smaller headline than the old two-card layout to avoid clipping. */
