@@ -148,26 +148,30 @@ export default function HomeDashboard({
           <div className="tdee-summary-row">
             <div className="card tdee-total-card tdee-summary-item">
               <span className="tdee-total-label">{t('tdee.total')}</span>
-              <b className="tdee-total-value">{tdee.total}</b>
-              <span className="tdee-total-unit">kcal</span>
+              <div className="tdee-total-line">
+                <b className="tdee-total-value">{tdee.total}</b>
+                <span className="tdee-total-unit">kcal</span>
+              </div>
             </div>
             <div className="card tdee-total-card tdee-summary-item">
               <span className="tdee-total-label">{t('balance.dailyTarget')}</span>
-              <b className="tdee-total-value">{Math.round(targetIntake)}</b>
-              <span className="tdee-total-unit">kcal</span>
+              <div className="tdee-total-line">
+                <b className="tdee-total-value">{Math.round(targetIntake)}</b>
+                <span className="tdee-total-unit">kcal</span>
+              </div>
             </div>
             {energyBalance && (
               <div className="card tdee-total-card tdee-summary-item">
                 <span className="tdee-total-label">
                   {energyBalance.forecast ? t('balance.forecast') : t('balance.gap')}
                 </span>
-                <b className="tdee-total-value">
-                  {energyBalance.balance >= 0 ? '−' : '+'}
-                  {Math.abs(energyBalance.balance)}
-                </b>
-                <span className="tdee-total-unit">
-                  kcal {energyBalance.balance >= 0 ? t('balance.deficit') : t('balance.surplus')}
-                </span>
+                <div className="tdee-total-line">
+                  <b className="tdee-total-value">
+                    {energyBalance.balance >= 0 ? '−' : '+'}
+                    {Math.abs(energyBalance.balance)}
+                  </b>
+                  <span className="tdee-total-unit">kcal</span>
+                </div>
               </div>
             )}
           </div>

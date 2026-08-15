@@ -480,7 +480,7 @@ export const translations = {
     // TDEE screen (Réglages) + journal card
     'tdee.title': 'TDEE',
     'tdee.subtitle': 'Dépense énergétique totale, recalculée chaque jour à partir de tes données.',
-    'tdee.total': 'TDEE du jour',
+    'tdee.total': 'TDEE',
     'tdee.bmr': 'BMR',
     'tdee.bmrFull': 'Métabolisme de base',
     'tdee.bmrHint': "L'énergie brûlée au repos complet. Calculé automatiquement.",
@@ -510,7 +510,7 @@ export const translations = {
     'tdee.saved': 'TDEE mis à jour.',
     // Dépense vs consommation (section du Journal + 2e onglet de l'écran TDEE)
     'balance.title': 'Dépense vs consommation',
-    'balance.dailyTarget': 'Objectif kcal',
+    'balance.dailyTarget': 'Objectif',
     'balance.tabTdee': 'TDEE',
     'balance.tabBalance': 'Brûlé vs mangé',
     'balance.expenditure': 'Dépense',
@@ -1299,7 +1299,7 @@ export const translations = {
     // TDEE screen (Settings) + journal card
     'tdee.title': 'TDEE',
     'tdee.subtitle': 'Total daily energy expenditure, recomputed each day from your own data.',
-    'tdee.total': "Today's TDEE",
+    'tdee.total': 'TDEE',
     'tdee.bmr': 'BMR',
     'tdee.bmrFull': 'Basal metabolic rate',
     'tdee.bmrHint': 'Energy burned at complete rest. Computed automatically.',
@@ -1329,7 +1329,7 @@ export const translations = {
     'tdee.saved': 'TDEE updated.',
     // Burned vs eaten (journal section + 2nd tab of the TDEE screen)
     'balance.title': 'Burned vs eaten',
-    'balance.dailyTarget': 'Kcal target',
+    'balance.dailyTarget': 'Target',
     'balance.tabTdee': 'TDEE',
     'balance.tabBalance': 'Burned vs eaten',
     'balance.expenditure': 'Burned',

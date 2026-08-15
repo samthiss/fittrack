@@ -4372,6 +4372,16 @@ textarea.wide {
   font-size: 24px;
 }
 
+.tdee-summary-item .tdee-total-line {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.tdee-summary-item .tdee-total-unit {
+  margin-top: 0;
+}
+
 .tdee-total-label {
   font-size: 13px;
   text-transform: uppercase;
