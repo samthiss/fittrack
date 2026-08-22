@@ -3,12 +3,33 @@ import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
+const STORAGE_KEY = 'fittrack-rich-foods-hidden';
+
+function loadHidden(nutrientKey) {
+  try {
+    const all = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    return all[nutrientKey] || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHidden(nutrientKey, items) {
+  try {
+    const all = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    all[nutrientKey] = items;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+  } catch {
+    // ignore
+  }
+}
+
 export default function RichFoodsReport({ nutrientKey, onBack }) {
   const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState(null);
+  const [hidden, setHidden] = useState(() => loadHidden(nutrientKey));
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -26,6 +47,12 @@ export default function RichFoodsReport({ nutrientKey, onBack }) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const removeItem = (name) => {
+    const next = hidden.filter((n) => n !== name);
+    setHidden(next);
+    saveHidden(nutrientKey, next);
+  };
 
   return (
     <div>
@@ -51,17 +78,30 @@ export default function RichFoodsReport({ nutrientKey, onBack }) {
             {t('richFoods.hint')}
           </p>
           <div className="report-card">
-            {data.foods.length === 0 ? (
+            {data.foods.filter((f) => !hidden.includes(f.name)).length === 0 ? (
               <p className="hint">{t('sources.none')}</p>
             ) : (
-              data.foods.map((f, i) => (
-                <div className="micro-source-row" key={i}>
-                  <span>{f.name}</span>
-                  <span>
-                    {f.value.toFixed(1)} {f.unit}/100g
-                  </span>
-                </div>
-              ))
+              data.foods
+                .filter((f) => !hidden.includes(f.name))
+                .map((f, i) => (
+                  <div className="micro-source-row" key={i}>
+                    <span>{f.name}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <span>
+                        {f.value.toFixed(1)} {f.unit}/100g
+                      </span>
+                      <button
+                        type="button"
+                        className="entry-icon-btn entry-delete-btn"
+                        onClick={() => removeItem(f.name)}
+                        aria-label={t('meal.delete')}
+                        style={{ marginLeft: 4 }}
+                      >
+                        <Icon name="x" size={14} />
+                      </button>
+                    </span>
+                  </div>
+                ))
             )}
           </div>
         </>
