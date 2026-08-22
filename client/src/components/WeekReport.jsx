@@ -65,7 +65,7 @@ export default function WeekReport({ period, onOpenRichFoods }) {
   function RichFoodsLink({ key, label }) {
     if (!onOpenRichFoods) return null;
     return (
-      <span className="rich-foods-link" onClick={() => onOpenRichFoods(key)}>
+      <span className="rich-foods-link" onClick={(e) => { e.stopPropagation(); onOpenRichFoods(key); }}>
         {' '}Aliments riches en {label}
       </span>
     );

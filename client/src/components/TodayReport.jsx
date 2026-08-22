@@ -13,7 +13,7 @@ const STATUS_COLOR = {
 function RichFoodsLink({ key, label, onOpenRichFoods }) {
   if (!onOpenRichFoods) return null;
   return (
-    <span className="rich-foods-link" onClick={() => onOpenRichFoods(key)}>
+    <span className="rich-foods-link" onClick={(e) => { e.stopPropagation(); onOpenRichFoods(key); }}>
       {' '}Aliments riches en {label}
     </span>
   );
