@@ -11,7 +11,7 @@ const STATUS_COLOR = {
   danger: 'var(--danger)',
 };
 
-export default function WeekReport({ period }) {
+export default function WeekReport({ period, onOpenRichFoods }) {
   const { t } = useLanguage();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -60,6 +60,15 @@ export default function WeekReport({ period }) {
 
   function toggle(key) {
     setExpandedKey((prev) => (prev === key ? null : key));
+  }
+
+  function RichFoodsLink({ key, label }) {
+    if (!onOpenRichFoods) return null;
+    return (
+      <span className="rich-foods-link" onClick={() => onOpenRichFoods(key)}>
+        {' '}Aliments riches en {label}
+      </span>
+    );
   }
 
   return (
@@ -127,6 +136,7 @@ export default function WeekReport({ period }) {
                 <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? () => toggle(l.key) : undefined}>
                   {l.label}
                   {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
+                  <RichFoodsLink key={l.key} label={l.label} onOpenRichFoods={onOpenRichFoods} />
                 </span>
                 <span className={`report-row-value status-${status}`}>
                   {l.over
@@ -162,6 +172,7 @@ export default function WeekReport({ period }) {
                 <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? () => toggle(m.key) : undefined}>
                   {m.label}
                   {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
+                  <RichFoodsLink key={m.key} label={m.label} onOpenRichFoods={onOpenRichFoods} />
                 </span>
                 <span className={`report-row-value status-${status}`}>{Math.round(m.pct)}%</span>
               </div>
@@ -194,6 +205,7 @@ export default function WeekReport({ period }) {
                 <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? () => toggle(o.key) : undefined}>
                   {o.label}
                   {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
+                  <RichFoodsLink key={o.key} label={o.label} onOpenRichFoods={onOpenRichFoods} />
                 </span>
                 <span className={`report-row-value status-${status}`}>
                   {o.met && <Icon name="check" size={13} />}

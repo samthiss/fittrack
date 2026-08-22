@@ -140,6 +140,7 @@ export const api = {
   getReport: (range) => request(`/report?range=${range}`),
   getTodayReport: (date) => request(date ? `/today-report?date=${date}` : '/today-report'),
   getWeekReport: (period) => request(`/week-report?period=${period}`),
+  getRichFoods: (key) => request(`/rich-foods/${encodeURIComponent(key)}`),
   getMealFavorites: (meal) => request(`/meal-favorites?meal=${meal}`),
   getAllMealFavorites: () => request('/meal-favorites'),
   addMealFavorite: (data) =>

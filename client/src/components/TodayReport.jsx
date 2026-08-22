@@ -10,7 +10,16 @@ const STATUS_COLOR = {
   danger: 'var(--danger)',
 };
 
-function GoalRow({ g, sources, expanded, onToggle, t }) {
+function RichFoodsLink({ key, label, onOpenRichFoods }) {
+  if (!onOpenRichFoods) return null;
+  return (
+    <span className="rich-foods-link" onClick={() => onOpenRichFoods(key)}>
+      {' '}Aliments riches en {label}
+    </span>
+  );
+}
+
+function GoalRow({ g, sources, expanded, onToggle, t, onOpenRichFoods }) {
   const pct = g.target > 0 ? Math.min(100, Math.max(0, (g.consumed / g.target) * 100)) : 0;
   // Floor nutrient (fiber, potassium...): the target is a minimum to reach, not a ceiling —
   // consuming more than the target is a good thing, so it's shown as met (green), never as "over".
@@ -23,6 +32,7 @@ function GoalRow({ g, sources, expanded, onToggle, t }) {
         <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? onToggle : undefined}>
           {g.label}
           {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
+          <RichFoodsLink key={g.key} label={g.label} onOpenRichFoods={onOpenRichFoods} />
         </span>
         <span className={`report-row-value status-${status}`}>
           {goalMet ? t('today.goalMet') : `${g.remaining.toFixed(0)} ${g.unit} ${t('today.remaining')}`}
@@ -39,7 +49,7 @@ function GoalRow({ g, sources, expanded, onToggle, t }) {
   );
 }
 
-function LimitRow({ l, sources, expanded, onToggle, t }) {
+function LimitRow({ l, sources, expanded, onToggle, t, onOpenRichFoods }) {
   const pct = l.reference > 0 ? Math.min(100, Math.max(0, (l.consumed / l.reference) * 100)) : 0;
   const over = l.remaining < 0;
   const status = over ? 'danger' : pct >= 90 ? 'warning' : 'success';
@@ -50,6 +60,7 @@ function LimitRow({ l, sources, expanded, onToggle, t }) {
         <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? onToggle : undefined}>
           {l.label}
           {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
+          <RichFoodsLink key={l.key} label={l.label} onOpenRichFoods={onOpenRichFoods} />
         </span>
         <span className={`report-row-value status-${status}`}>
           {over
@@ -68,7 +79,7 @@ function LimitRow({ l, sources, expanded, onToggle, t }) {
   );
 }
 
-function NoGoalRow({ m, sources, expanded, onToggle }) {
+function NoGoalRow({ m, sources, expanded, onToggle, onOpenRichFoods }) {
   const canExpand = Boolean(sources && sources.length > 0);
   return (
     <div className="report-row">
@@ -76,6 +87,7 @@ function NoGoalRow({ m, sources, expanded, onToggle }) {
         <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? onToggle : undefined}>
           {m.label}
           {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
+          <RichFoodsLink key={m.key} label={m.label} onOpenRichFoods={onOpenRichFoods} />
         </span>
         <span className="report-row-value">
           {m.consumed.toFixed(1)} {m.unit}
@@ -86,7 +98,7 @@ function NoGoalRow({ m, sources, expanded, onToggle }) {
   );
 }
 
-export default function TodayReport({ date } = {}) {
+export default function TodayReport({ date, onOpenRichFoods } = {}) {
   const { t } = useLanguage();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -123,6 +135,7 @@ export default function TodayReport({ date } = {}) {
             expanded={expandedKey === l.key}
             onToggle={() => toggle(l.key)}
             t={t}
+            onOpenRichFoods={onOpenRichFoods}
           />
         ))}
       </div>
@@ -138,6 +151,7 @@ export default function TodayReport({ date } = {}) {
             expanded={expandedKey === g.key}
             onToggle={() => toggle(g.key)}
             t={t}
+            onOpenRichFoods={onOpenRichFoods}
           />
         ))}
       </div>
@@ -153,6 +167,7 @@ export default function TodayReport({ date } = {}) {
             sources={microSources[m.key]}
             expanded={expandedKey === m.key}
             onToggle={() => toggle(m.key)}
+            onOpenRichFoods={onOpenRichFoods}
           />
         ))}
       </div>

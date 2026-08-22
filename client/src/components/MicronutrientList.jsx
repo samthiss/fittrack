@@ -38,23 +38,14 @@ function MicroBar({ m, sources, expandedKey, onToggleExpand, t }) {
       {m.excessMessage && <p className="micro-suggestion">ℹ️ {m.excessMessage}</p>}
       {isExpanded && canExpand && (
         <div className="micro-source-list">
-          {rowSources.map((s, i) => {
-            const hasDetail = typeof s.per100g === 'number';
-            return (
-              <div className="micro-source-row" key={i}>
-                <span>{s.label}</span>
-                {hasDetail ? (
-                  <span className="micro-source-detail">
-                    <span className="micro-source-density">{s.per100g.toFixed(1)} {m.unit}/100g</span>
-                    <span className="micro-source-sep">·</span>
-                    <span className="micro-source-portion">{s.perPortion.toFixed(1)} {m.unit}/portion</span>
-                  </span>
-                ) : (
-                  <span>{s.value.toFixed(1)} {m.unit}</span>
-                )}
-              </div>
-            );
-          })}
+          {rowSources.map((s, i) => (
+            <div className="micro-source-row" key={i}>
+              <span>{s.label}</span>
+              <span>
+                {s.value.toFixed(1)} {m.unit}
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>

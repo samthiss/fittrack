@@ -563,6 +563,9 @@ export const translations = {
     // Source list
     'sources.none': 'Aucune source identifiée.',
 
+    // Rich foods page
+    'richFoods.hint': 'Classés du plus dense au moins dense pour 100 g.',
+
     // Meal planner
     'planner.searchPlaceholder': 'Rechercher une recette ou un aliment...',
     'planner.generating': 'Génération en cours…',
@@ -1381,6 +1384,9 @@ export const translations = {
 
     // Source list
     'sources.none': 'No source identified.',
+
+    // Rich foods page
+    'richFoods.hint': 'Ranked by nutrient density per 100 g, from highest to lowest.',
 
     // Meal planner
     'planner.searchPlaceholder': 'Search a recipe or a food...',

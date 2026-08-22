@@ -10,7 +10,7 @@ function yesterdayStr() {
   return shiftDateStr(todayStr(), -1);
 }
 
-export default function Report() {
+export default function Report({ onOpenRichFoods }) {
   const { t } = useLanguage();
   const [activeView, setActiveView] = useState('today');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -54,12 +54,12 @@ export default function Report() {
         )}
       </div>
 
-      {activeView === 'today' && <TodayReport />}
-      {activeView === 'yesterday' && <TodayReport date={yesterdayStr()} />}
-      {activeView === 'week-current' && <WeekReport period="current" />}
-      {activeView === 'week-past' && <WeekReport period="past" />}
-      {activeView === 'month' && <WeekReport period="month" />}
-      {activeView === 'quarter' && <WeekReport period="quarter" />}
+      {activeView === 'today' && <TodayReport onOpenRichFoods={onOpenRichFoods} />}
+      {activeView === 'yesterday' && <TodayReport date={yesterdayStr()} onOpenRichFoods={onOpenRichFoods} />}
+      {activeView === 'week-current' && <WeekReport period="current" onOpenRichFoods={onOpenRichFoods} />}
+      {activeView === 'week-past' && <WeekReport period="past" onOpenRichFoods={onOpenRichFoods} />}
+      {activeView === 'month' && <WeekReport period="month" onOpenRichFoods={onOpenRichFoods} />}
+      {activeView === 'quarter' && <WeekReport period="quarter" onOpenRichFoods={onOpenRichFoods} />}
       {activeView === 'strength' && <MuscleVolumeReport />}
     </div>
   );

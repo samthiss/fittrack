@@ -6,6 +6,7 @@ import MealDetail from './components/MealDetail';
 import BottomTabBar from './components/BottomTabBar';
 import SessionBanner from './components/SessionBanner';
 import Report from './components/Report';
+import RichFoodsReport from './components/RichFoodsReport';
 import ActivitesScreen from './components/ActivitesScreen';
 import WeightReport from './components/WeightReport';
 import MealPlanner from './components/MealPlanner';
@@ -57,6 +58,7 @@ function MainApp({ onLogout, account }) {
   const [activitesDate, setActivitesDate] = useState(todayStr());
   const [activites, setActivites] = useState([]);
   const [activitesPlan, setActivitesPlan] = useState([]);
+  const [richFoodsKey, setRichFoodsKey] = useState(null);
 
   // Both dates are picked once, at mount — and FitTrack is a standalone home-screen app that can
   // sit open for days, so past midnight it kept showing yesterday as "today": yesterday's journal,
@@ -420,7 +422,7 @@ function MainApp({ onLogout, account }) {
               onQuickAddRecipe={handleQuickAddRecipe}
             />
           )}
-          {view === 'rapport' && <Report />}
+          {view === 'rapport' && <Report onOpenRichFoods={(key) => setRichFoodsKey(key)} />}
           {view === 'activites' && (
             <ActivitesScreen
               date={activitesDate}
@@ -454,6 +456,14 @@ function MainApp({ onLogout, account }) {
           )}
         </main>
       </div>
+
+      {richFoodsKey && (
+        <div className="modal-overlay" onClick={() => setRichFoodsKey(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <RichFoodsReport nutrientKey={richFoodsKey} onBack={() => setRichFoodsKey(null)} />
+          </div>
+        </div>
+      )}
 
       {view !== 'activites' && (
         <SessionBanner session={session} sessionExercise={sessionExercise} onResume={() => handleViewChange('activites')} />
