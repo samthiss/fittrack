@@ -121,7 +121,7 @@ export default function AddFoodToMeal({
       id: f.id,
       name: f.name,
       subtitle: `${Math.round(f.kcal_per_100g)} kcal / 100 g`,
-      macros: { protein: f.protein_per_100g, carbs: f.carbs_per_100g, fat: f.fat_per_100g },
+      macros: { protein: f.protein_per_100g, carbs: f.carbs_per_100g, fat: f.fat_per_100g, fiber: f.fiber_per_100g },
     }));
     const recipeItems = recipes.map((r) => {
       const perPortion = recipeMacrosPerPortion(r);
@@ -130,7 +130,7 @@ export default function AddFoodToMeal({
         id: r.id,
         name: r.title,
         subtitle: '1 portion',
-        macros: { protein: perPortion.protein, carbs: perPortion.carbs, fat: perPortion.fat },
+        macros: { protein: perPortion.protein, carbs: perPortion.carbs, fat: perPortion.fat, fiber: perPortion.fiber },
       };
     });
     return [...foodItems, ...recipeItems];
@@ -287,6 +287,7 @@ export default function AddFoodToMeal({
         protein: food.protein_per_100g * factor,
         carbs: food.carbs_per_100g * factor,
         fat: food.fat_per_100g * factor,
+        fiber: (food.fiber_per_100g || 0) * factor,
       };
     }
     const recipe = recipes.find((r) => r.id === viewingItem.id);
@@ -297,6 +298,7 @@ export default function AddFoodToMeal({
       protein: perPortion.protein * qty,
       carbs: perPortion.carbs * qty,
       fat: perPortion.fat * qty,
+      fiber: (perPortion.fiber || 0) * qty,
     };
   }, [viewingItem, modalQty, foods, recipes]);
 
@@ -308,6 +310,7 @@ export default function AddFoodToMeal({
       protein: scanResult.protein_per_100g * factor,
       carbs: scanResult.carbs_per_100g * factor,
       fat: scanResult.fat_per_100g * factor,
+      fiber: (scanResult.fiber_per_100g || 0) * factor,
     };
   }, [scanResult, scanQty]);
 
@@ -476,12 +479,16 @@ export default function AddFoodToMeal({
                 <i style={{ background: 'var(--macro-carb)' }} />
                 {Math.round(item.macros.carbs)}g
               </span>
-              <span>
-                <i style={{ background: 'var(--macro-fat)' }} />
-                {Math.round(item.macros.fat)}g
-              </span>
-            </div>
-          )}
+                <span>
+                  <i style={{ background: 'var(--macro-fat)' }} />
+                  {Math.round(item.macros.fat)}g
+                </span>
+                <span>
+                  <i style={{ background: 'var(--macro-fiber)' }} />
+                  {Math.round(item.macros.fiber || 0)}g
+                </span>
+              </div>
+            )}
         </div>
         <div className="result-row-actions">
           <button type="button" className="result-add-btn" onClick={() => openItemDetail(item)}>
@@ -870,6 +877,10 @@ export default function AddFoodToMeal({
                     <b style={{ color: 'var(--macro-fat)' }}>{Math.round(viewingItemMacros.fat)}</b>
                     <span>{t('nutrient.fat')}</span>
                   </div>
+                  <div className="portion-tile">
+                    <b style={{ color: 'var(--macro-fiber)' }}>{Math.round(viewingItemMacros.fiber)}</b>
+                    <span>{t('nutrient.fiber')}</span>
+                  </div>
                 </div>
               </>
             )}
@@ -1101,6 +1112,10 @@ export default function AddFoodToMeal({
                   <div className="tile">
                     <b>{scanResultMacros.fat.toFixed(1)} g</b>
                     <span>{t('nutrient.fat')}</span>
+                  </div>
+                  <div className="tile">
+                    <b>{scanResultMacros.fiber.toFixed(1)} g</b>
+                    <span>{t('nutrient.fiber')}</span>
                   </div>
                 </div>
               )
