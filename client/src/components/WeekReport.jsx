@@ -136,7 +136,7 @@ export default function WeekReport({ period, onOpenRichFoods }) {
                 <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? () => toggle(l.key) : undefined}>
                   {l.label}
                   {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
-                  <RichFoodsLink key={l.key} label={l.label} onOpenRichFoods={onOpenRichFoods} />
+                  <RichFoodsLink nutrientKey={l.key} label={l.label} onOpenRichFoods={onOpenRichFoods} />
                 </span>
                 <span className={`report-row-value status-${status}`}>
                   {l.over
@@ -172,7 +172,7 @@ export default function WeekReport({ period, onOpenRichFoods }) {
                 <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? () => toggle(m.key) : undefined}>
                   {m.label}
                   {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
-                  <RichFoodsLink key={m.key} label={m.label} onOpenRichFoods={onOpenRichFoods} />
+                  <RichFoodsLink nutrientKey={m.key} label={m.label} onOpenRichFoods={onOpenRichFoods} />
                 </span>
                 <span className={`report-row-value status-${status}`}>{Math.round(m.pct)}%</span>
               </div>
@@ -205,7 +205,7 @@ export default function WeekReport({ period, onOpenRichFoods }) {
                 <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? () => toggle(o.key) : undefined}>
                   {o.label}
                   {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
-                  <RichFoodsLink key={o.key} label={o.label} onOpenRichFoods={onOpenRichFoods} />
+                  <RichFoodsLink nutrientKey={o.key} label={o.label} onOpenRichFoods={onOpenRichFoods} />
                 </span>
                 <span className={`report-row-value status-${status}`}>
                   {o.met && <Icon name="check" size={13} />}

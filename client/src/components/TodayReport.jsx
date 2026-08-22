@@ -10,10 +10,10 @@ const STATUS_COLOR = {
   danger: 'var(--danger)',
 };
 
-function RichFoodsLink({ key, label, onOpenRichFoods }) {
+function RichFoodsLink({ nutrientKey, label, onOpenRichFoods }) {
   if (!onOpenRichFoods) return null;
   return (
-    <span className="rich-foods-link" onClick={(e) => { e.stopPropagation(); onOpenRichFoods(key); }}>
+    <span className="rich-foods-link" onClick={(e) => { e.stopPropagation(); onOpenRichFoods(nutrientKey); }}>
       {' '}Aliments riches en {label}
     </span>
   );
@@ -32,7 +32,7 @@ function GoalRow({ g, sources, expanded, onToggle, t, onOpenRichFoods }) {
         <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? onToggle : undefined}>
           {g.label}
           {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
-          <RichFoodsLink key={g.key} label={g.label} onOpenRichFoods={onOpenRichFoods} />
+          <RichFoodsLink nutrientKey={g.key} label={g.label} onOpenRichFoods={onOpenRichFoods} />
         </span>
         <span className={`report-row-value status-${status}`}>
           {goalMet ? t('today.goalMet') : `${g.remaining.toFixed(0)} ${g.unit} ${t('today.remaining')}`}
@@ -60,7 +60,7 @@ function LimitRow({ l, sources, expanded, onToggle, t, onOpenRichFoods }) {
         <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? onToggle : undefined}>
           {l.label}
           {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
-          <RichFoodsLink key={l.key} label={l.label} onOpenRichFoods={onOpenRichFoods} />
+          <RichFoodsLink nutrientKey={l.key} label={l.label} onOpenRichFoods={onOpenRichFoods} />
         </span>
         <span className={`report-row-value status-${status}`}>
           {over
@@ -87,7 +87,7 @@ function NoGoalRow({ m, sources, expanded, onToggle, onOpenRichFoods }) {
         <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? onToggle : undefined}>
           {m.label}
           {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
-          <RichFoodsLink key={m.key} label={m.label} onOpenRichFoods={onOpenRichFoods} />
+          <RichFoodsLink nutrientKey={m.key} label={m.label} onOpenRichFoods={onOpenRichFoods} />
         </span>
         <span className="report-row-value">
           {m.consumed.toFixed(1)} {m.unit}
