@@ -2455,7 +2455,7 @@ app.get('/api/today-report', (req, res) => {
   // Which logged foods contributed to each nutrient today, so a click on any row can show
   // "d'où ça vient" instead of staying an opaque total — same source shape as the weekly/monthly
   // reports (buildMicroSources with n=1, i.e. today's raw values instead of a period average).
-  const microSources = buildMicroSources(logs, 1);
+  const microSources = buildMicroSources(logs, 1, db, req.userId);
   if (drinkLogs.length > 0) {
     const byType = {};
     for (const l of drinkLogs) byType[l.type] = (byType[l.type] || 0) + l.caffeine_mg;
@@ -2596,7 +2596,35 @@ const EMPTY_TOTALS = () =>
 
 // Which logged foods/ingredients contributed to each micronutrient over a period, so "450mg/j"
 // can be traced back to "Saumon 300mg, Œufs 100mg..." instead of staying an opaque average.
-function buildMicroSources(allLogs, n) {
+function typicalPortionGrams(name) {
+  const lower = (name || '').toLowerCase();
+  if (/(graine|lin|chia|chanvre|citrouille|tournesol|sésame|noix|amande|noisette|cajou|pistache|noisette)/.test(lower)) return 30;
+  if (/(huile|beurre)/.test(lower)) return 10;
+  if (/(viande|poulet|boeuf|porc|agneau|veau|steak|filet|rôti|rotir)/.test(lower)) return 150;
+  if (/(saumon|thon|morue|cabillaud|crevette|fruits de mer|poisson|filet de)/.test(lower)) return 150;
+  if (/(lait|yaourt|fromage|comté|gruyère|cheddar|mozzarella|feta|parmesan|bleu)/.test(lower)) return 150;
+  if (/(oeuf|œuf)/.test(lower)) return 50;
+  if (/(pain|baguette|tranche|pain de mie)/.test(lower)) return 50;
+  if (/(riz|pâtes|pates|quinoa|boulgour|semoule|pâtes|nouilles)/.test(lower)) return 150;
+  if (/(avocat)/.test(lower)) return 100;
+  if (/(banane)/.test(lower)) return 120;
+  if (/(pomme|poire|orange|clémentine|mandarine|fraise|framboise|mûre|myrtille)/.test(lower)) return 150;
+  if (/(légume|legume|brocoli|carotte|épinard|epinard|salade|tomate|concombre|poivron|courgette|haricot|petit pois|champignon|asperge|artichaut|aubergine|chou|fenouil|betterave|radis)/.test(lower)) return 100;
+  return 100;
+}
+
+function getMicroPer100g(db, userId, log, key) {
+  if (log.source_type === 'food' && log.source_id) {
+    const food = db.prepare('SELECT * FROM foods WHERE id = ? AND user_id = ?').get(log.source_id, userId);
+    if (food) return food[`${key}_per_100g`] || 0;
+  }
+  if (log.quantity > 0 && (log[key] || 0) > 0) {
+    return ((log[key] || 0) / log.quantity) * 100;
+  }
+  return 0;
+}
+
+function buildMicroSources(allLogs, n, db, userId) {
   const sources = {};
   for (const key of NUTRIENT_KEYS) {
     const byLabel = new Map();
@@ -2606,9 +2634,16 @@ function buildMicroSources(allLogs, n) {
       byLabel.set(l.label, (byLabel.get(l.label) || 0) + value);
     }
     sources[key] = [...byLabel.entries()]
-      .map(([label, total]) => ({ label, value: total / n }))
+      .map(([label, total]) => {
+        const candidates = allLogs.filter((l) => l.label === label && (l[key] || 0) > 0);
+        const sampleLog = candidates.find((l) => l.source_type === 'food') || candidates[0];
+        const per100g = sampleLog ? getMicroPer100g(db, userId, sampleLog, key) : 0;
+        const portionG = sampleLog ? (sampleLog.source_type === 'food' ? typicalPortionGrams(label) : sampleLog.quantity || 0) : 0;
+        const perPortion = portionG > 0 ? (per100g * portionG) / 100 : 0;
+        return { label, value: total / n, per100g, portionG, perPortion };
+      })
       .sort((a, b) => b.value - a.value)
-      .slice(0, 6);
+      .slice(0, 8);
   }
   return sources;
 }
@@ -2749,7 +2784,7 @@ app.get('/api/report', (req, res) => {
   }
 
   const micros = buildMicroList(NUTRIENT_KEYS, (key) => avg((d) => d.consumed[key]));
-  const microSources = buildMicroSources(allLogs, n);
+  const microSources = buildMicroSources(allLogs, n, db, req.userId);
   const insights = buildImprovementInsights(micros, microSources);
 
   const recommendations = [];
@@ -2925,7 +2960,7 @@ app.get('/api/week-report', (req, res) => {
 
   // Reused both for the insights builder below and exposed directly so any nutrient row on the
   // page can show "d'où ça vient" on click.
-  const microSources = buildMicroSources(allLogs, n);
+  const microSources = buildMicroSources(allLogs, n, db, req.userId);
 
   // Average calorie deficit/surplus across logged days, and the weight change over the period
   // (first vs last day, falling back to the profile's weight if nothing was logged that day) —

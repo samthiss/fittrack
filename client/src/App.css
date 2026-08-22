@@ -2952,6 +2952,25 @@ textarea.wide {
   padding: 3px 0;
 }
 
+.micro-source-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+}
+
+.micro-source-density {
+  color: var(--text-secondary);
+}
+
+.micro-source-sep {
+  color: var(--border-strong);
+}
+
+.micro-source-portion {
+  color: var(--text-muted);
+}
+
 .limit-tag {
   font-size: 12px;
   color: var(--dim);
