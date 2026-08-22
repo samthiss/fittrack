@@ -12,7 +12,7 @@ import { importRecipeFromText, generateRecipeForTarget } from './recipeImport.js
 import { lookupBarcode, searchFoodsOnline } from './foodLookup.js';
 import { parseFoodText } from './foodTextParse.js';
 import { parseFoodPhoto } from './foodPhotoParse.js';
-import { buildMicroList, MICRO_REFERENCE, NUTRIENT_SUGGESTIONS, SUPPLEMENT_SUGGESTIONS, hasDailyGoal } from './nutrientReference.js';
+import { buildMicroList, MICRO_REFERENCE, NUTRIENT_SUGGESTIONS, SUPPLEMENT_SUGGESTIONS, hasDailyGoal, COMMON_FOODS } from './nutrientReference.js';
 import { estimateMissingNutrients, estimateNutrientsForFood } from './nutrientEstimation.js';
 import { classifyFoodsBatch, classifyFood, classifyIngredientsBatch } from './microbiomeClassification.js';
 import { computeTdee, BMR_METHODS } from './tdee.js';
@@ -1476,12 +1476,18 @@ app.get('/api/rich-foods/:key', (req, res) => {
   if (!NUTRIENT_KEYS.includes(key)) return res.status(404).json({ error: 'nutriment inconnu' });
   const userFoods = db.prepare('SELECT * FROM foods WHERE user_id = ?').all(req.userId);
   const col = `${key}_per_100g`;
-  const items = userFoods
-    .map((f) => ({ name: f.name, value: f[col] || 0, unit: MICRO_REFERENCE[key]?.unit || 'g' }))
-    .filter((f) => f.value > 0)
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 30);
-  res.json({ key, label: MICRO_REFERENCE[key]?.label || key, unit: items[0]?.unit || 'g', foods: items });
+  const unit = MICRO_REFERENCE[key]?.unit || 'g';
+  const seen = new Set();
+  const items = [];
+  const pushItem = (name, value) => {
+    if (!name || value <= 0 || seen.has(name)) return;
+    seen.add(name);
+    items.push({ name, value, unit });
+  };
+  for (const f of userFoods) pushItem(f.name, f[col] || 0);
+  for (const f of COMMON_FOODS[key] || []) pushItem(f.name, f[key] || 0);
+  items.sort((a, b) => b.value - a.value);
+  res.json({ key, label: MICRO_REFERENCE[key]?.label || key, unit, foods: items.slice(0, 40) });
 });
 
 app.get('/api/foods/lookup/:barcode', async (req, res) => {
