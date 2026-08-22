@@ -92,12 +92,10 @@ export default function RichFoodsReport({ nutrientKey, onBack }) {
                       </span>
                       <button
                         type="button"
-                        className="entry-icon-btn entry-delete-btn"
+                        className="rich-foods-hide-btn"
                         onClick={() => removeItem(f.name)}
-                        aria-label={t('meal.delete')}
-                        style={{ marginLeft: 4 }}
                       >
-                        <Icon name="x" size={14} />
+                        ✕
                       </button>
                     </span>
                   </div>
