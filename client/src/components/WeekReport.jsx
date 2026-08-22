@@ -62,10 +62,10 @@ export default function WeekReport({ period, onOpenRichFoods }) {
     setExpandedKey((prev) => (prev === key ? null : key));
   }
 
-  function RichFoodsLink({ key, label }) {
+  function RichFoodsLink({ nutrientKey, label }) {
     if (!onOpenRichFoods) return null;
     return (
-      <span className="rich-foods-link" onClick={(e) => { e.stopPropagation(); onOpenRichFoods(key); }}>
+      <span className="rich-foods-link" onClick={(e) => { e.stopPropagation(); onOpenRichFoods(nutrientKey); }}>
         {' '}Aliments riches en {label}
       </span>
     );

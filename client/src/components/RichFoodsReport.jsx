@@ -8,12 +8,16 @@ export default function RichFoodsReport({ nutrientKey, onBack }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState(null);
+
   const refresh = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const result = await api.getRichFoods(nutrientKey);
       setData(result);
-    } catch {
+    } catch (err) {
+      setError(err.message || 'API error');
       setData(null);
     }
     setLoading(false);
@@ -39,7 +43,9 @@ export default function RichFoodsReport({ nutrientKey, onBack }) {
 
       {loading && <p className="hint">{t('week.computing')}</p>}
 
-      {!loading && data && (
+      {error && <p className="hint error">{error}</p>}
+
+      {!loading && !error && data && (
         <>
           <p className="hint" style={{ marginTop: -8, marginBottom: 12 }}>
             {t('richFoods.hint')}
