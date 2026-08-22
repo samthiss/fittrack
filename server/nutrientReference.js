@@ -404,21 +404,5 @@ export const COMMON_FOODS = {
     { name: 'Cola', caffeine: 10 },
     { name: 'Boisson énergisante', caffeine: 32 },
   ],
-  potassium: [
-    { name: 'Épinards', potassium: 558 },
-    { name: 'Patate douce', potassium: 475 },
-    { name: 'Avocat', potassium: 485 },
-    { name: 'Banane', potassium: 358 },
-    { name: 'Haricots blancs', potassium: 1180 },
-    { name: 'Saumon', potassium: 380 },
-    { name: 'Yaourt', potassium: 240 },
-    { name: 'Champignons', potassium: 320 },
-    { name: 'Pomme de terre', potassium: 425 },
-    { name: 'Betterave', potassium: 305 },
-    { name: 'Courge butternut', potassium: 295 },
-    { name: 'Abricots secs', potassium: 1160 },
-    { name: 'Kiwis', potassium: 312 },
-    { name: 'Haricots verts', potassium: 211 },
-  ],
 };
 
