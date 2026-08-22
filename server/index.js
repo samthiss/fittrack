@@ -2339,8 +2339,9 @@ app.get('/api/dashboard', (req, res) => {
         protein: acc.protein + l.protein,
         carbs: acc.carbs + l.carbs,
         fat: acc.fat + l.fat,
+        fiber: acc.fiber + (l.fiber || 0),
       }),
-      { kcal: 0, protein: 0, carbs: 0, fat: 0 }
+      { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
     );
     return {
       key: m.key,
@@ -2350,6 +2351,7 @@ app.get('/api/dashboard', (req, res) => {
       consumedProtein: mealTotals.protein,
       consumedCarbs: mealTotals.carbs,
       consumedFat: mealTotals.fat,
+      consumedFiber: mealTotals.fiber,
     };
   });
 
@@ -2368,6 +2370,7 @@ app.get('/api/dashboard', (req, res) => {
       carbs: { consumed: consumed.carbs, target: macroTargets.carbs },
       protein: { consumed: consumed.protein, target: macroTargets.protein },
       fat: { consumed: consumed.fat, target: macroTargets.fat },
+      fiber: { consumed: consumed.fiber, target: 30 },
     },
     micros,
     microSources,
@@ -2502,8 +2505,9 @@ app.get('/api/meals/:key', (req, res) => {
       protein: acc.protein + l.protein,
       carbs: acc.carbs + l.carbs,
       fat: acc.fat + l.fat,
+      fiber: acc.fiber + (l.fiber || 0),
     }),
-    { kcal: 0, protein: 0, carbs: 0, fat: 0 }
+    { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
   );
 
   const dayMacroTargets = computeMacroTargets(summary.targetIntake, summary.profile);
@@ -2512,6 +2516,7 @@ app.get('/api/meals/:key', (req, res) => {
     carbs: dayMacroTargets.carbs * mealShare,
     protein: dayMacroTargets.protein * mealShare,
     fat: dayMacroTargets.fat * mealShare,
+    fiber: 30 * mealShare,
   };
 
   res.json({

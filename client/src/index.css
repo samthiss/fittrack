@@ -63,10 +63,12 @@
   --amber-500: #f5c26b;
   --red-500: #f19bb9;
   --blue-500: #63b3f6;
+  --teal-500: #4fd1c5;
   --macro-protein: var(--green-500);
   --macro-carb: var(--amber-500);
   --macro-fat: var(--red-500);
   --macro-water: var(--blue-500);
+  --macro-fiber: var(--teal-500);
 
   /* ---- Semantic aliases ---- */
   --bg-app: var(--ink-950);

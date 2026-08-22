@@ -121,6 +121,10 @@ function EditEntrySheet({
                 <b style={{ color: 'var(--macro-fat)' }}>{Math.round(macros.fat)}</b>
                 <span>{t('nutrient.fat')}</span>
               </div>
+              <div className="portion-tile">
+                <b style={{ color: 'var(--macro-fiber)' }}>{Math.round(macros.fiber)}</b>
+                <span>{t('nutrient.fiber')}</span>
+              </div>
             </div>
           </>
         )}
@@ -381,6 +385,10 @@ export default function MealDetail({
             <b style={{ color: 'var(--macro-fat)' }}>{Math.round(consumed.fat)}g</b>
             <span>{t('nutrient.fat')}</span>
           </div>
+          <div className="meal-summary-macro">
+            <b style={{ color: 'var(--macro-fiber)' }}>{Math.round(consumed.fiber)}g</b>
+            <span>{t('nutrient.fiber')}</span>
+          </div>
         </div>
       </div>
 
@@ -418,6 +426,10 @@ export default function MealDetail({
                           <i style={{ background: 'var(--macro-fat)' }} />
                           {Math.round(e.fat)}g
                         </span>
+                        <span>
+                          <i style={{ background: 'var(--macro-fiber)' }} />
+                          {Math.round(e.fiber)}g
+                        </span>
                       </div>
                     </div>
                     <div className="entry-card-actions">
@@ -439,6 +451,7 @@ export default function MealDetail({
               const groupProtein = g.entries.reduce((s, e) => s + e.protein, 0);
               const groupCarbs = g.entries.reduce((s, e) => s + e.carbs, 0);
               const groupFat = g.entries.reduce((s, e) => s + e.fat, 0);
+              const groupFiber = g.entries.reduce((s, e) => s + (e.fiber || 0), 0);
 
               return (
                 <div className="entry-group-card" key={`recipe-${g.recipeId}`}>
@@ -465,6 +478,10 @@ export default function MealDetail({
                         <span>
                           <i style={{ background: 'var(--macro-fat)' }} />
                           {Math.round(groupFat)}g
+                        </span>
+                        <span>
+                          <i style={{ background: 'var(--macro-fiber)' }} />
+                          {Math.round(groupFiber)}g
                         </span>
                       </div>
                     </div>
@@ -493,6 +510,10 @@ export default function MealDetail({
                             <span>
                               <i style={{ background: 'var(--macro-fat)' }} />
                               {Math.round(e.fat)}g
+                            </span>
+                            <span>
+                              <i style={{ background: 'var(--macro-fiber)' }} />
+                              {Math.round(e.fiber)}g
                             </span>
                           </div>
                         </div>

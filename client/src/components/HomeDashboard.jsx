@@ -225,6 +225,12 @@ export default function HomeDashboard({
             max={macros.fat.target}
             color="var(--macro-fat)"
           />
+          <MacroMiniBar
+            label={t('nutrient.fiber')}
+            value={macros.fiber?.consumed || 0}
+            max={macros.fiber?.target || 30}
+            color="var(--macro-fiber)"
+          />
         </div>
 
         <div className="resume-water-row">
@@ -295,6 +301,10 @@ export default function HomeDashboard({
                 <span>
                   <i style={{ background: 'var(--macro-fat)' }} />
                   {Math.round(m.consumedFat || 0)}g
+                </span>
+                <span>
+                  <i style={{ background: 'var(--macro-fiber)' }} />
+                  {Math.round(m.consumedFiber || 0)}g
                 </span>
               </div>
             </div>
