@@ -449,6 +449,7 @@ db.prepare(`DELETE FROM activity_settings WHERE type = 'marche_tapis_incline'`).
 export const DEFAULT_ACTIVITY_SETTINGS = [
   { type: 'marche', label: 'Marche (tranquille)', kcal_per_hour: 250 },
   { type: 'marche_tapis', label: 'Marche sur tapis', kcal_per_hour: 230 },
+  { type: 'walking_pad_1_5', label: 'Walking pad 1,5 km/h', kcal_per_hour: 150 },
   { type: 'walking_pad_2', label: 'Walking pad 2 km/h', kcal_per_hour: 180 },
   { type: 'walking_pad_2_5', label: 'Walking pad 2,5 km/h', kcal_per_hour: 220 },
   { type: 'walking_pad_3', label: 'Walking pad 3 km/h', kcal_per_hour: 260 },

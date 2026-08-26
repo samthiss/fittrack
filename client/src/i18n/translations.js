@@ -57,6 +57,7 @@ export const translations = {
     // translation-by-key approach as meal names)
     'activityType.marche': 'Marche (tranquille)',
     'activityType.marche_tapis': 'Marche sur tapis',
+    'activityType.walking_pad_1_5': 'Walking pad 1,5 km/h',
     'activityType.walking_pad_2': 'Walking pad 2 km/h',
     'activityType.walking_pad_2_5': 'Walking pad 2,5 km/h',
     'activityType.walking_pad_3': 'Walking pad 3 km/h',
@@ -882,6 +883,7 @@ export const translations = {
     // Activity type names
     'activityType.marche': 'Walking (leisurely)',
     'activityType.marche_tapis': 'Treadmill walking',
+    'activityType.walking_pad_1_5': 'Walking pad 1.5 km/h',
     'activityType.walking_pad_2': 'Walking pad 2 km/h',
     'activityType.walking_pad_2_5': 'Walking pad 2.5 km/h',
     'activityType.walking_pad_3': 'Walking pad 3 km/h',
