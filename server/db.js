@@ -536,6 +536,18 @@ addColumnIfMissing('activity_plan', 'label', 'label TEXT');
 addColumnIfMissing('activity_plan', 'group_id', 'group_id TEXT');
 addColumnIfMissing('activity_logs', 'plan_group_id', 'plan_group_id TEXT');
 
+// The supplements table went through a few shapes while the feature was being built (a dose
+// column, weekday scheduling), and CREATE TABLE IF NOT EXISTS leaves an existing one untouched —
+// so a database that got an early version keeps it forever. Add whatever it's missing instead of
+// letting the inserts fail at runtime; the dropped columns are harmless where they still exist.
+addColumnIfMissing('supplements', 'frequency', "frequency TEXT NOT NULL DEFAULT 'daily'");
+addColumnIfMissing('supplements', 'times_per_day', 'times_per_day INTEGER NOT NULL DEFAULT 1');
+addColumnIfMissing('supplements', 'time_of_day', 'time_of_day TEXT');
+addColumnIfMissing('supplements', 'sort_order', 'sort_order INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('supplements', 'archived', 'archived INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('supplement_logs', 'supplement_id', 'supplement_id INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('supplement_logs', 'date', 'date TEXT NOT NULL DEFAULT \'1970-01-01\'');
+
 // Backfill: rows created before group_id existed have none yet. Group them the same way the
 // old (buggy) matching used to — by user+type+duration+label — so existing recurring plans keep
 // working, and each distinct combination becomes its own stable group going forward instead of
