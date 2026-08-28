@@ -240,6 +240,35 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- Suppléments (magnésium, vitamine D, oméga-3...) the user takes on a schedule, managed from
+  -- the Journal's "Suppléments" section. "frequency" is 'daily' (every day), 'days' (only the
+  -- weekdays listed in "days", a JSON array of mon/tue/.../sun) or 'as_needed' (never counted as
+  -- due, just checkable). "times_per_day" is how many intakes make a day complete (e.g. matin +
+  -- soir = 2). "dose" is free text ("400 mg", "2 gélules") — no nutrition maths is done with it.
+  CREATE TABLE IF NOT EXISTS supplements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 1,
+    name TEXT NOT NULL,
+    dose TEXT,
+    frequency TEXT NOT NULL DEFAULT 'daily',
+    days TEXT,
+    times_per_day INTEGER NOT NULL DEFAULT 1,
+    time_of_day TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    archived INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- One row per intake ticked off: a supplement with times_per_day = 2 gets two rows on a day
+  -- it was fully taken. Deleting the newest row is how un-ticking works.
+  CREATE TABLE IF NOT EXISTS supplement_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 1,
+    supplement_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   -- Tracks which activity_plan entries have already been auto-applied for a given date, so
   -- deleting today's auto-logged activity doesn't make it silently reappear on next refresh
   -- (same fix as meal_plan_applied).

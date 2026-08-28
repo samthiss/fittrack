@@ -83,6 +83,9 @@ export default function HomeDashboard({
   onOpenReport,
   onOpenWeightReport,
   onOpenTdeeSettings,
+  supplements,
+  onOpenSupplements,
+  onToggleSupplement,
 }) {
   const { t, lang } = useLanguage();
   const [latestWeight, setLatestWeight] = useState(null);
@@ -117,6 +120,11 @@ export default function HomeDashboard({
   }
 
   if (!dashboard) return null;
+  // Only what's actually due today is worth a tap here — "au besoin" supplements and the ones
+  // scheduled for other weekdays live on the dedicated screen.
+  const supplementList = (supplements?.supplements || []).filter((s) => s.dueToday);
+  const supplementPct =
+    supplements?.dueCount > 0 ? Math.round((supplements.takenCount / supplements.dueCount) * 100) : 0;
   const { targetIntake, consumedKcal, remainingKcal, burnedKcal, macros, meals, tdee, energyBalance } = dashboard;
 
   return (
@@ -320,6 +328,65 @@ export default function HomeDashboard({
             </button>
           </div>
         ))}
+      </div>
+
+      <div className="section-header">
+        <span className="section-title">{t('supplements.title')}</span>
+        <button type="button" className="report-link" onClick={onOpenSupplements}>
+          {t('supplements.manage')}
+          <Icon name="chevron-right" size={14} />
+        </button>
+      </div>
+      <div className="card supplement-home-card" onClick={onOpenSupplements}>
+        {supplementList.length === 0 ? (
+          <div className="row">
+            <span className="row-icon-box supplement-icon-box">
+              <Icon name="pill" size={21} />
+            </span>
+            <div className="name">{t('supplements.emptyShort')}</div>
+            <div className="field">
+              <Icon name="plus" size={18} />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="resume-water-top">
+              <span>{t('supplements.takenToday')}</span>
+              <span>
+                {supplements.takenCount} / {supplements.dueCount}
+              </span>
+            </div>
+            <div className="progress-track">
+              <div
+                className="progress-fill"
+                style={{ width: `${supplementPct}%`, background: 'var(--macro-protein)' }}
+              />
+            </div>
+            <div className="supplement-home-list">
+              {supplementList.map((s) => (
+                <button
+                  type="button"
+                  key={s.id}
+                  className={s.taken ? 'supplement-home-chip taken' : 'supplement-home-chip'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleSupplement(s.id, !s.taken);
+                  }}
+                >
+                  <span className={s.taken ? 'supplement-check done small' : 'supplement-check small'}>
+                    {s.taken && <Icon name="check" size={12} color="var(--text-on-accent)" />}
+                  </span>
+                  {s.name}
+                  {s.times_per_day > 1 && (
+                    <b>
+                      {s.takenCount}/{s.times_per_day}
+                    </b>
+                  )}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="section-header">

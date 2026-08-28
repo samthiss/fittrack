@@ -10,6 +10,7 @@ import RichFoodsReport from './components/RichFoodsReport';
 import ActivitesScreen from './components/ActivitesScreen';
 import WeightReport from './components/WeightReport';
 import MealPlanner from './components/MealPlanner';
+import SupplementsScreen from './components/SupplementsScreen';
 import Settings from './components/Settings';
 import AuthScreen from './components/AuthScreen';
 import Onboarding from './components/Onboarding';
@@ -44,6 +45,7 @@ function MainApp({ onLogout, account }) {
     saveStoredSession(account.id, session, sessionExercise);
   }, [account.id, session, sessionExercise]);
   const [water, setWater] = useState({ logs: [], totalMl: 0 });
+  const [supplements, setSupplements] = useState(null);
   const [recipes, setRecipes] = useState([]);
   const [foods, setFoods] = useState([]);
   const [dashboard, setDashboard] = useState(null);
@@ -132,6 +134,10 @@ function MainApp({ onLogout, account }) {
     setDashboard(await api.getDashboard(date));
   }, [date]);
 
+  const refreshSupplements = useCallback(async () => {
+    setSupplements(await api.getSupplements(date));
+  }, [date]);
+
   const refreshMeal = useCallback(
     async (key) => {
       if (!key) return;
@@ -175,7 +181,8 @@ function MainApp({ onLogout, account }) {
     refreshDashboard();
     refreshFrequentFoods();
     refreshRecipeFavorites();
-  }, [refreshCore, refreshRecipes, refreshFoods, refreshDashboard, refreshFrequentFoods, refreshRecipeFavorites]);
+    refreshSupplements();
+  }, [refreshCore, refreshRecipes, refreshFoods, refreshDashboard, refreshFrequentFoods, refreshRecipeFavorites, refreshSupplements]);
 
   useEffect(() => {
     refreshActivites();
@@ -210,6 +217,23 @@ function MainApp({ onLogout, account }) {
     if (!last) return;
     await api.deleteWater(last.id);
     setWater(await api.getWater(date));
+  }
+
+  // Every supplement route answers with the whole day's list, so one call is enough — no refetch.
+  async function handleAddSupplement(data) {
+    setSupplements(await api.addSupplement({ ...data, date }));
+  }
+
+  async function handleUpdateSupplement(id, data) {
+    setSupplements(await api.updateSupplement(id, { ...data, date }));
+  }
+
+  async function handleDeleteSupplement(id) {
+    setSupplements(await api.deleteSupplement(id, date));
+  }
+
+  async function handleToggleSupplement(id, taken) {
+    setSupplements(await api.setSupplementTaken(id, date, taken));
   }
 
   async function handleImportRecipe(data) {
@@ -353,7 +377,10 @@ function MainApp({ onLogout, account }) {
     setMealFavorites([]);
     // Activities logged from the Activités tab can target any day, not just the Journal's
     // currently-selected date — refresh on return so burned-kcal reflects those edits.
-    if (next === 'journal') refreshDashboard();
+    if (next === 'journal') {
+      refreshDashboard();
+      refreshSupplements();
+    }
     // Same reason, for the other screen an activity now moves: Réglages > TDEE reads `summary`,
     // whose EAT part is the day's logged activities. Without this it keeps showing the breakdown
     // as it stood when the app was last booted, so a session added minutes ago appears to have no
@@ -384,6 +411,9 @@ function MainApp({ onLogout, account }) {
                 setSettingsScreen('metabolism');
                 setView('reglages');
               }}
+              supplements={supplements}
+              onOpenSupplements={() => setView('supplements')}
+              onToggleSupplement={handleToggleSupplement}
             />
           )}
           {view === 'journal' && selectedMeal && (
@@ -436,6 +466,17 @@ function MainApp({ onLogout, account }) {
               sessionExercise={sessionExercise}
               onSessionExerciseChange={setSessionExercise}
               onRefresh={refreshActivites}
+            />
+          )}
+          {view === 'supplements' && (
+            <SupplementsScreen
+              data={supplements}
+              date={date}
+              onBack={() => setView('journal')}
+              onAdd={handleAddSupplement}
+              onUpdate={handleUpdateSupplement}
+              onDelete={handleDeleteSupplement}
+              onToggleTaken={handleToggleSupplement}
             />
           )}
           {view === 'poids-rapport' && <WeightReport onBack={() => setView('journal')} />}

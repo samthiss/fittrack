@@ -4631,3 +4631,144 @@ textarea.wide {
   font-size: 12.5px;
   line-height: 1.4;
 }
+
+/* --- Suppléments --- */
+
+.supplement-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--acc);
+}
+
+.supplement-home-card {
+  cursor: pointer;
+}
+
+.supplement-home-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Tapping a chip logs the intake without leaving the Journal — the whole point of surfacing
+   the day's supplements here rather than only on the dedicated screen. */
+.supplement-home-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text, inherit);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.supplement-home-chip.taken {
+  border-color: transparent;
+  background: var(--accent-soft);
+  color: var(--acc);
+}
+
+.supplement-home-chip b {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.supplement-progress-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.supplement-check {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 9px;
+  border: 2px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.supplement-check.done {
+  border-color: transparent;
+  background: var(--gradient-brand, var(--acc));
+}
+
+.supplement-check.small {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border-width: 1.5px;
+}
+
+.supplement-card {
+  align-items: center;
+  gap: 12px;
+}
+
+.supplement-card.taken .entry-card-name {
+  opacity: 0.7;
+}
+
+.supplement-dose-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.supplement-dose-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+}
+
+.supplement-dose-dots i.filled {
+  border-color: transparent;
+  background: var(--acc);
+}
+
+.supplement-dose-dots span {
+  font-size: 11.5px;
+  color: var(--text-muted, var(--dim));
+  margin-left: 3px;
+}
+
+.supplement-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.supplement-form .section-label {
+  margin-bottom: 2px;
+}
+
+.supplement-suggestions {
+  margin-top: 8px;
+}
+
+.supplement-day-row {
+  margin-top: 8px;
+}
+
+.supplement-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.supplement-form-actions .btn {
+  flex: 1;
+}

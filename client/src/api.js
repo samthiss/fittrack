@@ -77,6 +77,13 @@ export const api = {
   getWater: (date) => request(`/water?date=${date}`),
   addWater: (date, amountMl) => request('/water', { method: 'POST', body: JSON.stringify({ date, amount_ml: amountMl }) }),
   deleteWater: (id) => request(`/water/${id}`, { method: 'DELETE' }),
+
+  getSupplements: (date) => request(`/supplements?date=${date}`),
+  addSupplement: (data) => request('/supplements', { method: 'POST', body: JSON.stringify(data) }),
+  updateSupplement: (id, data) => request(`/supplements/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteSupplement: (id, date) => request(`/supplements/${id}?date=${date}`, { method: 'DELETE' }),
+  setSupplementTaken: (id, date, taken) =>
+    request(`/supplements/${id}/log`, { method: 'POST', body: JSON.stringify({ date, taken }) }),
   getSummary: (date) => request(`/summary?date=${date}`),
   getRecipes: () => request('/recipes'),
   createRecipe: (data) => request('/recipes', { method: 'POST', body: JSON.stringify(data) }),
