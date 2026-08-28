@@ -370,7 +370,9 @@ export default function HomeDashboard({
                   className={s.taken ? 'supplement-home-chip taken' : 'supplement-home-chip'}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onToggleSupplement(s.id, !s.taken);
+                    // A failed tick shouldn't take the Journal down with it — the dedicated
+                    // Suppléments screen is where the error gets shown.
+                    Promise.resolve(onToggleSupplement(s.id, !s.taken)).catch(() => {});
                   }}
                 >
                   <span className={s.taken ? 'supplement-check done small' : 'supplement-check small'}>

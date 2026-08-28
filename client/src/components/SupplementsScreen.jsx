@@ -169,19 +169,31 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
   const { t } = useLanguage();
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [error, setError] = useState('');
 
-  if (!data) return null;
-  const { supplements, dueCount, takenCount } = data;
+  // The screen renders even before the first fetch lands (or if it failed): the header and the
+  // "+" must stay reachable, otherwise a hiccup on the request leaves an empty page with no way back.
+  const { supplements = [], dueCount = 0, takenCount = 0 } = data || {};
   const pct = dueCount > 0 ? Math.round((takenCount / dueCount) * 100) : 0;
 
+  // Any failed write is shown in place — silently doing nothing reads as a frozen screen.
+  async function run(action) {
+    try {
+      await action();
+      setError('');
+      return true;
+    } catch (e) {
+      setError(e.message || String(e));
+      return false;
+    }
+  }
+
   async function handleAdd(form) {
-    await onAdd(form);
-    setAdding(false);
+    if (await run(() => onAdd(form))) setAdding(false);
   }
 
   async function handleUpdate(id, form) {
-    await onUpdate(id, form);
-    setEditingId(null);
+    if (await run(() => onUpdate(id, form))) setEditingId(null);
   }
 
   return (
@@ -219,6 +231,8 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
         </div>
       </div>
 
+      {error && <p className="hint error">{error}</p>}
+
       {adding && (
         <SupplementForm
           initial={EMPTY_FORM}
@@ -252,7 +266,7 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
               <button
                 type="button"
                 className={s.taken ? 'supplement-check done' : 'supplement-check'}
-                onClick={() => onToggleTaken(s.id, !s.taken)}
+                onClick={() => run(() => onToggleTaken(s.id, !s.taken))}
                 aria-label={t('supplements.markTaken')}
               >
                 {s.taken && <Icon name="check" size={16} color="var(--text-on-accent)" />}
@@ -283,7 +297,7 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
                   <button
                     type="button"
                     className="entry-icon-btn"
-                    onClick={() => onToggleTaken(s.id, false)}
+                    onClick={() => run(() => onToggleTaken(s.id, false))}
                     aria-label={t('supplements.undo')}
                   >
                     <Icon name="minus" size={16} />
@@ -303,7 +317,7 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
                 <button
                   type="button"
                   className="entry-icon-btn entry-delete-btn"
-                  onClick={() => onDelete(s.id)}
+                  onClick={() => run(() => onDelete(s.id))}
                   aria-label={t('supplements.delete')}
                 >
                   <Icon name="trash-2" size={16} />

@@ -135,7 +135,13 @@ function MainApp({ onLogout, account }) {
   }, [date]);
 
   const refreshSupplements = useCallback(async () => {
-    setSupplements(await api.getSupplements(date));
+    try {
+      setSupplements(await api.getSupplements(date));
+    } catch {
+      // Never leave it null: the Journal card and the Suppléments screen both key off this, and
+      // a failed fetch must show an empty list rather than a blank screen.
+      setSupplements({ date, supplements: [], dueCount: 0, takenCount: 0 });
+    }
   }, [date]);
 
   const refreshMeal = useCallback(
@@ -412,7 +418,10 @@ function MainApp({ onLogout, account }) {
                 setView('reglages');
               }}
               supplements={supplements}
-              onOpenSupplements={() => setView('supplements')}
+              onOpenSupplements={() => {
+                setView('supplements');
+                refreshSupplements();
+              }}
               onToggleSupplement={handleToggleSupplement}
             />
           )}
