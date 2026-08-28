@@ -1266,47 +1266,44 @@ app.delete('/api/water/:id', (req, res) => {
 });
 
 // --- Suppléments ---
-// A supplement is "due" on a given date when its frequency says so; `as_needed` ones are never
-// due but can still be ticked, so they don't drag the day's progress down.
-const SUPPLEMENT_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+// A supplement is taken either N times a day or once a month; there's no free-form scheduling.
+// The monthly ones are counted over the whole calendar month, so one taken on the 3rd still reads
+// as done on the 20th, and they only show up in the Journal's list while they're still to take.
+const SUPPLEMENT_FREQUENCIES = ['daily', 'monthly'];
+// When a supplement is taken, as a list (matin and/or soir) — purely a reminder label.
+const SUPPLEMENT_MOMENTS = ['matin', 'soir'];
 
-function supplementDayKey(dateStr) {
-  const jsDay = new Date(`${dateStr}T00:00:00Z`).getUTCDay(); // 0=Sun..6=Sat
-  return SUPPLEMENT_DAYS[(jsDay + 6) % 7];
-}
-
-function parseSupplementDays(raw) {
+function parseSupplementMoments(raw) {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((d) => SUPPLEMENT_DAYS.includes(d)) : [];
+    return Array.isArray(parsed) ? parsed.filter((m) => SUPPLEMENT_MOMENTS.includes(m)) : [];
   } catch {
     return [];
   }
 }
 
-function isSupplementDue(supplement, dateStr) {
-  if (supplement.frequency === 'as_needed') return false;
-  if (supplement.frequency === 'days') return supplement.days.includes(supplementDayKey(dateStr));
-  return true;
+// The date range a supplement's intakes are counted over: the day itself, or the calendar month.
+// '-01'/'-31' bound the month fine since ISO dates compare lexicographically.
+function supplementWindow(frequency, dateStr) {
+  if (frequency === 'monthly') return [`${dateStr.slice(0, 7)}-01`, `${dateStr.slice(0, 7)}-31`];
+  return [dateStr, dateStr];
 }
 
-// Normalises the shared body of POST/PUT — an unknown frequency falls back to 'daily', and
-// 'days' with nothing selected would be a supplement that's never due, so it degrades to daily too.
+// Normalises the shared body of POST/PUT — an unknown frequency falls back to 'daily'.
 function supplementFromBody(body) {
   const name = String(body.name || '').trim();
+  const frequency = SUPPLEMENT_FREQUENCIES.includes(body.frequency) ? body.frequency : 'daily';
   const times = Math.min(6, Math.max(1, Math.round(Number(body.times_per_day) || 1)));
-  const days = Array.isArray(body.days) ? body.days.filter((d) => SUPPLEMENT_DAYS.includes(d)) : [];
-  let frequency = ['daily', 'days', 'as_needed'].includes(body.frequency) ? body.frequency : 'daily';
-  if (frequency === 'days' && days.length === 0) frequency = 'daily';
+  const moments = Array.isArray(body.time_of_day)
+    ? body.time_of_day.filter((m) => SUPPLEMENT_MOMENTS.includes(m))
+    : parseSupplementMoments(body.time_of_day);
   return {
     name,
-    dose: body.dose ? String(body.dose).trim() : null,
     frequency,
-    days: frequency === 'days' ? JSON.stringify(days) : null,
-    // "Au besoin" has no daily quota to fill — one tick is the whole story.
-    times_per_day: frequency === 'as_needed' ? 1 : times,
-    time_of_day: body.time_of_day ? String(body.time_of_day).trim() : null,
+    // A monthly supplement is a single tick over its month — no daily quota to fill.
+    times_per_day: frequency === 'daily' ? times : 1,
+    time_of_day: moments.length > 0 ? JSON.stringify(moments) : null,
   };
 }
 
@@ -1314,22 +1311,21 @@ function supplementsForDate(userId, date) {
   const rows = db
     .prepare('SELECT * FROM supplements WHERE user_id = ? AND archived = 0 ORDER BY sort_order, id')
     .all(userId);
-  const counts = new Map(
-    db
-      .prepare('SELECT supplement_id, COUNT(*) AS n FROM supplement_logs WHERE user_id = ? AND date = ? GROUP BY supplement_id')
-      .all(userId, date)
-      .map((r) => [r.supplement_id, r.n])
+  const countInWindow = db.prepare(
+    'SELECT COUNT(*) AS n FROM supplement_logs WHERE user_id = ? AND supplement_id = ? AND date BETWEEN ? AND ?'
   );
   const supplements = rows.map((row) => {
-    const supplement = { ...row, days: parseSupplementDays(row.days) };
-    const takenCount = counts.get(row.id) || 0;
-    const due = isSupplementDue(supplement, date);
+    const [from, to] = supplementWindow(row.frequency, date);
+    const takenCount = countInWindow.get(userId, row.id, from, to).n;
+    const taken = takenCount >= row.times_per_day;
     return {
-      ...supplement,
+      ...row,
       archived: undefined,
-      dueToday: due,
-      takenCount: Math.min(takenCount, supplement.times_per_day),
-      taken: takenCount >= supplement.times_per_day,
+      time_of_day: parseSupplementMoments(row.time_of_day),
+      // A monthly one already taken this month has nothing left to ask of today.
+      dueToday: row.frequency === 'daily' || !taken,
+      takenCount: Math.min(takenCount, row.times_per_day),
+      taken,
     };
   });
   const dueList = supplements.filter((s) => s.dueToday);
@@ -1352,21 +1348,21 @@ app.post('/api/supplements', (req, res) => {
     .prepare('SELECT MAX(sort_order) AS m FROM supplements WHERE user_id = ?')
     .get(req.userId).m;
   db.prepare(
-    `INSERT INTO supplements (user_id, name, dose, frequency, days, times_per_day, time_of_day, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(req.userId, data.name, data.dose, data.frequency, data.days, data.times_per_day, data.time_of_day, (maxOrder ?? 0) + 1);
+    `INSERT INTO supplements (user_id, name, frequency, times_per_day, time_of_day, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(req.userId, data.name, data.frequency, data.times_per_day, data.time_of_day, (maxOrder ?? 0) + 1);
   res.status(201).json(supplementsForDate(req.userId, req.body.date || todayStr()));
 });
 
 app.put('/api/supplements/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM supplements WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   if (!existing) return res.status(404).json({ error: 'Supplément introuvable' });
-  const data = supplementFromBody({ ...existing, days: parseSupplementDays(existing.days), ...req.body });
+  const data = supplementFromBody({ ...existing, ...req.body });
   if (!data.name) return res.status(400).json({ error: 'Nom requis' });
   db.prepare(
-    `UPDATE supplements SET name = ?, dose = ?, frequency = ?, days = ?, times_per_day = ?, time_of_day = ?
+    `UPDATE supplements SET name = ?, frequency = ?, times_per_day = ?, time_of_day = ?
      WHERE id = ? AND user_id = ?`
-  ).run(data.name, data.dose, data.frequency, data.days, data.times_per_day, data.time_of_day, req.params.id, req.userId);
+  ).run(data.name, data.frequency, data.times_per_day, data.time_of_day, req.params.id, req.userId);
   res.json(supplementsForDate(req.userId, req.body.date || todayStr()));
 });
 
@@ -1385,17 +1381,20 @@ app.post('/api/supplements/:id/log', (req, res) => {
   const supplement = db.prepare('SELECT * FROM supplements WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   if (!supplement) return res.status(404).json({ error: 'Supplément introuvable' });
   const taken = req.body.taken !== false;
+  const [from, to] = supplementWindow(supplement.frequency, date);
   const count = db
-    .prepare('SELECT COUNT(*) AS n FROM supplement_logs WHERE user_id = ? AND supplement_id = ? AND date = ?')
-    .get(req.userId, supplement.id, date).n;
+    .prepare('SELECT COUNT(*) AS n FROM supplement_logs WHERE user_id = ? AND supplement_id = ? AND date BETWEEN ? AND ?')
+    .get(req.userId, supplement.id, from, to).n;
   if (taken) {
     if (count < supplement.times_per_day) {
       db.prepare('INSERT INTO supplement_logs (user_id, supplement_id, date) VALUES (?, ?, ?)').run(req.userId, supplement.id, date);
     }
   } else {
     const last = db
-      .prepare('SELECT id FROM supplement_logs WHERE user_id = ? AND supplement_id = ? AND date = ? ORDER BY id DESC LIMIT 1')
-      .get(req.userId, supplement.id, date);
+      .prepare(
+        'SELECT id FROM supplement_logs WHERE user_id = ? AND supplement_id = ? AND date BETWEEN ? AND ? ORDER BY id DESC LIMIT 1'
+      )
+      .get(req.userId, supplement.id, from, to);
     if (last) db.prepare('DELETE FROM supplement_logs WHERE id = ?').run(last.id);
   }
   res.json(supplementsForDate(req.userId, date));

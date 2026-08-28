@@ -2,44 +2,41 @@ import { useState } from 'react';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
-const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+// The whole schedule vocabulary: how often, and (optionally) when in the day. Anything finer
+// would be a calendar, which is not what this section is for.
+const INTAKE_PRESETS = [
+  { key: 'daily_1', frequency: 'daily', times_per_day: 1, labelKey: 'supplements.intakeDaily1' },
+  { key: 'daily_2', frequency: 'daily', times_per_day: 2, labelKey: 'supplements.intakeDaily2' },
+  { key: 'monthly_1', frequency: 'monthly', times_per_day: 1, labelKey: 'supplements.intakeMonthly1' },
+];
+const MOMENTS = ['matin', 'soir'];
 
-const EMPTY_FORM = { name: '', dose: '', frequency: 'daily', days: [], times_per_day: 1, time_of_day: '' };
+const EMPTY_FORM = { name: '', frequency: 'daily', times_per_day: 1, time_of_day: [] };
 
-function dayLabels(t) {
-  return {
-    mon: t('home.weekdayMon'),
-    tue: t('home.weekdayTue'),
-    wed: t('home.weekdayWed'),
-    thu: t('home.weekdayThu'),
-    fri: t('home.weekdayFri'),
-    sat: t('home.weekdaySat'),
-    sun: t('home.weekdaySun'),
-  };
+function presetKey(s) {
+  return s.frequency === 'monthly' ? 'monthly_1' : `daily_${s.times_per_day > 1 ? 2 : 1}`;
 }
 
-function frequencyText(s, t) {
-  const labels = dayLabels(t);
-  if (s.frequency === 'as_needed') return t('supplements.freqAsNeeded');
-  const base =
-    s.frequency === 'days'
-      ? DAY_ORDER.filter((d) => s.days.includes(d))
-          .map((d) => labels[d])
-          .join(', ')
-      : t('supplements.freqDaily');
-  return s.times_per_day > 1 ? `${base} · ${s.times_per_day}×/${t('supplements.perDay')}` : base;
+function intakeLabel(s, t) {
+  const preset = INTAKE_PRESETS.find((p) => p.key === presetKey(s));
+  return t(preset.labelKey);
+}
+
+function momentsLabel(moments, t) {
+  return (moments || []).map((m) => t(`supplements.moment_${m}`)).join(' · ');
 }
 
 function SupplementForm({ initial, onSubmit, onCancel, submitLabel }) {
   const { t } = useLanguage();
   const [form, setForm] = useState(initial);
   const [error, setError] = useState('');
-  const labels = dayLabels(t);
 
-  function toggleDay(day) {
+  function toggleMoment(moment) {
     setForm((f) => ({
       ...f,
-      days: f.days.includes(day) ? f.days.filter((d) => d !== day) : [...f.days, day],
+      time_of_day: f.time_of_day.includes(moment)
+        ? f.time_of_day.filter((m) => m !== moment)
+        : [...f.time_of_day, moment],
     }));
   }
 
@@ -49,7 +46,7 @@ function SupplementForm({ initial, onSubmit, onCancel, submitLabel }) {
       setError(t('supplements.nameRequired'));
       return;
     }
-    onSubmit({ ...form, name: form.name.trim(), dose: form.dose.trim() });
+    onSubmit({ ...form, name: form.name.trim() });
   }
 
   return (
@@ -61,67 +58,36 @@ function SupplementForm({ initial, onSubmit, onCancel, submitLabel }) {
         placeholder={t('supplements.namePlaceholder')}
         onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
       />
-      <h4 className="section-label">{t('supplements.dose')}</h4>
-      <input
-        className="search-input"
-        value={form.dose}
-        placeholder={t('supplements.dosePlaceholder')}
-        onChange={(e) => setForm((f) => ({ ...f, dose: e.target.value }))}
-      />
 
-      <h4 className="section-label">{t('supplements.frequency')}</h4>
+      <h4 className="section-label">{t('supplements.intake')}</h4>
       <div className="filter-pill-row">
-        {['daily', 'days', 'as_needed'].map((freq) => (
+        {INTAKE_PRESETS.map((preset) => (
           <button
             type="button"
-            key={freq}
-            className={form.frequency === freq ? 'filter-pill active' : 'filter-pill'}
-            onClick={() => setForm((f) => ({ ...f, frequency: freq }))}
+            key={preset.key}
+            className={presetKey(form) === preset.key ? 'filter-pill active' : 'filter-pill'}
+            onClick={() =>
+              setForm((f) => ({ ...f, frequency: preset.frequency, times_per_day: preset.times_per_day }))
+            }
           >
-            {t(`supplements.freq_${freq}`)}
+            {t(preset.labelKey)}
           </button>
         ))}
       </div>
-      {form.frequency === 'days' && (
-        <div className="filter-pill-row supplement-day-row">
-          {DAY_ORDER.map((day) => (
-            <button
-              type="button"
-              key={day}
-              className={form.days.includes(day) ? 'filter-pill active' : 'filter-pill'}
-              onClick={() => toggleDay(day)}
-            >
-              {labels[day]}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {form.frequency !== 'as_needed' && (
-        <>
-          <h4 className="section-label">{t('supplements.timesPerDay')}</h4>
-          <div className="filter-pill-row">
-            {[1, 2, 3, 4].map((n) => (
-              <button
-                type="button"
-                key={n}
-                className={form.times_per_day === n ? 'filter-pill active' : 'filter-pill'}
-                onClick={() => setForm((f) => ({ ...f, times_per_day: n }))}
-              >
-                {n}×
-              </button>
-            ))}
-          </div>
-        </>
-      )}
 
       <h4 className="section-label">{t('supplements.moment')}</h4>
-      <input
-        className="search-input"
-        value={form.time_of_day}
-        placeholder={t('supplements.momentPlaceholder')}
-        onChange={(e) => setForm((f) => ({ ...f, time_of_day: e.target.value }))}
-      />
+      <div className="filter-pill-row">
+        {MOMENTS.map((moment) => (
+          <button
+            type="button"
+            key={moment}
+            className={form.time_of_day.includes(moment) ? 'filter-pill active' : 'filter-pill'}
+            onClick={() => toggleMoment(moment)}
+          >
+            {t(`supplements.moment_${moment}`)}
+          </button>
+        ))}
+      </div>
 
       {error && <p className="hint error">{error}</p>}
       <div className="card-actions supplement-form-actions">
@@ -222,11 +188,9 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
               key={s.id}
               initial={{
                 name: s.name,
-                dose: s.dose || '',
                 frequency: s.frequency,
-                days: s.days || [],
                 times_per_day: s.times_per_day,
-                time_of_day: s.time_of_day || '',
+                time_of_day: s.time_of_day || [],
               }}
               onSubmit={(form) => handleUpdate(s.id, form)}
               onCancel={() => setEditingId(null)}
@@ -245,15 +209,13 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
               <div className="entry-card-body">
                 <div className="entry-card-name-row">
                   <span className="entry-card-name">{s.name}</span>
-                  {s.dose && <span className="chip">{s.dose}</span>}
                 </div>
                 <div className="entry-card-sub">
-                  {frequencyText(s, t)}
-                  {s.time_of_day ? ` · ${s.time_of_day}` : ''}
-                  {!s.dueToday && s.frequency !== 'as_needed' ? ` · ${t('supplements.notToday')}` : ''}
+                  {intakeLabel(s, t)}
+                  {s.time_of_day?.length > 0 ? ` · ${momentsLabel(s.time_of_day, t)}` : ''}
                 </div>
                 {s.times_per_day > 1 && (
-                  <div className="supplement-dose-dots">
+                  <div className="supplement-intake-dots">
                     {Array.from({ length: s.times_per_day }, (_, i) => (
                       <i key={i} className={i < s.takenCount ? 'filled' : ''} />
                     ))}

@@ -4720,26 +4720,26 @@ textarea.wide {
   opacity: 0.7;
 }
 
-.supplement-dose-dots {
+.supplement-intake-dots {
   display: flex;
   align-items: center;
   gap: 5px;
   margin-top: 5px;
 }
 
-.supplement-dose-dots i {
+.supplement-intake-dots i {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   border: 1px solid var(--line);
 }
 
-.supplement-dose-dots i.filled {
+.supplement-intake-dots i.filled {
   border-color: transparent;
   background: var(--acc);
 }
 
-.supplement-dose-dots span {
+.supplement-intake-dots span {
   font-size: 11.5px;
   color: var(--text-muted, var(--dim));
   margin-left: 3px;

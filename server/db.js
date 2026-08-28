@@ -241,17 +241,14 @@ db.exec(`
   );
 
   -- Suppléments (magnésium, vitamine D, oméga-3...) the user takes on a schedule, managed from
-  -- the Journal's "Suppléments" section. "frequency" is 'daily' (every day), 'days' (only the
-  -- weekdays listed in "days", a JSON array of mon/tue/.../sun) or 'as_needed' (never counted as
-  -- due, just checkable). "times_per_day" is how many intakes make a day complete (e.g. matin +
-  -- soir = 2). "dose" is free text ("400 mg", "2 gélules") — no nutrition maths is done with it.
+  -- the Journal's "Suppléments" section. "frequency" is 'daily' (times_per_day intakes every day)
+  -- or 'monthly' (a single intake per calendar month). "time_of_day" is an optional JSON array of
+  -- moments (matin / soir), shown as a reminder label only.
   CREATE TABLE IF NOT EXISTS supplements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL DEFAULT 1,
     name TEXT NOT NULL,
-    dose TEXT,
     frequency TEXT NOT NULL DEFAULT 'daily',
-    days TEXT,
     times_per_day INTEGER NOT NULL DEFAULT 1,
     time_of_day TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
