@@ -3859,6 +3859,15 @@ async function runDailyMicrobiomeClassification() {
   }
 }
 
+// Anything thrown out of an /api handler (a SQLite error, a bad payload) used to surface as a
+// bare 500 with an HTML body: the client showed "Erreur 500" and the cause was nowhere to be
+// seen. Log the stack here, and hand the message back as JSON so the UI can show what broke.
+app.use('/api', (err, req, res, next) => {
+  console.error(`API error on ${req.method} ${req.originalUrl}:`, err);
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ error: err.message || 'Erreur serveur' });
+});
+
 // In production there's no separate Vite dev server — this Express process serves the built
 // React app directly, so the whole thing is one deployable service on one origin/port (no CORS,
 // no separate frontend host to configure). The catch-all excludes /api and /uploads so it never
