@@ -4704,6 +4704,22 @@ textarea.wide {
   background: var(--gradient-brand, var(--acc));
 }
 
+/* Half-done: the border takes the accent and the count sits inside, so one tap of a 2×/jour
+   supplement visibly registers instead of leaving an empty box. */
+.supplement-check.partial {
+  border-color: var(--acc);
+  color: var(--acc);
+}
+
+.supplement-check.partial b {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.supplement-check.small.partial {
+  background: var(--accent-soft);
+}
+
 .supplement-check.small {
   width: 18px;
   height: 18px;

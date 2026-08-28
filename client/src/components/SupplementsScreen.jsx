@@ -22,6 +22,13 @@ function intakeLabel(s, t) {
   return t(preset.labelKey);
 }
 
+// A supplement taken 1 of its 2 daily times is neither ticked nor untouched — the checkbox has to
+// say so, otherwise the first tap of the day looks like it did nothing.
+function checkClass(s, extra = '') {
+  const partial = !s.taken && s.takenCount > 0;
+  return `supplement-check${extra}${s.taken ? ' done' : ''}${partial ? ' partial' : ''}`;
+}
+
 function momentsLabel(moments, t) {
   return (moments || []).map((m) => t(`supplements.moment_${m}`)).join(' · ');
 }
@@ -200,11 +207,15 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
             <div className={s.taken ? 'entry-card supplement-card taken' : 'entry-card supplement-card'} key={s.id}>
               <button
                 type="button"
-                className={s.taken ? 'supplement-check done' : 'supplement-check'}
+                className={checkClass(s)}
                 onClick={() => run(() => onToggleTaken(s.id, !s.taken))}
                 aria-label={t('supplements.markTaken')}
               >
-                {s.taken && <Icon name="check" size={16} color="var(--text-on-accent)" />}
+                {s.taken ? (
+                  <Icon name="check" size={16} color="var(--text-on-accent)" />
+                ) : (
+                  s.takenCount > 0 && <b>{s.takenCount}</b>
+                )}
               </button>
               <div className="entry-card-body">
                 <div className="entry-card-name-row">

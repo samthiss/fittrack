@@ -375,7 +375,11 @@ export default function HomeDashboard({
                     Promise.resolve(onToggleSupplement(s.id, !s.taken)).catch(() => {});
                   }}
                 >
-                  <span className={s.taken ? 'supplement-check done small' : 'supplement-check small'}>
+                  <span
+                    className={`supplement-check small${s.taken ? ' done' : ''}${
+                      !s.taken && s.takenCount > 0 ? ' partial' : ''
+                    }`}
+                  >
                     {s.taken && <Icon name="check" size={12} color="var(--text-on-accent)" />}
                   </span>
                   {s.name}
