@@ -4,22 +4,6 @@ import { useLanguage } from '../i18n/LanguageContext';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
-// Quick-pick list for the name field — anything can still be typed by hand.
-const COMMON_SUPPLEMENTS = [
-  'Magnésium',
-  'Vitamine D',
-  'Oméga-3',
-  'Vitamine B12',
-  'Zinc',
-  'Créatine',
-  'Whey',
-  'Multivitamines',
-  'Fer',
-  'Vitamine C',
-  'Probiotiques',
-  'Collagène',
-];
-
 const EMPTY_FORM = { name: '', dose: '', frequency: 'daily', days: [], times_per_day: 1, time_of_day: '' };
 
 function dayLabels(t) {
@@ -77,19 +61,6 @@ function SupplementForm({ initial, onSubmit, onCancel, submitLabel }) {
         placeholder={t('supplements.namePlaceholder')}
         onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
       />
-      <div className="filter-pill-row supplement-suggestions">
-        {COMMON_SUPPLEMENTS.map((name) => (
-          <button
-            type="button"
-            key={name}
-            className={form.name === name ? 'filter-pill active' : 'filter-pill'}
-            onClick={() => setForm((f) => ({ ...f, name }))}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
-
       <h4 className="section-label">{t('supplements.dose')}</h4>
       <input
         className="search-input"
