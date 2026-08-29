@@ -5042,3 +5042,211 @@ textarea.wide {
     animation: none;
   }
 }
+
+/* ---- Cyberpunk layer, part 2: the moving parts -------------------------- */
+
+/* Grain and a vignette on the backdrop, so the flat black reads as a lit room
+   rather than an empty canvas. Both ride the existing ::before layer. */
+.app::before {
+  background:
+    radial-gradient(120% 85% at 50% 40%, transparent 45%, rgba(0, 0, 0, 0.55) 100%),
+    var(--mesh-app),
+    repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 44px),
+    repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 44px);
+}
+
+/* Big readouts get a hair of chromatic aberration — the tell of a cheap screen
+   pushed too bright. Kept at ±1px so the digits stay crisp. */
+.tdee-total-value,
+.gauge-value,
+.activites-burn-value,
+.weight-report-hero-value,
+.meal-summary-total-value {
+  text-shadow: -1px 0 rgba(255, 43, 214, 0.5), 1px 0 rgba(18, 216, 255, 0.5), var(--glow-text);
+}
+
+/* The page title flickers like a tube warming up: 6s apart, over in 300ms. */
+h1 {
+  animation: cp-glitch 6s steps(1, end) infinite;
+}
+
+@keyframes cp-glitch {
+  0%,
+  95.9%,
+  100% {
+    text-shadow: var(--glow-text);
+    opacity: 1;
+  }
+  96% {
+    text-shadow: -2px 0 rgba(255, 43, 214, 0.8), 2px 0 rgba(18, 216, 255, 0.8);
+    opacity: 0.82;
+  }
+  97.5% {
+    text-shadow: 2px 0 rgba(255, 43, 214, 0.7), -2px 0 rgba(18, 216, 255, 0.7);
+    opacity: 1;
+  }
+  98.5% {
+    text-shadow: var(--glow-text);
+    opacity: 0.9;
+  }
+}
+
+/* HUD brackets at the four corners of the hero cards: cyan up top, magenta
+   below. Drawn as background layers, so no pseudo-element is spent — both are
+   already taken on these cards. */
+.resume-card,
+.meal-summary-card,
+.activites-burn-card,
+.weight-report-hero,
+.supplement-progress-card {
+  background-image:
+    linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--magenta-500), var(--magenta-500)), linear-gradient(var(--magenta-500), var(--magenta-500)),
+    linear-gradient(var(--magenta-500), var(--magenta-500)), linear-gradient(var(--magenta-500), var(--magenta-500));
+  background-size: 14px 2px, 2px 14px, 14px 2px, 2px 14px, 14px 2px, 2px 14px, 14px 2px, 2px 14px;
+  background-position:
+    left 10px top 9px, left 10px top 9px,
+    right 10px top 9px, right 10px top 9px,
+    left 10px bottom 9px, left 10px bottom 9px,
+    right 10px bottom 9px, right 10px bottom 9px;
+  background-repeat: no-repeat;
+}
+
+/* A light sweeps across a button when it's pressed (and on hover, where there
+   is one) — the surface answers the touch instead of just changing colour. */
+.btn,
+.meal-add-cta,
+.round-add-btn,
+.meal-add-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::after,
+.meal-add-cta::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 45%;
+  left: -60%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: skewX(-18deg);
+}
+
+.btn:hover::after,
+.btn:active::after,
+.meal-add-cta:hover::after,
+.meal-add-cta:active::after {
+  animation: cp-sweep 620ms var(--ease-standard);
+}
+
+@keyframes cp-sweep {
+  to {
+    left: 130%;
+  }
+}
+
+/* Progress bars carry current: diagonal energy stripes drifting along the fill.
+   The fill's colour comes from an inline style, so the stripes ride a pseudo
+   element rather than fighting it for the background. */
+.progress-fill,
+.report-row-bar-fill {
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill::after,
+.report-row-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    115deg,
+    rgba(0, 0, 0, 0.28) 0 6px,
+    transparent 6px 14px
+  );
+  background-size: 28px 100%;
+  animation: cp-stripes 1400ms linear infinite;
+}
+
+/* The micronutrient report stacks ~30 of these; a running animation on each is a lot of
+   repainting for a screen you scroll through. The stripes stay, the motion doesn't. */
+.micro-row .progress-fill::after {
+  animation: none;
+}
+
+@keyframes cp-stripes {
+  to {
+    background-position-x: 28px;
+  }
+}
+
+/* The active tab's marker breathes, so the eye finds "where am I" instantly. */
+.bottom-tab.active::before {
+  animation: cp-marker 2.4s var(--ease-standard) infinite;
+}
+
+@keyframes cp-marker {
+  0%,
+  100% {
+    opacity: 1;
+    width: 34px;
+  }
+  50% {
+    opacity: 0.6;
+    width: 22px;
+  }
+}
+
+/* Icon tiles read as lit ports rather than flat squares. */
+.meal-icon-box,
+.row-icon-box,
+.supplement-icon-box,
+.activites-row-icon {
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 0 12px -4px var(--accent), 0 0 10px -6px var(--accent);
+}
+
+/* Each view boots in: content rises as a scanline passes over it. Runs once per
+   screen change, never loops. */
+.app-main > * {
+  animation: cp-boot 260ms var(--ease-standard);
+}
+
+@keyframes cp-boot {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: brightness(1.6) saturate(1.4);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* .modal-overlay is deliberately left opaque: it backs full-screen views (a food search, a
+   report), not floating dialogs — a translucent pane there just makes two screens fight. Only
+   the bottom sheets, which really do float, get the blurred backdrop. */
+.bottom-sheet-overlay {
+  backdrop-filter: blur(6px) saturate(1.2);
+  -webkit-backdrop-filter: blur(6px) saturate(1.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  h1,
+  .bottom-tab.active::before,
+  .progress-fill::after,
+  .report-row-bar-fill::after,
+  .app-main > *,
+  .btn:hover::after,
+  .btn:active::after,
+  .meal-add-cta:hover::after,
+  .meal-add-cta:active::after {
+    animation: none;
+  }
+}
