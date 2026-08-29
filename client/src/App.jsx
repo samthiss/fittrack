@@ -396,6 +396,9 @@ function MainApp({ onLogout, account }) {
 
   return (
     <div className="app">
+      {/* Re-keyed on every view change so the element remounts and its one-shot sweep replays —
+          the screen reads as being re-scanned rather than merely swapped. */}
+      <span className="view-scanline" key={`scan-${view}-${selectedMeal || ''}`} aria-hidden="true" />
       <div className="shell">
         <main className="app-main">
           {view === 'journal' && !selectedMeal && (

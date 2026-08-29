@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import CircularGauge from './CircularGauge';
 import Icon from './Icon';
+import GlitchNumber from './GlitchNumber';
 import { useLanguage } from '../i18n/LanguageContext';
 import { todayStr, shiftDateStr } from '../data/dates';
 
@@ -126,6 +127,10 @@ export default function HomeDashboard({
   const supplementPct =
     supplements?.dueCount > 0 ? Math.round((supplements.takenCount / supplements.dueCount) * 100) : 0;
   const { targetIntake, consumedKcal, remainingKcal, burnedKcal, macros, meals, tdee, energyBalance } = dashboard;
+  // Two states worth shouting about: the day's intake is spent, and the balance has tipped into
+  // a surplus. Both turn their card red and pulsing rather than hiding in a sign change.
+  const overTarget = remainingKcal < 0;
+  const surplus = energyBalance ? energyBalance.balance < 0 : false;
 
   return (
     <div>
@@ -157,21 +162,25 @@ export default function HomeDashboard({
             <div className="card tdee-total-card tdee-summary-item">
               <span className="tdee-total-label">{t('tdee.total')}</span>
               <div className="tdee-total-line">
-                <b className="tdee-total-value">{tdee.total}</b>
+                <b className="tdee-total-value">
+                  <GlitchNumber value={tdee.total} />
+                </b>
                 <span className="tdee-total-unit">kcal</span>
               </div>
             </div>
             <div className="card tdee-total-card tdee-summary-item">
               <span className="tdee-total-label">{t('balance.dailyTarget')}</span>
               <div className="tdee-total-line">
-                <b className="tdee-total-value">{Math.round(targetIntake)}</b>
+                <b className="tdee-total-value">
+                  <GlitchNumber value={Math.round(targetIntake)} />
+                </b>
                 <span className="tdee-total-unit">kcal</span>
               </div>
             </div>
             {energyBalance && (
-              <div className="card tdee-total-card tdee-summary-item">
+              <div className={`card tdee-total-card tdee-summary-item${surplus ? ' cp-alert' : ''}`}>
                 <span className="tdee-total-label">
-                  {energyBalance.forecast ? t('balance.forecast') : t('balance.gap')}
+                  {surplus ? t('home.surplusAlert') : energyBalance.forecast ? t('balance.forecast') : t('balance.gap')}
                 </span>
                 <div className="tdee-total-line">
                   <b className="tdee-total-value">
@@ -195,11 +204,13 @@ export default function HomeDashboard({
           </button>
         )}
       </div>
-      <div className="card resume-card">
+      <div className={overTarget ? 'card resume-card cp-alert' : 'card resume-card'}>
         <div className="gauge-row">
           <div className="gauge-stat">
             <Icon name="utensils" size={22} color="var(--macro-carb)" />
-            <b>{Math.round(consumedKcal)}</b>
+            <b>
+              <GlitchNumber value={Math.round(consumedKcal)} />
+            </b>
             <span>{t('home.eaten')}</span>
           </div>
           <CircularGauge
@@ -209,7 +220,9 @@ export default function HomeDashboard({
           />
           <div className="gauge-stat">
             <Icon name="flame" size={22} color="var(--warning)" />
-            <b>{Math.round(burnedKcal)}</b>
+            <b>
+              <GlitchNumber value={Math.round(burnedKcal)} />
+            </b>
             <span>{t('home.burned')}</span>
           </div>
         </div>

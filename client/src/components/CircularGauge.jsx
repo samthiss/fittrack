@@ -1,3 +1,5 @@
+import { useGlitchValue } from '../data/glitchValue';
+
 export default function CircularGauge({ value, max, label, size = 190 }) {
   const radius = (size - 18) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -5,6 +7,7 @@ export default function CircularGauge({ value, max, label, size = 190 }) {
   const offset = circumference * (1 - ratio);
   const center = size / 2;
   const gradientId = 'ftGaugeGrad';
+  const displayValue = useGlitchValue(Math.max(0, Math.round(value)));
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="gauge">
@@ -40,7 +43,7 @@ export default function CircularGauge({ value, max, label, size = 190 }) {
         }}
       />
       <text x={center} y={center - 6} textAnchor="middle" className="gauge-value">
-        {Math.max(0, Math.round(value))}
+        {displayValue}
       </text>
       <text x={center} y={center + 22} textAnchor="middle" className="gauge-label">
         {label}

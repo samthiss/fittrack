@@ -5250,3 +5250,86 @@ h1 {
     animation: none;
   }
 }
+
+/* ---- Cyberpunk layer, part 3: sweep and alert ---------------------------- */
+
+/* One bar of light crosses the screen each time the view changes (see App.jsx: the element is
+   keyed on the view, so React remounts it and the animation replays). Purely decorative —
+   absolutely positioned inside .app, above the CRT veil, below modals, deaf to pointers. */
+.view-scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 90px;
+  z-index: 6;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(18, 216, 255, 0.05) 45%,
+    rgba(18, 216, 255, 0.5) 82%,
+    rgba(166, 244, 255, 0.9) 92%,
+    transparent
+  );
+  opacity: 0;
+  animation: cp-sweep-down 620ms var(--ease-standard) forwards;
+}
+
+@keyframes cp-sweep-down {
+  0% {
+    opacity: 0.9;
+    transform: translateY(-100%);
+  }
+  85% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(var(--app-height, 100dvh));
+  }
+}
+
+/* Alert state — the day's intake is spent, or the balance has tipped into a surplus. Red rim,
+   red glow, and a slow pulse: the card should be impossible to scroll past without noticing. */
+.cp-alert {
+  border-color: rgba(255, 59, 107, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 59, 107, 0.25), 0 0 24px -6px rgba(255, 59, 107, 0.7),
+    0 12px 34px -10px rgba(0, 0, 0, 0.85);
+  animation: cp-alert-pulse 2.2s var(--ease-standard) infinite;
+}
+
+.cp-alert .tdee-total-label,
+.cp-alert .gauge-value {
+  color: var(--danger);
+  fill: var(--danger);
+  text-shadow: 0 0 12px rgba(255, 59, 107, 0.6);
+}
+
+.cp-alert .tdee-total-value {
+  color: var(--danger);
+  text-shadow: -1px 0 rgba(255, 59, 107, 0.6), 1px 0 rgba(255, 143, 171, 0.5),
+    0 0 12px rgba(255, 59, 107, 0.55);
+}
+
+@keyframes cp-alert-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px rgba(255, 59, 107, 0.25), 0 0 24px -6px rgba(255, 59, 107, 0.7),
+      0 12px 34px -10px rgba(0, 0, 0, 0.85);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(255, 59, 107, 0.45), 0 0 34px -4px rgba(255, 59, 107, 0.9),
+      0 12px 34px -10px rgba(0, 0, 0, 0.85);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-scanline {
+    display: none;
+  }
+
+  .cp-alert {
+    animation: none;
+  }
+}
