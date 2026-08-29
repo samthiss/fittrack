@@ -29,13 +29,13 @@ function WeightAreaChart({ series }) {
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: `${height}px`, display: 'block' }}>
       <defs>
         <linearGradient id="wReportGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(139,118,249,0.35)" />
-          <stop offset="100%" stopColor="rgba(139,118,249,0)" />
+          <stop offset="0%" stopColor="rgba(18,216,255,0.38)" />
+          <stop offset="100%" stopColor="rgba(18,216,255,0)" />
         </linearGradient>
         <linearGradient id="wReportLine" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#c9bcff" />
-          <stop offset="55%" stopColor="#a893ff" />
-          <stop offset="100%" stopColor="#7c5cfc" />
+          <stop offset="0%" stopColor="#a6f4ff" />
+          <stop offset="55%" stopColor="#12d8ff" />
+          <stop offset="100%" stopColor="#ff2bd6" />
         </linearGradient>
       </defs>
       <path d={`M ${points[0][0]} ${points[0][1]} L ${linePoints}`} fill="none" stroke="url(#wReportLine)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />

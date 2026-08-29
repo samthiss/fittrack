@@ -21,9 +21,9 @@ function TimerRing({ elapsed, plannedSeconds, size = 176 }) {
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="gauge">
       <defs>
         <linearGradient id="cardioRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#c9bcff" />
-          <stop offset="55%" stopColor="#a893ff" />
-          <stop offset="100%" stopColor="#7c5cfc" />
+          <stop offset="0%" stopColor="#a6f4ff" />
+          <stop offset="55%" stopColor="#12d8ff" />
+          <stop offset="100%" stopColor="#ff2bd6" />
         </linearGradient>
       </defs>
       <circle cx={center} cy={center} r={radius} fill="none" stroke="var(--ink-600, var(--line))" strokeWidth="9" />

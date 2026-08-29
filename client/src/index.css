@@ -34,73 +34,82 @@
 }
 
 :root {
-  /* ---- Brand purple ramp — soft lavender/periwinkle ---- */
-  --purple-900: #4c3aa8;
-  --purple-700: #7c5cfc;
-  --purple-600: #8b76f9;
-  --purple-500: #a893ff;
-  --purple-400: #b6a4ff;
-  --purple-300: #c9bcff;
-  --purple-100: #ece7ff;
+  /* ---- Neon ramp — cyan primary, magenta secondary (cyberpunk) ---- */
+  --purple-900: #12246b;
+  --purple-700: #00a8d6;
+  --purple-600: #12d8ff;
+  --purple-500: #3ee6ff;
+  --purple-400: #6febff;
+  --purple-300: #a6f4ff;
+  --purple-100: #dcfbff;
+  --magenta-700: #c4008f;
+  --magenta-500: #ff2bd6;
+  --magenta-300: #ff8ae6;
+  --lime-500: #c8ff3d;
 
-  /* ---- Ink / surfaces (near-black, cool) ---- */
-  --ink-950: #0d0c13;
-  --ink-900: #131119;
-  --ink-800: #17151f;
-  --ink-700: #201d2c;
-  --ink-600: #2a2739;
-  --ink-500: #363248;
+  /* ---- Ink / surfaces (blue-black, city-at-night) ---- */
+  --ink-950: #04060e;
+  --ink-900: #070b16;
+  --ink-800: #0a1020;
+  --ink-700: #0f172c;
+  --ink-600: #16203a;
+  --ink-500: #1e2c4c;
 
   /* ---- Neutrals / text ---- */
-  --white: #f4f3f8;
-  --gray-100: #e6e4ee;
-  --gray-300: #9d99ad;
-  --gray-500: #6c687c;
-  --gray-700: #4a4658;
+  --white: #e8f6ff;
+  --gray-100: #cfe3f5;
+  --gray-300: #8ea6c4;
+  --gray-500: #5d78a0;
+  --gray-700: #3d5170;
 
   /* ---- Semantic + macro accents ---- */
-  --green-500: #7ee0b8;
-  --amber-500: #f5c26b;
-  --red-500: #f19bb9;
-  --blue-500: #63b3f6;
-  --teal-500: #4fd1c5;
+  --green-500: #2bff9b;
+  --amber-500: #ffc63d;
+  --red-500: #ff5c8a;
+  --blue-500: #12d8ff;
+  --teal-500: #7cf9e5;
   --macro-protein: var(--green-500);
   --macro-carb: var(--amber-500);
-  --macro-fat: var(--red-500);
+  --macro-fat: var(--magenta-500);
   --macro-water: var(--blue-500);
   --macro-fiber: var(--teal-500);
 
   /* ---- Semantic aliases ---- */
   --bg-app: var(--ink-950);
-  --surface-card: var(--ink-800);
+  --surface-card: rgba(10, 16, 32, 0.86);
   --surface-raised: var(--ink-700);
-  --surface-input: var(--ink-700);
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.1);
+  --surface-input: rgba(4, 6, 14, 0.8);
+  --border-subtle: rgba(18, 216, 255, 0.16);
+  --border-strong: rgba(18, 216, 255, 0.36);
   --text-primary: var(--white);
   --text-secondary: var(--gray-300);
   --text-muted: var(--gray-500);
-  --text-on-accent: #0d0c13;
+  --text-on-accent: #02040a;
   --accent: var(--purple-600);
   --accent-strong: var(--purple-700);
-  --accent-soft: rgba(139, 118, 249, 0.16);
-  --focus-ring: rgba(139, 118, 249, 0.45);
+  --accent-soft: rgba(18, 216, 255, 0.14);
+  --focus-ring: rgba(18, 216, 255, 0.55);
   --success: var(--green-500);
   --warning: var(--amber-500);
-  --danger: #ef6a86;
+  --danger: #ff3b6b;
   --info: var(--blue-500);
 
   /* ---- Gradients, glass, mesh ---- */
-  --gradient-brand: linear-gradient(160deg, #a893ff 0%, #8b76f9 55%, #7c5cfc 100%);
-  --gradient-brand-soft: linear-gradient(160deg, rgba(139, 118, 249, 0.2), rgba(124, 92, 252, 0.06));
-  --gradient-arc: linear-gradient(120deg, #c9bcff, #a893ff 55%, #7c5cfc);
-  --gradient-text: linear-gradient(120deg, #f4f3f8 0%, #cabbff 100%);
-  --surface-glass: rgba(23, 21, 31, 0.66);
-  --surface-glass-strong: rgba(32, 29, 44, 0.8);
-  --border-glass: rgba(255, 255, 255, 0.08);
-  --hairline-top: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
-  --mesh-app: radial-gradient(120% 60% at 50% -10%, rgba(139, 118, 249, 0.14), transparent 60%),
-    radial-gradient(90% 50% at 100% 108%, rgba(124, 92, 252, 0.08), transparent 62%);
+  --gradient-brand: linear-gradient(135deg, #12d8ff 0%, #6b7bff 52%, #ff2bd6 100%);
+  --gradient-brand-soft: linear-gradient(135deg, rgba(18, 216, 255, 0.22), rgba(255, 43, 214, 0.08));
+  --gradient-arc: linear-gradient(120deg, #a6f4ff, #12d8ff 50%, #ff2bd6);
+  --gradient-text: linear-gradient(120deg, #e8f6ff 0%, #12d8ff 60%, #ff8ae6 100%);
+  --surface-glass: rgba(7, 11, 22, 0.7);
+  --surface-glass-strong: rgba(7, 11, 22, 0.88);
+  --border-glass: rgba(18, 216, 255, 0.22);
+  --hairline-top: linear-gradient(180deg, rgba(18, 216, 255, 0.35), rgba(18, 216, 255, 0));
+  /* Two distant neon sources — cyan overhead, magenta from below — over the city grid drawn in
+     App.css. Kept low-alpha so text contrast never depends on where a card sits on screen. */
+  --mesh-app: radial-gradient(120% 60% at 50% -10%, rgba(18, 216, 255, 0.16), transparent 62%),
+    radial-gradient(90% 55% at 100% 108%, rgba(255, 43, 214, 0.14), transparent 64%);
+  /* The faint perspective grid and the scanline veil, both used by .app's effect layers. */
+  --grid-line: rgba(18, 216, 255, 0.07);
+  --scanline: rgba(4, 6, 14, 0.55);
 
   /* ---- Typography ---- */
   --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -140,10 +149,16 @@
   --radius-2xl: 32px;
   --radius-pill: 999px;
   --tabbar-height: 64px;
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 32px -8px rgba(0, 0, 0, 0.55);
-  --shadow-raised: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 24px 60px -16px rgba(0, 0, 0, 0.65);
-  --glow-accent: 0 8px 24px -4px rgba(134, 59, 255, 0.55);
-  --glow-accent-lg: 0 14px 44px -8px rgba(134, 59, 255, 0.6);
+  /* Every surface reads as backlit: a hairline of neon inside the top edge, the panel's own
+     cyan bleed, and a deep black drop so cards still detach from the grid behind them. */
+  --shadow-card: 0 1px 0 rgba(18, 216, 255, 0.14) inset, 0 0 0 1px rgba(18, 216, 255, 0.05),
+    0 12px 34px -10px rgba(0, 0, 0, 0.85), 0 0 22px -12px rgba(18, 216, 255, 0.55);
+  --shadow-raised: 0 1px 0 rgba(18, 216, 255, 0.2) inset, 0 24px 60px -16px rgba(0, 0, 0, 0.9),
+    0 0 34px -12px rgba(18, 216, 255, 0.5);
+  --glow-accent: 0 0 16px -2px rgba(18, 216, 255, 0.6), 0 8px 26px -8px rgba(255, 43, 214, 0.45);
+  --glow-accent-lg: 0 0 28px -2px rgba(18, 216, 255, 0.65), 0 14px 44px -10px rgba(255, 43, 214, 0.5);
+  --glow-text: 0 0 12px rgba(18, 216, 255, 0.55);
+  --glow-magenta: 0 0 18px -2px rgba(255, 43, 214, 0.6);
   --ease-standard: cubic-bezier(0.22, 0.61, 0.36, 1);
   --dur-fast: 140ms;
   --dur-base: 220ms;
@@ -158,7 +173,7 @@
   --dim: var(--text-secondary);
   --acc: var(--accent);
   --soft: var(--accent-soft);
-  --soft-border: rgba(139, 118, 249, 0.3);
+  --soft-border: rgba(18, 216, 255, 0.35);
   --warn: var(--warning);
   --ok-green: var(--success);
   --info-blue: var(--info);
@@ -238,14 +253,17 @@ h1 {
   font-family: var(--font-display);
   font-size: 26px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  text-shadow: var(--glow-text);
 }
 
 h2 {
+  font-family: var(--font-display);
   font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--dim);
+  letter-spacing: 0.16em;
+  color: var(--accent);
   font-weight: 600;
   margin: 0 0 9px;
   /* padding, not margin — margin-top here can collapse through a nested wrapper div (e.g.
@@ -261,20 +279,34 @@ p {
 input,
 select,
 textarea {
-  background: #101015;
-  border: 1px solid var(--line);
+  background: var(--surface-input);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
   color: var(--txt);
   padding: 8px 10px;
   font: inherit;
   font-size: 14px;
+  transition: border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard);
 }
 
 input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--acc);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 14px -2px var(--focus-ring);
+}
+
+::selection {
+  background: rgba(255, 43, 214, 0.35);
+  color: var(--white);
+}
+
+/* Keyboard focus stays visible against all the glow — the app is touch-first, but this is the
+   one affordance a neon restyle can quietly erase. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 input[type='radio'] {

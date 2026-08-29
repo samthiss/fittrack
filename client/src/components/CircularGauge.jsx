@@ -10,9 +10,9 @@ export default function CircularGauge({ value, max, label, size = 190 }) {
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="gauge">
       <defs>
         <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#c9bcff" />
-          <stop offset="55%" stopColor="#a893ff" />
-          <stop offset="100%" stopColor="#7c5cfc" />
+          <stop offset="0%" stopColor="#a6f4ff" />
+          <stop offset="55%" stopColor="#12d8ff" />
+          <stop offset="100%" stopColor="#ff2bd6" />
         </linearGradient>
       </defs>
       <circle
@@ -36,7 +36,7 @@ export default function CircularGauge({ value, max, label, size = 190 }) {
         transform={`rotate(-90 ${center} ${center})`}
         style={{
           transition: 'stroke-dashoffset 700ms var(--ease-standard, ease)',
-          filter: 'drop-shadow(0 0 8px rgba(139,118,249,0.5))',
+          filter: 'drop-shadow(0 0 8px rgba(18,216,255,0.6))',
         }}
       />
       <text x={center} y={center - 6} textAnchor="middle" className="gauge-value">

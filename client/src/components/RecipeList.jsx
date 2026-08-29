@@ -338,7 +338,7 @@ export default function RecipeList({
                   setScreen('category');
                 }}
               >
-                <div className="recipe-category-thumb" style={{ background: 'linear-gradient(150deg, rgba(245,194,107,0.28), rgba(139,118,249,0.14))' }}>
+                <div className="recipe-category-thumb" style={{ background: 'linear-gradient(150deg, rgba(255,198,61,0.26), rgba(18,216,255,0.16))' }}>
                   <Icon name={g.icon} size={26} color="var(--acc)" />
                 </div>
                 <div className="recipe-category-body">

@@ -248,7 +248,7 @@
   position: relative;
   height: 150px;
   border-radius: 22px;
-  background: linear-gradient(150deg, rgba(139, 118, 249, 0.34), rgba(241, 155, 185, 0.16), rgba(99, 179, 246, 0.2));
+  background: linear-gradient(150deg, rgba(18, 216, 255, 0.34), rgba(255, 43, 214, 0.18), rgba(107, 123, 255, 0.22));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -699,7 +699,7 @@ button.exercise-last-time span {
 .muscle-volume-bar-fill {
   width: 100%;
   border-radius: 4px 4px 2px 2px;
-  background: linear-gradient(180deg, #a893ff, #7c5cfc);
+  background: linear-gradient(180deg, #12d8ff, #ff2bd6);
   min-height: 2px;
 }
 
@@ -1115,7 +1115,7 @@ button.exercise-last-time span {
   right: -10%;
   width: 200px;
   height: 200px;
-  background: radial-gradient(circle, rgba(139, 118, 249, 0.18), transparent 62%);
+  background: radial-gradient(circle, rgba(18, 216, 255, 0.18), transparent 62%);
   pointer-events: none;
 }
 
@@ -2000,7 +2000,7 @@ textarea.wide {
   transform: translateX(-50%);
   width: 300px;
   height: 300px;
-  background: radial-gradient(circle, rgba(139, 118, 249, 0.22), transparent 62%);
+  background: radial-gradient(circle, rgba(18, 216, 255, 0.22), transparent 62%);
   pointer-events: none;
 }
 
@@ -2486,7 +2486,7 @@ textarea.wide {
   right: -10%;
   width: 200px;
   height: 200px;
-  background: radial-gradient(circle, rgba(139, 118, 249, 0.18), transparent 62%);
+  background: radial-gradient(circle, rgba(18, 216, 255, 0.18), transparent 62%);
   pointer-events: none;
 }
 
@@ -3642,7 +3642,7 @@ textarea.wide {
   position: relative;
   height: 180px;
   border-radius: 22px;
-  background: linear-gradient(150deg, rgba(126, 224, 184, 0.32), rgba(99, 179, 246, 0.18), rgba(139, 118, 249, 0.22));
+  background: linear-gradient(150deg, rgba(43, 255, 155, 0.3), rgba(18, 216, 255, 0.2), rgba(255, 43, 214, 0.2));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3958,7 +3958,7 @@ textarea.wide {
   height: 36px;
   flex: none;
   border-radius: 11px;
-  background: var(--accent-soft, rgba(139,118,249,0.14));
+  background: var(--accent-soft, rgba(18,216,255,0.14));
   color: var(--acc);
   display: flex;
   align-items: center;
@@ -4783,4 +4783,262 @@ textarea.wide {
 
 .supplement-form-actions .btn {
   flex: 1;
+}
+
+/* ==========================================================================
+   Cyberpunk layer
+   --------------------------------------------------------------------------
+   Everything above is written against the design tokens in index.css, so the
+   palette swap alone does most of the work. What's left here is the parts a
+   palette can't express: the lit backdrop, neon edges on surfaces, and the
+   glow/flicker that makes the UI read as emissive rather than printed.
+
+   Rules of the layer: it never moves layout (only paints), it never lowers
+   text contrast, and every animation is dropped under prefers-reduced-motion.
+   ========================================================================== */
+
+/* The city behind the glass: two distant neon sources, a perspective grid, and
+   a scanline veil. Painted on ::before/::after of .app so no component markup
+   changes and nothing intercepts taps (pointer-events: none). */
+.app {
+  position: relative;
+  background: var(--bg-app);
+  isolation: isolate;
+}
+
+.app::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    var(--mesh-app),
+    repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 44px),
+    repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 44px);
+  /* The grid fades out toward the middle of the screen so it stays a backdrop
+     and never fights the content sitting on top of it. */
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.25) 45%, #000 100%);
+  mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.25) 45%, #000 100%);
+}
+
+/* CRT veil, drawn OVER the content (never intercepting taps) but kept faint enough that body
+   text loses no contrast. Modals and pickers sit at z-index 50+, so they stay above it. */
+.app::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0.14;
+  background: repeating-linear-gradient(180deg, transparent 0 2px, var(--scanline) 2px 3px);
+  animation: cp-scan 8s linear infinite;
+}
+
+@keyframes cp-scan {
+  from {
+    background-position-y: 0;
+  }
+  to {
+    background-position-y: 24px;
+  }
+}
+
+/* --- Surfaces --- */
+
+/* A card is a lit panel: neon hairline along the top edge, cyan rim, black drop. */
+.card,
+.entry-card,
+.meal-card,
+.report-card,
+.tile,
+.activites-row {
+  position: relative;
+  border-color: var(--border-subtle);
+  background-image: var(--hairline-top);
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+}
+
+.card:hover,
+.meal-card:hover,
+.entry-card:hover {
+  border-color: var(--border-strong);
+}
+
+/* The hero cards get the full treatment — magenta counter-glow along the bottom. */
+.resume-card,
+.meal-summary-card,
+.activites-burn-card,
+.weight-report-hero,
+.supplement-progress-card {
+  box-shadow: var(--shadow-raised);
+}
+
+.resume-card::after,
+.meal-summary-card::after,
+.activites-burn-card::after,
+.weight-report-hero::after {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: -1px;
+  height: 1px;
+  background: var(--gradient-arc);
+  opacity: 0.75;
+  filter: blur(0.4px);
+  pointer-events: none;
+}
+
+/* --- Type --- */
+
+.section-header .section-title,
+.section-label,
+.meal-detail-eyebrow,
+.tdee-total-label,
+.report-stat-tile-label {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.meal-detail-title,
+.meal-title,
+.activites-header h1 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-shadow: var(--glow-text);
+}
+
+/* Big readouts are the screens of this UI — they glow like one. */
+.tdee-total-value,
+.gauge-value,
+.activites-burn-value,
+.weight-report-hero-value,
+.meal-summary-total-value,
+.weight-value {
+  font-family: var(--font-display);
+  color: var(--text-primary);
+  text-shadow: var(--glow-text);
+}
+
+/* --- Controls --- */
+
+.btn:active,
+.meal-add-cta:active,
+.round-add-btn:active {
+  transform: translateY(1px);
+}
+
+.btn:hover,
+.filter-pill.active,
+.type-pill.active,
+.rep-choice-pill.active {
+  box-shadow: var(--glow-accent);
+}
+
+.filter-pill,
+.type-pill,
+.import-tab,
+.view-picker-btn,
+.tool-tile {
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+}
+
+.filter-pill:not(.active):hover,
+.type-pill:not(.active):hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.round-add-btn,
+.meal-add-btn,
+.result-add-btn,
+.weight-plus-btn {
+  box-shadow: var(--glow-accent);
+}
+
+/* Progress fills are light bars, not paint: the colour is set inline per macro,
+   so only the bleed is added here. */
+.progress-fill,
+.report-row-bar-fill,
+.muscle-volume-bar-fill {
+  box-shadow: 0 0 10px -2px rgba(232, 246, 255, 0.5);
+}
+
+.progress-track,
+.report-row-bar {
+  background: rgba(18, 216, 255, 0.09);
+}
+
+/* --- Bottom tab bar --- */
+
+.bottom-tabs {
+  border-top: 1px solid var(--border-strong);
+  box-shadow: 0 -1px 0 rgba(18, 216, 255, 0.25), 0 -18px 40px -24px rgba(18, 216, 255, 0.7);
+}
+
+.bottom-tab-label {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.bottom-tab.active {
+  text-shadow: var(--glow-text);
+}
+
+/* The lit marker under the selected tab. */
+.bottom-tab.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 34px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--gradient-arc);
+  box-shadow: var(--glow-accent);
+}
+
+.bottom-tab {
+  position: relative;
+}
+
+/* --- Live session --- */
+
+/* A running session is the one thing on screen that should never be missed. */
+.session-banner {
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--glow-accent);
+}
+
+.session-banner-dot,
+.activity-session-live i {
+  box-shadow: 0 0 10px 2px currentColor;
+  animation: cp-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes cp-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* --- Motion opt-out --- */
+
+@media (prefers-reduced-motion: reduce) {
+  .app::after,
+  .session-banner-dot,
+  .activity-session-live i {
+    animation: none;
+  }
 }

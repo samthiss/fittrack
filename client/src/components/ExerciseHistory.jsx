@@ -64,13 +64,13 @@ function ProgressionChart({ points, metric, lang }) {
       >
         <defs>
           <linearGradient id="strengthGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(139,118,249,0.35)" />
-            <stop offset="100%" stopColor="rgba(139,118,249,0)" />
+            <stop offset="0%" stopColor="rgba(18,216,255,0.38)" />
+            <stop offset="100%" stopColor="rgba(18,216,255,0)" />
           </linearGradient>
           <linearGradient id="strengthLine" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#c9bcff" />
-            <stop offset="55%" stopColor="#a893ff" />
-            <stop offset="100%" stopColor="#7c5cfc" />
+            <stop offset="0%" stopColor="#a6f4ff" />
+            <stop offset="55%" stopColor="#12d8ff" />
+            <stop offset="100%" stopColor="#ff2bd6" />
           </linearGradient>
         </defs>
         <path d={area} fill="url(#strengthGrad)" />
@@ -82,7 +82,7 @@ function ProgressionChart({ points, metric, lang }) {
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        <circle cx={last[0]} cy={last[1]} r="4.5" fill="var(--purple-500, #7c5cfc)" />
+        <circle cx={last[0]} cy={last[1]} r="4.5" fill="var(--purple-500, #3ee6ff)" />
       </svg>
       <div className="strength-chart-scale">
         <span>{formatDate(points[0].date, lang)}</span>
