@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { localNow, slotDueAt, supplementsForSlot, buildReminderMessage, isValidTime } from './reminders.js';
+import {
+  localNow,
+  slotDueAt,
+  supplementsForSlot,
+  buildReminderMessage,
+  isValidTime,
+  isRepeatDue,
+  REPEAT_MAX_ATTEMPTS,
+} from './reminders.js';
 
 test('localNow reads the wall clock where the user is, not on the server', () => {
   // 06:30 UTC in winter is 07:30 in Paris.
@@ -68,4 +76,27 @@ test('the message names what is missing, and stays short when the list is long',
   assert.equal(message.body, 'Pas encore pris : Magnésium, Vitamine D, Zinc');
   const many = ['A', 'B', 'C', 'D', 'E'].map((name) => ({ name, dueToday: true, taken: false, time_of_day: [] }));
   assert.equal(buildReminderMessage(many, 'morning').body, 'Pas encore pris : A, B, C +2');
+});
+
+const minutesAgo = (now, minutes) =>
+  new Date(now.getTime() - minutes * 60000).toISOString().slice(0, 19).replace('T', ' ');
+
+test('a repeat waits for its interval', () => {
+  const now = new Date('2026-08-30T20:00:00Z');
+  assert.equal(isRepeatDue({ attempts: 1, last_sent_at: minutesAgo(now, 14) }, now), false);
+  assert.equal(isRepeatDue({ attempts: 1, last_sent_at: minutesAgo(now, 15) }, now), true);
+});
+
+test('repeats stop at the cap instead of nagging all night', () => {
+  const now = new Date('2026-08-30T23:00:00Z');
+  const longAgo = minutesAgo(now, 60);
+  assert.equal(isRepeatDue({ attempts: REPEAT_MAX_ATTEMPTS - 1, last_sent_at: longAgo }, now), true);
+  assert.equal(isRepeatDue({ attempts: REPEAT_MAX_ATTEMPTS, last_sent_at: longAgo }, now), false);
+});
+
+test('a run that never went out, or has a bogus timestamp, is not repeated', () => {
+  const now = new Date('2026-08-30T20:00:00Z');
+  assert.equal(isRepeatDue({ attempts: 1, last_sent_at: null }, now), false);
+  assert.equal(isRepeatDue({ attempts: 1, last_sent_at: 'pas une date' }, now), false);
+  assert.equal(isRepeatDue(null, now), false);
 });

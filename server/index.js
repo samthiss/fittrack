@@ -18,7 +18,14 @@ import { classifyFoodsBatch, classifyFood, classifyIngredientsBatch } from './mi
 import { computeTdee, BMR_METHODS } from './tdee.js';
 import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
 import webpush from 'web-push';
-import { localNow, slotDueAt, supplementsForSlot, buildReminderMessage, isValidTime } from './reminders.js';
+import {
+  localNow,
+  slotDueAt,
+  supplementsForSlot,
+  buildReminderMessage,
+  isValidTime,
+  isRepeatDue,
+} from './reminders.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // DATA_DIR points at a mounted persistent volume in production (e.g. Railway) so uploaded
@@ -452,7 +459,7 @@ const REP_RANGE_KEYS = ['5-9', '8-12', '10-15', '15-20', 'Max'];
 const MAX_REST_SECONDS = 600;
 
 app.put('/api/profile', (req, res) => {
-  const { bmr, bmr_method, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks, default_water_ml, water_goal_ml, rest_by_reps, reminder_morning_at, reminder_evening_at, reminder_timezone } = req.body;
+  const { bmr, bmr_method, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks, default_water_ml, water_goal_ml, rest_by_reps, reminder_morning_at, reminder_evening_at, reminder_timezone, reminder_repeat } = req.body;
 
   if (goal !== undefined && !GOALS.includes(goal)) {
     return res.status(400).json({ error: 'goal invalide' });
@@ -532,6 +539,7 @@ app.put('/api/profile', (req, res) => {
     reminder_evening_at:
       reminder_evening_at !== undefined ? (isValidTime(reminder_evening_at) ? reminder_evening_at : null) : current.reminder_evening_at,
     reminder_timezone: reminder_timezone !== undefined ? reminder_timezone : current.reminder_timezone,
+    reminder_repeat: reminder_repeat !== undefined ? (reminder_repeat ? 1 : 0) : current.reminder_repeat,
     rest_by_reps: rest_by_reps !== undefined ? (rest_by_reps === null ? null : JSON.stringify(rest_by_reps)) : current.rest_by_reps,
   };
 
@@ -539,7 +547,7 @@ app.put('/api/profile', (req, res) => {
     `UPDATE profile SET bmr = ?, bmr_method = ?, daily_movement_kcal = ?, digestion_kcal = ?, weight_kg = ?, goal = ?, goal_kcal = ?,
      sex = ?, birthdate = ?, height_cm = ?, body_fat_pct = ?, manual_target_kcal = ?, target_weight_kg = ?, steps_per_day = ?,
      protein_pct = ?, carbs_pct = ?, meal_shares = ?, extra_snacks = ?, default_water_ml = ?, water_goal_ml = ?,
-     reminder_morning_at = ?, reminder_evening_at = ?, reminder_timezone = ?,
+     reminder_morning_at = ?, reminder_evening_at = ?, reminder_timezone = ?, reminder_repeat = ?,
      rest_by_reps = ?
      WHERE user_id = ?`
   ).run(
@@ -566,6 +574,7 @@ app.put('/api/profile', (req, res) => {
     next.reminder_morning_at,
     next.reminder_evening_at,
     next.reminder_timezone,
+    next.reminder_repeat,
     next.rest_by_reps,
     req.userId
   );
@@ -4044,20 +4053,49 @@ async function runReminderTick(now = new Date()) {
     const profile = db.prepare('SELECT * FROM profile WHERE user_id = ?').get(userId);
     if (!profile) continue;
     const { date, time } = localNow(now, profile.reminder_timezone);
+    sent += await runRepeatTick(userId, profile, date, now);
     const slot = slotDueAt(profile, time);
     if (!slot) continue;
     // Claim the slot before sending: two ticks in the same minute, or a redeploy mid-minute,
     // must not produce two notifications.
+    // Claimed with nothing sent yet (attempts 0, no last send): the column defaults differ
+    // between a fresh database and a migrated one, so the values are spelled out here instead.
     const claim = db
-      .prepare('INSERT OR IGNORE INTO reminder_runs (user_id, date, slot) VALUES (?, ?, ?)')
+      .prepare('INSERT OR IGNORE INTO reminder_runs (user_id, date, slot, attempts, last_sent_at) VALUES (?, ?, ?, 0, NULL)')
       .run(userId, date, slot);
     if (claim.changes === 0) continue;
-    const { supplements } = supplementsForDate(userId, date);
-    const message = buildReminderMessage(supplementsForSlot(supplements, slot), slot);
-    if (!message) continue;
-    const result = await sendPushToUser(userId, message);
-    sent += result.sent;
+    sent += await sendReminder(userId, date, slot);
   }
+  return sent;
+}
+
+// One reminder out the door, and the bookkeeping the repeats read. Returns how many devices it
+// reached (0 when there was nothing left to take — that is not a failure, it's the point).
+async function sendReminder(userId, date, slot) {
+  const { supplements } = supplementsForDate(userId, date);
+  const message = buildReminderMessage(supplementsForSlot(supplements, slot), slot);
+  if (!message) return 0;
+  const result = await sendPushToUser(userId, message);
+  // attempts counts notifications actually sent, first one included — that is what the cap in
+  // isRepeatDue() is measured against.
+  db.prepare(
+    `UPDATE reminder_runs SET attempts = attempts + 1, last_sent_at = datetime('now')
+     WHERE user_id = ? AND date = ? AND slot = ?`
+  ).run(userId, date, slot);
+  return result.sent;
+}
+
+// The "remind me again until I've ticked it" option: every quarter of an hour, for as long as
+// something is still outstanding and the cap allows. A reminder whose supplements have all been
+// ticked simply produces no message, so ticking is what stops it — no separate cancellation.
+async function runRepeatTick(userId, profile, date, now) {
+  if (!profile.reminder_repeat) return 0;
+  const runs = db
+    .prepare('SELECT * FROM reminder_runs WHERE user_id = ? AND date = ?')
+    .all(userId, date)
+    .filter((run) => isRepeatDue(run, now));
+  let sent = 0;
+  for (const run of runs) sent += await sendReminder(userId, date, run.slot);
   return sent;
 }
 

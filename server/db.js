@@ -263,6 +263,10 @@ db.exec(`
     date TEXT NOT NULL,
     slot TEXT NOT NULL,
     sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+    -- How many times this reminder has gone out today, and when it last did: the repeat option
+    -- re-sends every quarter of an hour from here until the supplements are ticked (or the cap).
+    attempts INTEGER NOT NULL DEFAULT 1,
+    last_sent_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, date, slot)
   );
 
@@ -746,6 +750,12 @@ if (!profileCols2.includes('water_goal_ml')) {
 if (!profileCols2.includes('rest_by_reps')) {
   db.exec(`ALTER TABLE profile ADD COLUMN rest_by_reps TEXT`);
 }
+addColumnIfMissing('reminder_runs', 'attempts', 'attempts INTEGER NOT NULL DEFAULT 1');
+// Nullable on the migration path on purpose: SQLite refuses ALTER TABLE ADD COLUMN with a
+// non-constant default like datetime('now'), and a row that predates repeats has no last send to
+// speak of — isRepeatDue() treats a NULL here as "never repeat", which is the right answer.
+addColumnIfMissing('reminder_runs', 'last_sent_at', 'last_sent_at TEXT');
+
 // Supplement reminders: "HH:MM" in the user's own timezone, NULL meaning that slot is off. The
 // timezone is stored alongside because the scheduler runs on a server in UTC and has to fire at
 // 08:00 where the user is, not where the container is.
@@ -757,6 +767,10 @@ if (!profileCols2.includes('reminder_evening_at')) {
 }
 if (!profileCols2.includes('reminder_timezone')) {
   db.exec(`ALTER TABLE profile ADD COLUMN reminder_timezone TEXT`);
+}
+// 1 = keep reminding every 15 minutes until the supplements are ticked (capped — see reminders.js).
+if (!profileCols2.includes('reminder_repeat')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN reminder_repeat INTEGER`);
 }
 
 // The two TDEE inputs that move over time and so need a snapshot per save, alongside the bmr /

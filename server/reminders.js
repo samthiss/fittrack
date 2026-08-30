@@ -3,6 +3,12 @@
 
 const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
+// Repeats nag every quarter of an hour until the supplement is ticked — but they stop after two
+// hours. "Until you tick it" taken literally means a phone buzzing all night over a supplement
+// its owner has decided to skip, which trains people to turn notifications off entirely.
+export const REPEAT_INTERVAL_MINUTES = 15;
+export const REPEAT_MAX_ATTEMPTS = 8;
+
 export function isValidTime(value) {
   return typeof value === 'string' && HHMM.test(value);
 }
@@ -70,4 +76,17 @@ export function buildReminderMessage(supplements, slot) {
     tag: `supplements-${slot}`,
     url: '/?view=supplements',
   };
+}
+
+/**
+ * Whether a reminder already sent should be sent again now: the interval has elapsed and the cap
+ * hasn't been reached. Whether anything is actually left to take is decided by the caller, from
+ * the day's supplements — a repeat with nothing outstanding must never go out.
+ */
+export function isRepeatDue(run, now) {
+  if (!run?.last_sent_at) return false;
+  if ((run.attempts || 1) >= REPEAT_MAX_ATTEMPTS) return false;
+  const last = new Date(`${run.last_sent_at.replace(' ', 'T')}Z`).getTime();
+  if (Number.isNaN(last)) return false;
+  return now.getTime() - last >= REPEAT_INTERVAL_MINUTES * 60000;
 }

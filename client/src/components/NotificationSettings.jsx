@@ -20,6 +20,7 @@ export default function NotificationSettings({ profile, onSaveProfile }) {
   const [evening, setEvening] = useState(profile?.reminder_evening_at || '20:00');
   const [morningOn, setMorningOn] = useState(Boolean(profile?.reminder_morning_at));
   const [eveningOn, setEveningOn] = useState(Boolean(profile?.reminder_evening_at));
+  const [repeat, setRepeat] = useState(Boolean(profile?.reminder_repeat));
 
   const supported = pushSupported();
   // Safari on iOS exposes the APIs but refuses to subscribe; only the installed app can.
@@ -164,6 +165,23 @@ export default function NotificationSettings({ profile, onSaveProfile }) {
                 />
               </div>
             </div>
+            <div className="row">
+              <span className="row-icon-box weight-icon-box">
+                <Icon name="repeat" size={20} />
+              </span>
+              <label className="name" htmlFor="reminder-repeat">
+                {t('push.repeat')}
+                <div className="hint" style={{ padding: 0 }}>{t('push.repeatHint')}</div>
+              </label>
+              <div className="field">
+                <input
+                  id="reminder-repeat"
+                  type="checkbox"
+                  checked={repeat}
+                  onChange={(e) => setRepeat(e.target.checked)}
+                />
+              </div>
+            </div>
           </div>
 
           <button
@@ -180,6 +198,7 @@ export default function NotificationSettings({ profile, onSaveProfile }) {
                     // Sent with every save: the server schedules in the user's own wall clock,
                     // and this is the only place that knows what it is.
                     reminder_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    reminder_repeat: repeat,
                   }),
                 t('push.scheduleSaved')
               )
