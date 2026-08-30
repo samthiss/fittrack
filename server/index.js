@@ -1614,13 +1614,15 @@ app.get('/api/rich-foods/:key', (req, res) => {
   const unit = MICRO_REFERENCE[key]?.unit || 'g';
   const seen = new Set();
   const items = [];
-  const pushItem = (name, value) => {
+  // `custom` marks a food from the user's own library rather than the built-in reference table —
+  // worth calling out in the list, since those are the ones already at hand.
+  const pushItem = (name, value, custom) => {
     if (!name || value <= 0 || seen.has(name)) return;
     seen.add(name);
-    items.push({ name, value, unit });
+    items.push({ name, value, unit, custom });
   };
-  for (const f of userFoods) pushItem(f.name, f[col] || 0);
-  for (const f of COMMON_FOODS[key] || []) pushItem(f.name, f[key] || 0);
+  for (const f of userFoods) pushItem(f.name, f[col] || 0, true);
+  for (const f of COMMON_FOODS[key] || []) pushItem(f.name, f[key] || 0, false);
   items.sort((a, b) => b.value - a.value);
   res.json({ key, label: MICRO_REFERENCE[key]?.label || key, unit, foods: items.slice(0, 40) });
 });

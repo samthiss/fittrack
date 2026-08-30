@@ -593,6 +593,11 @@ export const translations = {
     // Rich foods page
     'richFoods.hint': 'Classés du plus dense au moins dense pour 100 g.',
     'richFoods.link': 'Aliments riches',
+    'richFoods.foods': 'aliments',
+    'richFoods.search': 'Filtrer les aliments…',
+    'richFoods.yours': 'à toi',
+    'richFoods.hide': 'Masquer cet aliment',
+    'richFoods.restore': 'Réafficher les {count} aliments masqués',
 
     // Meal planner
     'planner.searchPlaceholder': 'Rechercher une recette ou un aliment...',
@@ -1443,6 +1448,11 @@ export const translations = {
     // Rich foods page
     'richFoods.hint': 'Ranked by nutrient density per 100 g, from highest to lowest.',
     'richFoods.link': 'Rich foods',
+    'richFoods.foods': 'foods',
+    'richFoods.search': 'Filter foods…',
+    'richFoods.yours': 'yours',
+    'richFoods.hide': 'Hide this food',
+    'richFoods.restore': 'Show the {count} hidden foods again',
 
     // Meal planner
     'planner.searchPlaceholder': 'Search a recipe or a food...',
