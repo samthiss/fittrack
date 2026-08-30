@@ -4,7 +4,7 @@ import CircularGauge from './CircularGauge';
 import Icon from './Icon';
 import GlitchNumber from './GlitchNumber';
 import { useLanguage } from '../i18n/LanguageContext';
-import { todayStr, shiftDateStr } from '../data/dates';
+import { todayStr, formatDateLabel, formatDateSubtitle } from '../data/dates';
 
 // The 4 fixed meals have a translated mealName.* key; any extra "en-cas" slot (key starting with
 // "snack_") only has the free-text label the user gave it in Réglages > Repas du jour.
@@ -37,36 +37,6 @@ const MEAL_ICONS = {
   dinner: 'moon',
 };
 
-function formatDateSubtitle(dateStr, lang) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  const formatted = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'long',
-    timeZone: 'UTC',
-  }).format(d);
-  return formatted;
-}
-
-function formatDateLabel(dateStr, t) {
-  const WEEKDAY_LABELS = [
-    t('home.weekdaySun'),
-    t('home.weekdayMon'),
-    t('home.weekdayTue'),
-    t('home.weekdayWed'),
-    t('home.weekdayThu'),
-    t('home.weekdayFri'),
-    t('home.weekdaySat'),
-  ];
-  const today = todayStr();
-  if (dateStr === today) return t('home.today');
-  if (dateStr === shiftDateStr(today, -1)) return t('home.yesterday');
-  if (dateStr === shiftDateStr(today, 1)) return t('home.tomorrow');
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  const weekday = WEEKDAY_LABELS[d.getUTCDay()];
-  return `${weekday} ${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
-}
-
 const WATER_PRESETS_ML = [250, 500, 700, 1000];
 
 export default function HomeDashboard({
@@ -89,6 +59,7 @@ export default function HomeDashboard({
   onToggleSupplement,
 }) {
   const { t, lang } = useLanguage();
+  const [supplementError, setSupplementError] = useState('');
   const [latestWeight, setLatestWeight] = useState(null);
   const [weightSaving, setWeightSaving] = useState(false);
   // Sticks to whatever the user last picked for the rest of the session — only resets to the
@@ -380,20 +351,25 @@ export default function HomeDashboard({
                 <button
                   type="button"
                   key={s.id}
-                  className={s.taken ? 'supplement-home-chip taken' : 'supplement-home-chip'}
+                  className={`supplement-home-chip${s.taken ? ' taken' : ''}${
+                    !s.taken && s.takenCount > 0 ? ' partial' : ''
+                  }`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    // A failed tick shouldn't take the Journal down with it — the dedicated
-                    // Suppléments screen is where the error gets shown.
-                    Promise.resolve(onToggleSupplement(s.id, !s.taken)).catch(() => {});
+                    // A failed tick must not take the Journal down with it, but it must not
+                    // vanish either: swallowing it here is exactly what makes a tap look like a
+                    // dead button. The message lands under the card.
+                    Promise.resolve(onToggleSupplement(s.id, !s.taken)).catch((err) =>
+                      setSupplementError(err.message || String(err))
+                    );
                   }}
                 >
-                  <span
-                    className={`supplement-check small${s.taken ? ' done' : ''}${
-                      !s.taken && s.takenCount > 0 ? ' partial' : ''
-                    }`}
-                  >
-                    {s.taken && <Icon name="check" size={12} color="var(--text-on-accent)" />}
+                  <span className="supplement-tag-check">
+                    {s.taken ? (
+                      <Icon name="check" size={12} color="var(--text-on-accent)" />
+                    ) : (
+                      s.takenCount > 0 && <b>{s.takenCount}</b>
+                    )}
                   </span>
                   {s.name}
                   {s.times_per_day > 1 && (
@@ -407,6 +383,7 @@ export default function HomeDashboard({
           </>
         )}
       </div>
+      {supplementError && <p className="hint error">{supplementError}</p>}
 
       <div className="section-header">
         <span className="section-title">{t('home.weight')}</span>

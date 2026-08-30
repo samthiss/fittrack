@@ -1315,16 +1315,24 @@ function supplementsForDate(userId, date) {
     'SELECT COUNT(*) AS n FROM supplement_logs WHERE user_id = ? AND supplement_id = ? AND date BETWEEN ? AND ?'
   );
   const supplements = rows.map((row) => {
-    const [from, to] = supplementWindow(row.frequency, date);
+    // Rows written by earlier versions can carry a frequency that no longer exists ('days',
+    // 'as_needed') or a times_per_day of 0 — and a 0 makes `count < times_per_day` false forever,
+    // so ticking such a row would insert nothing and the checkbox would look dead. Normalise on
+    // read rather than trusting whatever is in the column.
+    const frequency = SUPPLEMENT_FREQUENCIES.includes(row.frequency) ? row.frequency : 'daily';
+    const times = Math.max(1, Number(row.times_per_day) || 1);
+    const [from, to] = supplementWindow(frequency, date);
     const takenCount = countInWindow.get(userId, row.id, from, to).n;
-    const taken = takenCount >= row.times_per_day;
+    const taken = takenCount >= times;
     return {
       ...row,
       archived: undefined,
+      frequency,
+      times_per_day: times,
       time_of_day: parseSupplementMoments(row.time_of_day),
       // A monthly one already taken this month has nothing left to ask of today.
-      dueToday: row.frequency === 'daily' || !taken,
-      takenCount: Math.min(takenCount, row.times_per_day),
+      dueToday: frequency === 'daily' || !taken,
+      takenCount: Math.min(takenCount, times),
       taken,
     };
   });
@@ -1381,12 +1389,14 @@ app.post('/api/supplements/:id/log', (req, res) => {
   const supplement = db.prepare('SELECT * FROM supplements WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   if (!supplement) return res.status(404).json({ error: 'Supplément introuvable' });
   const taken = req.body.taken !== false;
-  const [from, to] = supplementWindow(supplement.frequency, date);
+  const times = Math.max(1, Number(supplement.times_per_day) || 1);
+  const frequency = SUPPLEMENT_FREQUENCIES.includes(supplement.frequency) ? supplement.frequency : 'daily';
+  const [from, to] = supplementWindow(frequency, date);
   const count = db
     .prepare('SELECT COUNT(*) AS n FROM supplement_logs WHERE user_id = ? AND supplement_id = ? AND date BETWEEN ? AND ?')
     .get(req.userId, supplement.id, from, to).n;
   if (taken) {
-    if (count < supplement.times_per_day) {
+    if (count < times) {
       db.prepare('INSERT INTO supplement_logs (user_id, supplement_id, date) VALUES (?, ?, ?)').run(req.userId, supplement.id, date);
     }
   } else {

@@ -23,3 +23,35 @@ export function shiftDateStr(dateStr, deltaDays) {
   d.setUTCDate(d.getUTCDate() + deltaDays);
   return d.toISOString().slice(0, 10);
 }
+
+// "Aujourd'hui" / "Hier" / "sam. 30" — the short label a screen puts in its heading.
+export function formatDateLabel(dateStr, t) {
+  const WEEKDAY_LABELS = [
+    t('home.weekdaySun'),
+    t('home.weekdayMon'),
+    t('home.weekdayTue'),
+    t('home.weekdayWed'),
+    t('home.weekdayThu'),
+    t('home.weekdayFri'),
+    t('home.weekdaySat'),
+  ];
+  const today = todayStr();
+  if (dateStr === today) return t('home.today');
+  if (dateStr === shiftDateStr(today, -1)) return t('home.yesterday');
+  if (dateStr === shiftDateStr(today, 1)) return t('home.tomorrow');
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const weekday = WEEKDAY_LABELS[d.getUTCDay()];
+  return `${weekday} ${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
+}
+
+// "sam. 30 août" — the full date, spelled out. UTC throughout: the strings are UTC-anchored.
+export function formatDateSubtitle(dateStr, lang, opts = {}) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  return new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'fr-FR', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+    ...opts,
+  }).format(d);
+}

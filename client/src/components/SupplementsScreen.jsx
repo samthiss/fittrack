@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
+import { formatDateLabel, formatDateSubtitle } from '../data/dates';
 
 // The whole schedule vocabulary: how often, and (optionally) when in the day. Anything finer
 // would be a calendar, which is not what this section is for.
@@ -18,19 +19,25 @@ function presetKey(s) {
 }
 
 function intakeLabel(s, t) {
-  const preset = INTAKE_PRESETS.find((p) => p.key === presetKey(s));
-  return t(preset.labelKey);
+  return t(INTAKE_PRESETS.find((p) => p.key === presetKey(s)).labelKey);
 }
 
-// A supplement taken 1 of its 2 daily times is neither ticked nor untouched — the checkbox has to
-// say so, otherwise the first tap of the day looks like it did nothing.
-function checkClass(s, extra = '') {
-  const partial = !s.taken && s.takenCount > 0;
-  return `supplement-check${extra}${s.taken ? ' done' : ''}${partial ? ' partial' : ''}`;
+// Supplements are shown in bands by when they're taken. A supplement carrying both moments gets
+// its own band rather than appearing twice: one tick is one intake, so listing it in two places
+// would suggest two independent checkboxes that don't exist.
+function momentGroupKey(s) {
+  const moments = MOMENTS.filter((m) => (s.time_of_day || []).includes(m));
+  return moments.length > 0 ? moments.join('+') : '';
 }
 
-function momentsLabel(moments, t) {
-  return (moments || []).map((m) => t(`supplements.moment_${m}`)).join(' · ');
+const GROUP_ORDER = ['matin', 'matin+soir', 'soir', ''];
+
+function groupLabel(key, t) {
+  if (!key) return t('supplements.noMoment');
+  return key
+    .split('+')
+    .map((m) => t(`supplements.moment_${m}`))
+    .join(' · ');
 }
 
 function SupplementForm({ initial, onSubmit, onCancel, submitLabel }) {
@@ -109,16 +116,72 @@ function SupplementForm({ initial, onSubmit, onCancel, submitLabel }) {
   );
 }
 
+// One supplement = one tag. Tapping it logs an intake (or removes the last one); in manage mode
+// it opens the form instead, and a delete button appears on the tag itself.
+function SupplementTag({ supplement: s, manage, confirming, onTap, onDelete, t }) {
+  const partial = !s.taken && s.takenCount > 0;
+  const className = [
+    'supplement-tag',
+    s.taken ? 'taken' : '',
+    partial ? 'partial' : '',
+    manage ? 'manage' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <span className={className}>
+      <button type="button" className="supplement-tag-main" onClick={onTap}>
+        <span className="supplement-tag-check">
+          {s.taken ? (
+            <Icon name="check" size={12} color="var(--text-on-accent)" />
+          ) : (
+            partial && <b>{s.takenCount}</b>
+          )}
+        </span>
+        <span className="supplement-tag-name">{s.name}</span>
+        {s.times_per_day > 1 && (
+          <span className="supplement-tag-count">
+            {s.takenCount}/{s.times_per_day}
+          </span>
+        )}
+        {s.frequency === 'monthly' && <span className="supplement-tag-count">{intakeLabel(s, t)}</span>}
+      </button>
+      {manage && (
+        <button
+          type="button"
+          className={confirming ? 'supplement-tag-delete confirming' : 'supplement-tag-delete'}
+          onClick={onDelete}
+          aria-label={t('supplements.delete')}
+        >
+          <Icon name={confirming ? 'trash-2' : 'x'} size={12} />
+        </button>
+      )}
+    </span>
+  );
+}
+
 export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate, onDelete, onToggleTaken }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [manage, setManage] = useState(false);
+  // A tap on a tag's delete arms it; the second tap within that state actually deletes. No modal,
+  // but no one-tap loss of a supplement either.
+  const [confirmingId, setConfirmingId] = useState(null);
   const [error, setError] = useState('');
 
   // The screen renders even before the first fetch lands (or if it failed): the header and the
   // "+" must stay reachable, otherwise a hiccup on the request leaves an empty page with no way back.
   const { supplements = [], dueCount = 0, takenCount = 0 } = data || {};
   const pct = dueCount > 0 ? Math.round((takenCount / dueCount) * 100) : 0;
+  const allTaken = dueCount > 0 && takenCount === dueCount;
+
+  const groups = GROUP_ORDER.map((key) => ({
+    key,
+    label: groupLabel(key, t),
+    items: supplements.filter((s) => momentGroupKey(s) === key),
+  })).filter((g) => g.items.length > 0);
 
   // Any failed write is shown in place — silently doing nothing reads as a frozen screen.
   async function run(action) {
@@ -140,6 +203,27 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
     if (await run(() => onUpdate(id, form))) setEditingId(null);
   }
 
+  function handleTap(s) {
+    setConfirmingId(null);
+    if (manage) {
+      setAdding(false);
+      setEditingId(s.id);
+      return;
+    }
+    run(() => onToggleTaken(s.id, !s.taken));
+  }
+
+  function handleDelete(s) {
+    if (confirmingId !== s.id) {
+      setConfirmingId(s.id);
+      return;
+    }
+    setConfirmingId(null);
+    run(() => onDelete(s.id));
+  }
+
+  const editing = supplements.find((s) => s.id === editingId);
+
   return (
     <div>
       <div className="meal-detail-header">
@@ -147,7 +231,7 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
           <Icon name="chevron-left" size={20} />
         </button>
         <div className="meal-detail-heading">
-          <div className="meal-detail-eyebrow">{date}</div>
+          <div className="meal-detail-eyebrow">{formatDateLabel(date, t)}</div>
           <div className="meal-detail-title">{t('supplements.title')}</div>
         </div>
         <button
@@ -155,6 +239,7 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
           className="round-add-btn"
           onClick={() => {
             setEditingId(null);
+            setManage(false);
             setAdding((a) => !a);
           }}
           aria-label={t('supplements.add')}
@@ -163,15 +248,24 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
         </button>
       </div>
 
-      <div className="card supplement-progress-card">
-        <div className="resume-water-top">
-          <span>{t('supplements.takenToday')}</span>
-          <span>
-            {takenCount} / {dueCount}
-          </span>
+      <div className={allTaken ? 'card supplement-progress-card done' : 'card supplement-progress-card'}>
+        <div className="supplement-progress-top">
+          <div>
+            <div className="supplement-progress-count">
+              {takenCount}
+              <span> / {dueCount}</span>
+            </div>
+            <div className="supplement-progress-label">
+              {allTaken ? t('supplements.allTaken') : t('supplements.takenToday')}
+            </div>
+          </div>
+          <div className="supplement-progress-date">{formatDateSubtitle(date, lang)}</div>
         </div>
         <div className="progress-track">
-          <div className="progress-fill" style={{ width: `${pct}%`, background: 'var(--macro-protein)' }} />
+          <div
+            className="progress-fill"
+            style={{ width: `${pct}%`, background: allTaken ? 'var(--success)' : 'var(--gradient-arc)' }}
+          />
         </div>
       </div>
 
@@ -186,91 +280,70 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
         />
       )}
 
-      {supplements.length === 0 && !adding && <p className="hint">{t('supplements.empty')}</p>}
+      {editing && (
+        <SupplementForm
+          key={editing.id}
+          initial={{
+            name: editing.name,
+            frequency: editing.frequency,
+            times_per_day: editing.times_per_day,
+            time_of_day: editing.time_of_day || [],
+          }}
+          onSubmit={(form) => handleUpdate(editing.id, form)}
+          onCancel={() => setEditingId(null)}
+          submitLabel={t('supplements.save')}
+        />
+      )}
 
-      <div className="entry-list">
-        {supplements.map((s) =>
-          editingId === s.id ? (
-            <SupplementForm
-              key={s.id}
-              initial={{
-                name: s.name,
-                frequency: s.frequency,
-                times_per_day: s.times_per_day,
-                time_of_day: s.time_of_day || [],
-              }}
-              onSubmit={(form) => handleUpdate(s.id, form)}
-              onCancel={() => setEditingId(null)}
-              submitLabel={t('supplements.save')}
-            />
-          ) : (
-            <div className={s.taken ? 'entry-card supplement-card taken' : 'entry-card supplement-card'} key={s.id}>
-              <button
-                type="button"
-                className={checkClass(s)}
-                onClick={() => run(() => onToggleTaken(s.id, !s.taken))}
-                aria-label={t('supplements.markTaken')}
-              >
-                {s.taken ? (
-                  <Icon name="check" size={16} color="var(--text-on-accent)" />
-                ) : (
-                  s.takenCount > 0 && <b>{s.takenCount}</b>
-                )}
-              </button>
-              <div className="entry-card-body">
-                <div className="entry-card-name-row">
-                  <span className="entry-card-name">{s.name}</span>
-                </div>
-                <div className="entry-card-sub">
-                  {intakeLabel(s, t)}
-                  {s.time_of_day?.length > 0 ? ` · ${momentsLabel(s.time_of_day, t)}` : ''}
-                </div>
-                {s.times_per_day > 1 && (
-                  <div className="supplement-intake-dots">
-                    {Array.from({ length: s.times_per_day }, (_, i) => (
-                      <i key={i} className={i < s.takenCount ? 'filled' : ''} />
-                    ))}
-                    <span>
-                      {s.takenCount} / {s.times_per_day}
-                    </span>
-                  </div>
-                )}
+      {supplements.length === 0 && !adding ? (
+        <div className="card supplement-empty">
+          <span className="supplement-icon-box">
+            <Icon name="pill" size={22} />
+          </span>
+          <p className="hint">{t('supplements.empty')}</p>
+          <button type="button" className="btn" onClick={() => setAdding(true)}>
+            {t('supplements.add')}
+          </button>
+        </div>
+      ) : (
+        <>
+          {groups.map((group) => (
+            <div key={group.key || 'none'}>
+              <div className="section-header">
+                <span className="section-title">{group.label}</span>
               </div>
-              <div className="entry-card-actions">
-                {s.times_per_day > 1 && s.takenCount > 0 && (
-                  <button
-                    type="button"
-                    className="entry-icon-btn"
-                    onClick={() => run(() => onToggleTaken(s.id, false))}
-                    aria-label={t('supplements.undo')}
-                  >
-                    <Icon name="minus" size={16} />
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="entry-icon-btn"
-                  onClick={() => {
-                    setAdding(false);
-                    setEditingId(s.id);
-                  }}
-                  aria-label={t('supplements.edit')}
-                >
-                  <Icon name="pencil" size={16} />
-                </button>
-                <button
-                  type="button"
-                  className="entry-icon-btn entry-delete-btn"
-                  onClick={() => run(() => onDelete(s.id))}
-                  aria-label={t('supplements.delete')}
-                >
-                  <Icon name="trash-2" size={16} />
-                </button>
+              <div className="supplement-tag-row">
+                {group.items.map((s) => (
+                  <SupplementTag
+                    key={s.id}
+                    supplement={s}
+                    manage={manage}
+                    confirming={confirmingId === s.id}
+                    onTap={() => handleTap(s)}
+                    onDelete={() => handleDelete(s)}
+                    t={t}
+                  />
+                ))}
               </div>
             </div>
-          )
-        )}
-      </div>
+          ))}
+
+          {supplements.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-block btn-block-secondary supplement-manage-btn"
+              onClick={() => {
+                setManage((m) => !m);
+                setConfirmingId(null);
+                setEditingId(null);
+              }}
+            >
+              <Icon name={manage ? 'check' : 'pencil'} size={15} />
+              {manage ? t('supplements.manageDone') : t('supplements.manage')}
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }
