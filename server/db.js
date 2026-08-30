@@ -548,6 +548,63 @@ addColumnIfMissing('supplements', 'archived', 'archived INTEGER NOT NULL DEFAULT
 addColumnIfMissing('supplement_logs', 'supplement_id', 'supplement_id INTEGER NOT NULL DEFAULT 0');
 addColumnIfMissing('supplement_logs', 'date', 'date TEXT NOT NULL DEFAULT \'1970-01-01\'');
 
+// Adding columns only goes one way: a column the code never writes but the table declares NOT
+// NULL with no default makes every INSERT fail — for supplement_logs that means every attempt to
+// tick a supplement dies on a NOT NULL constraint, with a checkbox that simply looks dead. When
+// that's the shape we find, the table is rebuilt to the canonical one, carrying over the rows by
+// the columns both shapes share.
+function rebuildIfUnwritable(table, knownColumns, createSql) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (cols.length === 0) return;
+  const blocking = cols.filter((c) => c.notnull && c.dflt_value === null && !knownColumns.includes(c.name));
+  if (blocking.length === 0) return;
+  console.warn(
+    `Rebuilding ${table}: column(s) ${blocking.map((c) => c.name).join(', ')} are NOT NULL with no ` +
+      `default and are never written, so every insert into this table fails.`
+  );
+  const carried = knownColumns.filter((name) => cols.some((c) => c.name === name));
+  const list = carried.join(', ');
+  db.exec('BEGIN');
+  try {
+    db.exec(`ALTER TABLE ${table} RENAME TO ${table}_broken`);
+    db.exec(createSql);
+    if (carried.length > 0) db.exec(`INSERT INTO ${table} (${list}) SELECT ${list} FROM ${table}_broken`);
+    db.exec(`DROP TABLE ${table}_broken`);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+
+rebuildIfUnwritable(
+  'supplement_logs',
+  ['id', 'user_id', 'supplement_id', 'date', 'created_at'],
+  `CREATE TABLE supplement_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 1,
+    supplement_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`
+);
+
+rebuildIfUnwritable(
+  'supplements',
+  ['id', 'user_id', 'name', 'frequency', 'times_per_day', 'time_of_day', 'sort_order', 'archived', 'created_at'],
+  `CREATE TABLE supplements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 1,
+    name TEXT NOT NULL,
+    frequency TEXT NOT NULL DEFAULT 'daily',
+    times_per_day INTEGER NOT NULL DEFAULT 1,
+    time_of_day TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    archived INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`
+);
+
 // Backfill: rows created before group_id existed have none yet. Group them the same way the
 // old (buggy) matching used to — by user+type+duration+label — so existing recurring plans keep
 // working, and each distinct combination becomes its own stable group going forward instead of
