@@ -256,6 +256,18 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- One Web Push subscription per installed app (an iPhone home-screen PWA counts as one). The
+  -- endpoint is the browser's own push URL and identifies the device, hence the UNIQUE on it —
+  -- re-subscribing from the same device must update its keys, not pile up duplicates.
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   -- One row per intake ticked off: a supplement with times_per_day = 2 gets two rows on a day
   -- it was fully taken. Deleting the newest row is how un-ticking works.
   CREATE TABLE IF NOT EXISTS supplement_logs (

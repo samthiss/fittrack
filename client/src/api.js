@@ -84,6 +84,10 @@ export const api = {
   deleteSupplement: (id, date) => request(`/supplements/${id}?date=${date}`, { method: 'DELETE' }),
   setSupplementTaken: (id, date, taken) =>
     request(`/supplements/${id}/log`, { method: 'POST', body: JSON.stringify({ date, taken }) }),
+  getPushStatus: () => request('/push/status'),
+  subscribePush: (subscription) => request('/push/subscribe', { method: 'POST', body: JSON.stringify(subscription) }),
+  unsubscribePush: (endpoint) => request('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) }),
+  sendTestPush: () => request('/push/test', { method: 'POST' }),
   getSummary: (date) => request(`/summary?date=${date}`),
   getRecipes: () => request('/recipes'),
   createRecipe: (data) => request('/recipes', { method: 'POST', body: JSON.stringify(data) }),

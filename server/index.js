@@ -17,6 +17,7 @@ import { estimateMissingNutrients, estimateNutrientsForFood } from './nutrientEs
 import { classifyFoodsBatch, classifyFood, classifyIngredientsBatch } from './microbiomeClassification.js';
 import { computeTdee, BMR_METHODS } from './tdee.js';
 import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
+import webpush from 'web-push';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // DATA_DIR points at a mounted persistent volume in production (e.g. Railway) so uploaded
@@ -1263,6 +1264,87 @@ app.post('/api/water', (req, res) => {
 app.delete('/api/water/:id', (req, res) => {
   db.prepare('DELETE FROM water_logs WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
   res.status(204).end();
+});
+
+// --- Web Push ---
+// Notifications work on an iPhone only for a PWA added to the Home Screen (iOS 16.4+), and the
+// permission prompt has to come from a tap inside that installed app — the client handles both.
+// Without VAPID keys in the environment the whole feature stays off rather than half-working.
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+const PUSH_ENABLED = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+if (PUSH_ENABLED) {
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:fittrack@example.com', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+} else {
+  console.warn('Web Push disabled: set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY to enable reminders.');
+}
+
+// Sends one notification to every device a user has registered. A subscription the push service
+// rejects as gone (404/410) is deleted: that is how an app removed from the Home Screen, or a
+// reinstalled one, stops being pushed to forever.
+async function sendPushToUser(userId, payload) {
+  if (!PUSH_ENABLED) return { sent: 0, failed: 0, gone: 0 };
+  const subs = db.prepare('SELECT * FROM push_subscriptions WHERE user_id = ?').all(userId);
+  let sent = 0;
+  let failed = 0;
+  let gone = 0;
+  for (const sub of subs) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        JSON.stringify(payload)
+      );
+      sent += 1;
+    } catch (err) {
+      if (err.statusCode === 404 || err.statusCode === 410) {
+        db.prepare('DELETE FROM push_subscriptions WHERE id = ?').run(sub.id);
+        gone += 1;
+      } else {
+        failed += 1;
+        console.error('Push failed:', err.statusCode, err.body || err.message);
+      }
+    }
+  }
+  return { sent, failed, gone };
+}
+
+app.get('/api/push/status', (req, res) => {
+  res.json({
+    enabled: PUSH_ENABLED,
+    publicKey: PUSH_ENABLED ? VAPID_PUBLIC_KEY : null,
+    devices: db.prepare('SELECT COUNT(*) AS n FROM push_subscriptions WHERE user_id = ?').get(req.userId).n,
+  });
+});
+
+app.post('/api/push/subscribe', (req, res) => {
+  const { endpoint, keys } = req.body || {};
+  if (!endpoint || !keys?.p256dh || !keys?.auth) return res.status(400).json({ error: 'Abonnement invalide' });
+  // The same device re-subscribing (iOS reissues keys after a reinstall) updates its row.
+  db.prepare(
+    `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)
+     ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth`
+  ).run(req.userId, endpoint, keys.p256dh, keys.auth);
+  res.status(201).json({ ok: true });
+});
+
+app.post('/api/push/unsubscribe', (req, res) => {
+  const endpoint = req.body?.endpoint;
+  if (endpoint) db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?').run(endpoint, req.userId);
+  else db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(req.userId);
+  res.json({ ok: true });
+});
+
+app.post('/api/push/test', async (req, res) => {
+  if (!PUSH_ENABLED) return res.status(503).json({ error: 'Notifications non configurées sur le serveur' });
+  const result = await sendPushToUser(req.userId, {
+    title: 'FitTrack',
+    body: 'Notification de test — si tu vois ça, les rappels fonctionnent.',
+    url: '/',
+  });
+  if (result.sent === 0) {
+    return res.status(400).json({ error: "Aucun appareil abonné n'a pu être joint. Réactive les rappels sur cet appareil." });
+  }
+  res.json(result);
 });
 
 // --- Suppléments ---

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import EnergyBalance from './EnergyBalance';
 import Icon from './Icon';
+import NotificationSettings from './NotificationSettings';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
   REP_RANGE_OPTIONS,
@@ -970,6 +971,15 @@ export default function Settings({
     );
   }
 
+  if (screen === 'notifications') {
+    return (
+      <div>
+        <SubHeader title={t('settings.notifications')} onBack={() => setScreen('home')} t={t} />
+        <NotificationSettings />
+      </div>
+    );
+  }
+
   // --- Rest-between-sets screen ---
   if (screen === 'rest') {
     return (
@@ -1255,6 +1265,13 @@ export default function Settings({
 
       <h4 className="section-label" style={{ marginTop: 18 }}>{t('settings.preferences')}</h4>
       <div className="settings-list-card">
+        <button type="button" className="settings-list-row" onClick={() => setScreen('notifications')}>
+          <span className="settings-list-icon">
+            <Icon name="bell" size={19} />
+          </span>
+          <span className="settings-list-label">{t('settings.notifications')}</span>
+          <Icon name="chevron-right" size={18} color="var(--text-muted)" />
+        </button>
         <div className="settings-list-row" style={{ cursor: 'default' }}>
           <span className="settings-list-icon">
             <Icon name="languages" size={19} />
