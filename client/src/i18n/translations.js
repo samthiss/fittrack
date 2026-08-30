@@ -154,6 +154,9 @@ export const translations = {
     'push.disabled': 'Rappels désactivés sur cet appareil.',
     'push.test': 'Envoyer une notification test',
     'push.testSent': 'Envoyée — elle devrait arriver dans quelques secondes.',
+    'push.scheduleTitle': 'Heures de rappel',
+    'push.scheduleSaved': 'Heures enregistrées.',
+    'push.scheduleHint': "Le rappel du matin liste ce qui est marqué « matin » et ce qui n'a pas de moment ; celui du soir, tout ce qui reste. Rien n'est envoyé si tout est déjà pris.",
     'push.hint': "À activer sur chaque appareil où tu veux recevoir les rappels. iOS peut les mettre en sourdine selon ton mode de concentration.",
     'settings.preferences': 'Préférences',
 
@@ -1025,6 +1028,9 @@ export const translations = {
     'push.disabled': 'Reminders disabled on this device.',
     'push.test': 'Send a test notification',
     'push.testSent': 'Sent — it should arrive within a few seconds.',
+    'push.scheduleTitle': 'Reminder times',
+    'push.scheduleSaved': 'Times saved.',
+    'push.scheduleHint': 'The morning reminder lists what is tagged "matin" plus anything untagged; the evening one lists everything still outstanding. Nothing is sent when it is all taken.',
     'push.hint': 'Enable it on each device where you want reminders. iOS may silence them depending on your Focus mode.',
     'settings.preferences': 'Preferences',
 

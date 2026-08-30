@@ -9,13 +9,17 @@ import { pushSupported, isStandalone, currentSubscription, enablePush, disablePu
  * an unsupported browser, an iPhone running the app from Safari instead of the Home Screen, and a
  * server with no VAPID keys — because "nothing happens" is the worst possible answer here.
  */
-export default function NotificationSettings() {
+export default function NotificationSettings({ profile, onSaveProfile }) {
   const { t } = useLanguage();
   const [status, setStatus] = useState(null);
   const [subscribed, setSubscribed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [morning, setMorning] = useState(profile?.reminder_morning_at || '08:00');
+  const [evening, setEvening] = useState(profile?.reminder_evening_at || '20:00');
+  const [morningOn, setMorningOn] = useState(Boolean(profile?.reminder_morning_at));
+  const [eveningOn, setEveningOn] = useState(Boolean(profile?.reminder_evening_at));
 
   const supported = pushSupported();
   // Safari on iOS exposes the APIs but refuses to subscribe; only the installed app can.
@@ -111,6 +115,81 @@ export default function NotificationSettings() {
               </button>
             </>
           )}
+        </>
+      )}
+
+      {subscribed && (
+        <>
+          <h4 className="section-label">{t('push.scheduleTitle')}</h4>
+          <div className="card">
+            <div className="row">
+              <span className="row-icon-box weight-icon-box">
+                <Icon name="sunrise" size={20} />
+              </span>
+              <label className="name" htmlFor="reminder-morning">{t('supplements.moment_matin')}</label>
+              <div className="field">
+                <input
+                  id="reminder-morning"
+                  type="time"
+                  value={morning}
+                  disabled={!morningOn}
+                  onChange={(e) => setMorning(e.target.value)}
+                />
+                <input
+                  type="checkbox"
+                  checked={morningOn}
+                  aria-label={t('supplements.moment_matin')}
+                  onChange={(e) => setMorningOn(e.target.checked)}
+                />
+              </div>
+            </div>
+            <div className="row">
+              <span className="row-icon-box weight-icon-box">
+                <Icon name="moon" size={20} />
+              </span>
+              <label className="name" htmlFor="reminder-evening">{t('supplements.moment_soir')}</label>
+              <div className="field">
+                <input
+                  id="reminder-evening"
+                  type="time"
+                  value={evening}
+                  disabled={!eveningOn}
+                  onChange={(e) => setEvening(e.target.value)}
+                />
+                <input
+                  type="checkbox"
+                  checked={eveningOn}
+                  aria-label={t('supplements.moment_soir')}
+                  onChange={(e) => setEveningOn(e.target.checked)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="meal-add-cta"
+            style={{ marginTop: 16 }}
+            disabled={busy}
+            onClick={() =>
+              run(
+                () =>
+                  onSaveProfile({
+                    reminder_morning_at: morningOn ? morning : null,
+                    reminder_evening_at: eveningOn ? evening : null,
+                    // Sent with every save: the server schedules in the user's own wall clock,
+                    // and this is the only place that knows what it is.
+                    reminder_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                  }),
+                t('push.scheduleSaved')
+              )
+            }
+          >
+            <Icon name="check" size={19} />
+            {t('meal.save')}
+          </button>
+
+          <p className="hint">{t('push.scheduleHint')}</p>
         </>
       )}
 

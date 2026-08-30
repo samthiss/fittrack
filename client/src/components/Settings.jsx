@@ -975,7 +975,7 @@ export default function Settings({
     return (
       <div>
         <SubHeader title={t('settings.notifications')} onBack={() => setScreen('home')} t={t} />
-        <NotificationSettings />
+        <NotificationSettings profile={profile} onSaveProfile={onSaveProfile} />
       </div>
     );
   }

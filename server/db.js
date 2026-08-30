@@ -256,6 +256,16 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- One row per reminder actually sent, so a scheduler tick that runs twice in the same minute —
+  -- or a redeploy mid-minute, which restarts the process — can't send the same reminder twice.
+  CREATE TABLE IF NOT EXISTS reminder_runs (
+    user_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    slot TEXT NOT NULL,
+    sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, date, slot)
+  );
+
   -- One Web Push subscription per installed app (an iPhone home-screen PWA counts as one). The
   -- endpoint is the browser's own push URL and identifies the device, hence the UNIQUE on it —
   -- re-subscribing from the same device must update its keys, not pile up duplicates.
@@ -736,6 +746,19 @@ if (!profileCols2.includes('water_goal_ml')) {
 if (!profileCols2.includes('rest_by_reps')) {
   db.exec(`ALTER TABLE profile ADD COLUMN rest_by_reps TEXT`);
 }
+// Supplement reminders: "HH:MM" in the user's own timezone, NULL meaning that slot is off. The
+// timezone is stored alongside because the scheduler runs on a server in UTC and has to fire at
+// 08:00 where the user is, not where the container is.
+if (!profileCols2.includes('reminder_morning_at')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN reminder_morning_at TEXT`);
+}
+if (!profileCols2.includes('reminder_evening_at')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN reminder_evening_at TEXT`);
+}
+if (!profileCols2.includes('reminder_timezone')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN reminder_timezone TEXT`);
+}
+
 // The two TDEE inputs that move over time and so need a snapshot per save, alongside the bmr /
 // weight / goal ones profile_history already tracked (see profileAsOf in index.js).
 const profileHistoryCols = db.prepare('PRAGMA table_info(profile_history)').all().map((c) => c.name);

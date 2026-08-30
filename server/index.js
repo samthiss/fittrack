@@ -18,6 +18,7 @@ import { classifyFoodsBatch, classifyFood, classifyIngredientsBatch } from './mi
 import { computeTdee, BMR_METHODS } from './tdee.js';
 import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
 import webpush from 'web-push';
+import { localNow, slotDueAt, supplementsForSlot, buildReminderMessage, isValidTime } from './reminders.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // DATA_DIR points at a mounted persistent volume in production (e.g. Railway) so uploaded
@@ -451,7 +452,7 @@ const REP_RANGE_KEYS = ['5-9', '8-12', '10-15', '15-20', 'Max'];
 const MAX_REST_SECONDS = 600;
 
 app.put('/api/profile', (req, res) => {
-  const { bmr, bmr_method, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks, default_water_ml, water_goal_ml, rest_by_reps } = req.body;
+  const { bmr, bmr_method, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks, default_water_ml, water_goal_ml, rest_by_reps, reminder_morning_at, reminder_evening_at, reminder_timezone } = req.body;
 
   if (goal !== undefined && !GOALS.includes(goal)) {
     return res.status(400).json({ error: 'goal invalide' });
@@ -524,6 +525,13 @@ app.put('/api/profile', (req, res) => {
     extra_snacks: nextExtraSnacksJson,
     default_water_ml: default_water_ml !== undefined ? default_water_ml : current.default_water_ml,
     water_goal_ml: water_goal_ml !== undefined ? water_goal_ml : current.water_goal_ml,
+    // null switches a reminder off; anything that isn't HH:MM is refused rather than silently
+    // stored as a time that can never match.
+    reminder_morning_at:
+      reminder_morning_at !== undefined ? (isValidTime(reminder_morning_at) ? reminder_morning_at : null) : current.reminder_morning_at,
+    reminder_evening_at:
+      reminder_evening_at !== undefined ? (isValidTime(reminder_evening_at) ? reminder_evening_at : null) : current.reminder_evening_at,
+    reminder_timezone: reminder_timezone !== undefined ? reminder_timezone : current.reminder_timezone,
     rest_by_reps: rest_by_reps !== undefined ? (rest_by_reps === null ? null : JSON.stringify(rest_by_reps)) : current.rest_by_reps,
   };
 
@@ -531,6 +539,7 @@ app.put('/api/profile', (req, res) => {
     `UPDATE profile SET bmr = ?, bmr_method = ?, daily_movement_kcal = ?, digestion_kcal = ?, weight_kg = ?, goal = ?, goal_kcal = ?,
      sex = ?, birthdate = ?, height_cm = ?, body_fat_pct = ?, manual_target_kcal = ?, target_weight_kg = ?, steps_per_day = ?,
      protein_pct = ?, carbs_pct = ?, meal_shares = ?, extra_snacks = ?, default_water_ml = ?, water_goal_ml = ?,
+     reminder_morning_at = ?, reminder_evening_at = ?, reminder_timezone = ?,
      rest_by_reps = ?
      WHERE user_id = ?`
   ).run(
@@ -554,6 +563,9 @@ app.put('/api/profile', (req, res) => {
     next.extra_snacks,
     next.default_water_ml,
     next.water_goal_ml,
+    next.reminder_morning_at,
+    next.reminder_evening_at,
+    next.reminder_timezone,
     next.rest_by_reps,
     req.userId
   );
@@ -4017,9 +4029,49 @@ if (IS_PROD) {
   });
 }
 
+// --- Reminder scheduler ---
+// Ticks every minute and fires the reminders whose configured time has just come round in the
+// user's own timezone. Only users with at least one registered device are considered, and a
+// reminder with nothing left to take is not sent at all.
+async function runReminderTick(now = new Date()) {
+  if (!PUSH_ENABLED) return 0;
+  const userIds = db
+    .prepare('SELECT DISTINCT user_id AS id FROM push_subscriptions')
+    .all()
+    .map((r) => r.id);
+  let sent = 0;
+  for (const userId of userIds) {
+    const profile = db.prepare('SELECT * FROM profile WHERE user_id = ?').get(userId);
+    if (!profile) continue;
+    const { date, time } = localNow(now, profile.reminder_timezone);
+    const slot = slotDueAt(profile, time);
+    if (!slot) continue;
+    // Claim the slot before sending: two ticks in the same minute, or a redeploy mid-minute,
+    // must not produce two notifications.
+    const claim = db
+      .prepare('INSERT OR IGNORE INTO reminder_runs (user_id, date, slot) VALUES (?, ?, ?)')
+      .run(userId, date, slot);
+    if (claim.changes === 0) continue;
+    const { supplements } = supplementsForDate(userId, date);
+    const message = buildReminderMessage(supplementsForSlot(supplements, slot), slot);
+    if (!message) continue;
+    const result = await sendPushToUser(userId, message);
+    sent += result.sent;
+  }
+  return sent;
+}
+
+function startReminderScheduler() {
+  if (!PUSH_ENABLED) return;
+  setInterval(() => {
+    runReminderTick().catch((err) => console.error('Reminder tick failed:', err));
+  }, 60000);
+}
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`FitTrack server listening on http://localhost:${PORT}`);
   runDailyNutrientEstimation();
   runDailyMicrobiomeClassification();
+  startReminderScheduler();
 });
