@@ -1850,7 +1850,14 @@ app.get('/api/rich-foods/:key', (req, res) => {
   items.sort((a, b) => b.value - a.value);
   // No slice any more: the list is grouped by category client-side, and cutting at 40 would drop
   // whole categories off the bottom of a long list (fibre alone has 70+ foods).
-  res.json({ key, label: MICRO_REFERENCE[key]?.label || key, unit, foods: items });
+  res.json({
+    key,
+    label: MICRO_REFERENCE[key]?.label || key,
+    unit,
+    // Some nutrients need a word about what does *not* qualify (see omega3).
+    note: MICRO_REFERENCE[key]?.note || null,
+    foods: items,
+  });
 });
 
 app.get('/api/foods/lookup/:barcode', async (req, res) => {

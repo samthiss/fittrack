@@ -119,6 +119,7 @@ export default function RichFoodsReport({ nutrientKey, onBack }) {
               <span className="rich-foods-unit">{data.unit}/100 g</span>
             </div>
             <p className="hint">{t('richFoods.hint')}</p>
+            {data.note && <p className="hint rich-foods-note">{data.note}</p>}
           </div>
 
           <div className="search-input-row">

@@ -3027,6 +3027,15 @@ textarea.wide {
   color: var(--accent);
 }
 
+/* The "why isn't flax in this list" line. Set apart from the ranking hint above it, because it
+   is a caveat about the nutrient itself rather than about the sort order. */
+.rich-foods-note {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
 .rich-foods-card {
   padding: 4px 14px;
 }
