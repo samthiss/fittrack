@@ -140,10 +140,7 @@ export default function RichFoodsReport({ nutrientKey, onBack }) {
                   <span className="rich-food-rank">{String(i + 1).padStart(2, '0')}</span>
                   <div className="rich-food-body">
                     <div className="rich-food-top">
-                      <span className="rich-food-name">
-                        {f.name}
-                        {f.custom && <span className="rich-food-tag">{t('richFoods.yours')}</span>}
-                      </span>
+                      <span className="rich-food-name">{f.name}</span>
                       <span className="rich-food-value">
                         {f.value.toFixed(1)} <span>{f.unit}</span>
                       </span>

@@ -595,7 +595,6 @@ export const translations = {
     'richFoods.link': 'Aliments riches',
     'richFoods.foods': 'aliments',
     'richFoods.search': 'Filtrer les aliments…',
-    'richFoods.yours': 'à toi',
     'richFoods.hide': 'Masquer cet aliment',
     'richFoods.restore': 'Réafficher les {count} aliments masqués',
 
@@ -1450,7 +1449,6 @@ export const translations = {
     'richFoods.link': 'Rich foods',
     'richFoods.foods': 'foods',
     'richFoods.search': 'Filter foods…',
-    'richFoods.yours': 'yours',
     'richFoods.hide': 'Hide this food',
     'richFoods.restore': 'Show the {count} hidden foods again',
 

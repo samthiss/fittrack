@@ -1609,20 +1609,18 @@ app.get('/api/foods', (req, res) => {
 app.get('/api/rich-foods/:key', (req, res) => {
   const key = req.params.key;
   if (!NUTRIENT_KEYS.includes(key)) return res.status(404).json({ error: 'nutriment inconnu' });
-  const userFoods = db.prepare('SELECT * FROM foods WHERE user_id = ?').all(req.userId);
-  const col = `${key}_per_100g`;
   const unit = MICRO_REFERENCE[key]?.unit || 'g';
   const seen = new Set();
   const items = [];
-  // `custom` marks a food from the user's own library rather than the built-in reference table —
-  // worth calling out in the list, since those are the ones already at hand.
-  const pushItem = (name, value, custom) => {
+  const pushItem = (name, value) => {
     if (!name || value <= 0 || seen.has(name)) return;
     seen.add(name);
-    items.push({ name, value, unit, custom });
+    items.push({ name, value, unit });
   };
-  for (const f of userFoods) pushItem(f.name, f[col] || 0, true);
-  for (const f of COMMON_FOODS[key] || []) pushItem(f.name, f[key] || 0, false);
+  // Reference foods only. The user's own library is deliberately left out: this screen answers
+  // "what should I eat to get more of X", and a scan of a supplement tub or a branded product
+  // logged once in the Journal isn't an answer to that — it just crowded out the real ones.
+  for (const f of COMMON_FOODS[key] || []) pushItem(f.name, f[key] || 0);
   items.sort((a, b) => b.value - a.value);
   res.json({ key, label: MICRO_REFERENCE[key]?.label || key, unit, foods: items.slice(0, 40) });
 });
