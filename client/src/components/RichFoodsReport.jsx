@@ -3,27 +3,6 @@ import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
-const STORAGE_KEY = 'fittrack-rich-foods-hidden';
-
-function loadHidden(nutrientKey) {
-  try {
-    const all = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-    return all[nutrientKey] || [];
-  } catch {
-    return [];
-  }
-}
-
-function saveHidden(nutrientKey, items) {
-  try {
-    const all = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-    all[nutrientKey] = items;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
-  } catch {
-    // Private mode, blocked storage — hiding just won't survive the session, which is fine.
-  }
-}
-
 // Accent-insensitive contains, so typing "epinard" still finds "épinard".
 function normalize(s) {
   return s
@@ -37,7 +16,6 @@ export default function RichFoodsReport({ nutrientKey, onBack }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [hidden, setHidden] = useState(() => loadHidden(nutrientKey));
   const [query, setQuery] = useState('');
 
   const refresh = useCallback(async () => {
@@ -57,29 +35,16 @@ export default function RichFoodsReport({ nutrientKey, onBack }) {
     refresh();
   }, [refresh]);
 
-  function hideItem(name) {
-    const next = hidden.includes(name) ? hidden : [...hidden, name];
-    setHidden(next);
-    saveHidden(nutrientKey, next);
-  }
-
-  function restoreAll() {
-    setHidden([]);
-    saveHidden(nutrientKey, []);
-  }
-
   const foods = useMemo(() => {
     const all = data?.foods || [];
-    const visible = all.filter((f) => !hidden.includes(f.name));
-    if (!query.trim()) return visible;
+    if (!query.trim()) return all;
     const q = normalize(query.trim());
-    return visible.filter((f) => normalize(f.name).includes(q));
-  }, [data, hidden, query]);
+    return all.filter((f) => normalize(f.name).includes(q));
+  }, [data, query]);
 
   // Bars are relative to the richest food in the list, not to a daily target: the question this
   // screen answers is "which of these is densest", and the top item is the only meaningful 100%.
   const maxValue = foods.length > 0 ? Math.max(...foods.map((f) => f.value)) : 0;
-  const hiddenCount = data ? data.foods.filter((f) => hidden.includes(f.name)).length : 0;
 
   return (
     <div>
@@ -155,24 +120,10 @@ export default function RichFoodsReport({ nutrientKey, onBack }) {
                       />
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="entry-icon-btn rich-foods-hide-btn"
-                    onClick={() => hideItem(f.name)}
-                    aria-label={t('richFoods.hide')}
-                  >
-                    <Icon name="eye-off" size={15} />
-                  </button>
                 </div>
               ))
             )}
           </div>
-
-          {hiddenCount > 0 && (
-            <button type="button" className="btn btn-ghost btn-block" onClick={restoreAll}>
-              {t('richFoods.restore').replace('{count}', hiddenCount)}
-            </button>
-          )}
         </>
       )}
     </div>

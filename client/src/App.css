@@ -3101,17 +3101,6 @@ textarea.wide {
   height: 4px;
 }
 
-.rich-foods-hide-btn {
-  flex: none;
-  color: var(--text-muted);
-}
-
-.rich-foods-hide-btn:hover {
-  color: var(--danger);
-  border-color: rgba(255, 59, 107, 0.4);
-}
-
-
 
 .limit-tag {
   font-size: 12px;

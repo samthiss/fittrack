@@ -595,8 +595,6 @@ export const translations = {
     'richFoods.link': 'Aliments riches',
     'richFoods.foods': 'aliments',
     'richFoods.search': 'Filtrer les aliments…',
-    'richFoods.hide': 'Masquer cet aliment',
-    'richFoods.restore': 'Réafficher les {count} aliments masqués',
 
     // Meal planner
     'planner.searchPlaceholder': 'Rechercher une recette ou un aliment...',
@@ -1449,8 +1447,6 @@ export const translations = {
     'richFoods.link': 'Rich foods',
     'richFoods.foods': 'foods',
     'richFoods.search': 'Filter foods…',
-    'richFoods.hide': 'Hide this food',
-    'richFoods.restore': 'Show the {count} hidden foods again',
 
     // Meal planner
     'planner.searchPlaceholder': 'Search a recipe or a food...',
