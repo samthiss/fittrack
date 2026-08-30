@@ -245,6 +245,9 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
           });
           setFinishingSession(false);
           setSession(null);
+          // The workout can be ended mid-rest, and the end-of-rest push is scheduled server-side
+          // (see server/restTimer.js): without this it would buzz for a session already logged.
+          api.cancelRestTimer().catch(() => {});
           refresh();
         }}
       />

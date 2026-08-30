@@ -284,6 +284,24 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- The rest countdown a user has running right now, so the end-of-rest notification can be sent
+  -- by the server instead of by the phone. iOS suspends a backgrounded tab's JavaScript as soon
+  -- as the screen locks, so a timer living only in the page fires late or not at all — which is
+  -- exactly the case the notification exists for, the phone in a pocket between two sets.
+  --
+  -- One row per user: a rest belongs to the single workout in progress, so starting one replaces
+  -- whatever was pending, and finishing, pausing or abandoning it deletes the row. fire_at_ms is
+  -- epoch milliseconds rather than this schema's usual datetime() text because a rest is due to
+  -- the second and the scheduler compares it every second.
+  CREATE TABLE IF NOT EXISTS rest_timers (
+    user_id INTEGER PRIMARY KEY,
+    fire_at_ms INTEGER NOT NULL,
+    exercise_name TEXT,
+    set_number INTEGER,
+    total_sets INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   -- One row per intake ticked off: a supplement with times_per_day = 2 gets two rows on a day
   -- it was fully taken. Deleting the newest row is how un-ticking works.
   CREATE TABLE IF NOT EXISTS supplement_logs (

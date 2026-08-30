@@ -32,7 +32,7 @@ function MainApp({ onLogout, account }) {
   const [view, setView] = useState(() => {
     if (restoredSession.session) return 'activites';
     const requested = new URLSearchParams(window.location.search).get('view');
-    return requested === 'supplements' ? 'supplements' : 'journal';
+    return requested === 'supplements' || requested === 'activites' ? requested : 'journal';
   });
 
   // The parameter has done its job once the screen is picked; leaving it in the URL would send

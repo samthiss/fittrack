@@ -207,6 +207,32 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
     updateProgress({ restTarget: autoRest, restRemainingFrozen: autoRest });
   }, [autoRest, resting, restOverridden, restTarget]);
 
+  // The end-of-rest notification is scheduled on the server, not here — iOS suspends this page's
+  // timers the moment the screen locks, which is exactly when the phone is in a pocket between
+  // two sets (see server/restTimer.js). So every deliberate change to the countdown has to be
+  // mirrored there: starting, resuming and resetting move the push, pausing and skipping remove
+  // it. Fire-and-forget like this screen's other writes — a rest whose notification failed to
+  // register still runs perfectly well on screen.
+  //
+  // A rest that simply runs out is the one transition that mirrors nothing: the server has
+  // already sent the push by then, and a cancel racing the final second — the two clocks are
+  // never exactly in step — would swallow the very notification this exists for.
+  function scheduleRestNotification(seconds, setNumber) {
+    api
+      .startRestTimer({
+        seconds,
+        exercise_name: exercise.name,
+        // The set the notification is calling the user back to, i.e. the one after this rest.
+        set_number: Math.min(setNumber, sets),
+        total_sets: sets,
+      })
+      .catch(() => {});
+  }
+
+  function cancelRestNotification() {
+    api.cancelRestTimer().catch(() => {});
+  }
+
   function persist(patch) {
     api.updateActivityExercise(exercise.id, patch).catch(() => {});
     onUpdateExercise?.(exercise.id, patch);
@@ -234,6 +260,9 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
     recordSet(completedSets, { weight, reps });
     if (next >= sets) {
       updateProgress({ completedSets: next, setHistory: nextHistory, resting: false });
+      // Validating the last set can happen mid-rest (the rest after the second-to-last one), so
+      // there may still be a push pending for a workout the user has now moved on from.
+      cancelRestNotification();
       onComplete(exercise.id);
       return;
     }
@@ -245,6 +274,7 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
       restPaused: false,
       resting: true,
     });
+    scheduleRestNotification(restTarget, next + 1);
   }
 
   function openSheet(name) {
@@ -353,7 +383,13 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
           <button
             type="button"
             className="weight-minus-btn"
-            onClick={() => updateProgress({ restRemainingFrozen: restTarget, restStartedAt: restPaused ? null : Date.now() })}
+            onClick={() => {
+              updateProgress({ restRemainingFrozen: restTarget, restStartedAt: restPaused ? null : Date.now() });
+              // Reset while paused leaves the countdown stopped at full, so there is nothing to
+              // announce until it is resumed.
+              if (restPaused) cancelRestNotification();
+              else scheduleRestNotification(restTarget, completedSets + 1);
+            }}
             disabled={!resting}
             aria-label={t('activityLog.resetTimer')}
           >
@@ -367,8 +403,10 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
             onClick={() => {
               if (restPaused) {
                 updateProgress({ restStartedAt: Date.now(), restPaused: false });
+                scheduleRestNotification(restLeft, completedSets + 1);
               } else {
                 updateProgress({ restRemainingFrozen: restLeft, restStartedAt: null, restPaused: true });
+                cancelRestNotification();
               }
             }}
           >
@@ -380,7 +418,10 @@ export default function ExerciseSession({ exercise, activityLabel, index, total,
           </button>
         </div>
         {resting && (
-          <button type="button" className="btn-ghost" style={{ display: 'block', margin: '10px auto 0' }} onClick={() => updateProgress({ resting: false })}>
+          <button type="button" className="btn-ghost" style={{ display: 'block', margin: '10px auto 0' }} onClick={() => {
+              updateProgress({ resting: false });
+              cancelRestNotification();
+            }}>
             {t('activityLog.skipRest')}
           </button>
         )}

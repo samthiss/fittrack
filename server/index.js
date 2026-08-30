@@ -18,6 +18,7 @@ import { classifyFoodsBatch, classifyFood, classifyIngredientsBatch } from './mi
 import { computeTdee, BMR_METHODS } from './tdee.js';
 import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
 import webpush from 'web-push';
+import { buildRestDoneMessage, isValidRestSeconds, isWorthSending } from './restTimer.js';
 import {
   localNow,
   slotsDueAt,
@@ -1367,6 +1368,73 @@ app.post('/api/push/test', async (req, res) => {
   }
   res.json(result);
 });
+
+// --- Minuteur de repos ---
+// The countdown itself stays in the page (ExerciseSession owns it, and it must keep running
+// offline); the server is told about it only so the end-of-rest push can be sent from here. See
+// restTimer.js for why the phone can't be trusted to fire it once the screen is locked.
+
+app.post('/api/rest-timer', (req, res) => {
+  const { seconds, exercise_name: exerciseName, set_number: setNumber, total_sets: totalSets } = req.body || {};
+  if (!isValidRestSeconds(seconds)) return res.status(400).json({ error: 'Durée de repos invalide' });
+  // Replaces whatever was pending: a rest paused and restarted, or one whose duration the user
+  // just edited, must move the notification rather than add a second one.
+  db.prepare(
+    `INSERT INTO rest_timers (user_id, fire_at_ms, exercise_name, set_number, total_sets)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       fire_at_ms = excluded.fire_at_ms,
+       exercise_name = excluded.exercise_name,
+       set_number = excluded.set_number,
+       total_sets = excluded.total_sets,
+       created_at = datetime('now')`
+  ).run(
+    req.userId,
+    Date.now() + Math.round(Number(seconds) * 1000),
+    typeof exerciseName === 'string' ? exerciseName.slice(0, 80) : null,
+    Number.isFinite(Number(setNumber)) ? Number(setNumber) : null,
+    Number.isFinite(Number(totalSets)) ? Number(totalSets) : null
+  );
+  res.status(201).json({ ok: true });
+});
+
+// Called when the rest is paused, skipped, or the exercise left — silence beats a push for a rest
+// the user has already walked away from.
+app.delete('/api/rest-timer', (req, res) => {
+  db.prepare('DELETE FROM rest_timers WHERE user_id = ?').run(req.userId);
+  res.json({ ok: true });
+});
+
+// Every second, not every minute like the supplement reminders: a rest notification a minute late
+// is worthless. The table holds at most one row per user with a workout open, so this is a
+// primary-key scan over a handful of rows.
+const REST_TICK_MS = 1000;
+
+async function runRestTimerTick(now = Date.now()) {
+  const due = db.prepare('SELECT * FROM rest_timers WHERE fire_at_ms <= ?').all(now);
+  let sent = 0;
+  for (const timer of due) {
+    // Claim by deleting before sending: sendPushToUser awaits the network, and a tick that lands
+    // during that await must not find the row still there and send the same buzz twice.
+    db.prepare('DELETE FROM rest_timers WHERE user_id = ? AND fire_at_ms = ?').run(timer.user_id, timer.fire_at_ms);
+    if (!isWorthSending(timer.fire_at_ms, now)) continue;
+    const message = buildRestDoneMessage({
+      exerciseName: timer.exercise_name,
+      setNumber: timer.set_number,
+      totalSets: timer.total_sets,
+    });
+    const result = await sendPushToUser(timer.user_id, message);
+    sent += result.sent;
+  }
+  return sent;
+}
+
+function startRestTimerScheduler() {
+  if (!PUSH_ENABLED) return;
+  setInterval(() => {
+    runRestTimerTick().catch((err) => console.error('Rest timer tick failed:', err));
+  }, REST_TICK_MS);
+}
 
 // --- Suppléments ---
 // A supplement is taken either N times a day or once a month; there's no free-form scheduling.
@@ -4114,4 +4182,5 @@ app.listen(PORT, () => {
   runDailyNutrientEstimation();
   runDailyMicrobiomeClassification();
   startReminderScheduler();
+  startRestTimerScheduler();
 });

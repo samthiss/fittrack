@@ -88,6 +88,10 @@ export const api = {
   subscribePush: (subscription) => request('/push/subscribe', { method: 'POST', body: JSON.stringify(subscription) }),
   unsubscribePush: (endpoint) => request('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) }),
   sendTestPush: () => request('/push/test', { method: 'POST' }),
+  // The end-of-rest notification is scheduled server-side: iOS freezes this page's timers the
+  // moment the screen locks, so only the server can be relied on to buzz on time.
+  startRestTimer: (data) => request('/rest-timer', { method: 'POST', body: JSON.stringify(data) }),
+  cancelRestTimer: () => request('/rest-timer', { method: 'DELETE' }),
   getSummary: (date) => request(`/summary?date=${date}`),
   getRecipes: () => request('/recipes'),
   createRecipe: (data) => request('/recipes', { method: 'POST', body: JSON.stringify(data) }),
