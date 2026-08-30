@@ -1273,6 +1273,25 @@ const SUPPLEMENT_FREQUENCIES = ['daily', 'monthly'];
 // When a supplement is taken, as a list (matin and/or soir) — purely a reminder label.
 const SUPPLEMENT_MOMENTS = ['matin', 'soir'];
 
+// SQLite's lower() is ASCII-only, so lower('MAGNÉSIUM') keeps its É and never matches
+// 'magnésium' — name matching therefore happens in JS, which lowercases Unicode properly.
+// Accents are stripped too: "Magnesium" and "Magnésium" are the same supplement typed twice.
+function supplementNameKey(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function findSupplementByName(userId, name, exceptId = null) {
+  const key = supplementNameKey(name);
+  return db
+    .prepare('SELECT * FROM supplements WHERE user_id = ?')
+    .all(userId)
+    .find((row) => supplementNameKey(row.name) === key && String(row.id) !== String(exceptId ?? ''));
+}
+
 function parseSupplementMoments(raw) {
   if (!raw) return [];
   try {
@@ -1337,9 +1356,22 @@ function supplementsForDate(userId, date) {
     };
   });
   const dueList = supplements.filter((s) => s.dueToday);
+  // Supplements taken off the list stay on file, so adding one again is picking it back up with
+  // its old settings rather than typing it out from scratch (see DELETE, which archives).
+  const archived = db
+    .prepare('SELECT * FROM supplements WHERE user_id = ? AND archived = 1 ORDER BY name')
+    .all(userId)
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      frequency: SUPPLEMENT_FREQUENCIES.includes(row.frequency) ? row.frequency : 'daily',
+      times_per_day: Math.max(1, Number(row.times_per_day) || 1),
+      time_of_day: parseSupplementMoments(row.time_of_day),
+    }));
   return {
     date,
     supplements,
+    archived,
     dueCount: dueList.length,
     takenCount: dueList.filter((s) => s.taken).length,
   };
@@ -1352,6 +1384,17 @@ app.get('/api/supplements', (req, res) => {
 app.post('/api/supplements', (req, res) => {
   const data = supplementFromBody(req.body);
   if (!data.name) return res.status(400).json({ error: 'Nom requis' });
+  // Names are the identity here — the same supplement must never end up on the list twice, and
+  // one that was taken off comes back rather than being created anew (its logs are still there).
+  const sameName = findSupplementByName(req.userId, data.name);
+  if (sameName) {
+    if (!sameName.archived) return res.status(409).json({ error: 'Ce supplément est déjà dans la liste' });
+    db.prepare(
+      `UPDATE supplements SET archived = 0, name = ?, frequency = ?, times_per_day = ?, time_of_day = ?
+       WHERE id = ? AND user_id = ?`
+    ).run(data.name, data.frequency, data.times_per_day, data.time_of_day, sameName.id, req.userId);
+    return res.status(201).json(supplementsForDate(req.userId, req.body.date || todayStr()));
+  }
   const maxOrder = db
     .prepare('SELECT MAX(sort_order) AS m FROM supplements WHERE user_id = ?')
     .get(req.userId).m;
@@ -1367,6 +1410,8 @@ app.put('/api/supplements/:id', (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Supplément introuvable' });
   const data = supplementFromBody({ ...existing, ...req.body });
   if (!data.name) return res.status(400).json({ error: 'Nom requis' });
+  const clash = findSupplementByName(req.userId, data.name, req.params.id);
+  if (clash) return res.status(409).json({ error: 'Ce supplément est déjà dans la liste' });
   db.prepare(
     `UPDATE supplements SET name = ?, frequency = ?, times_per_day = ?, time_of_day = ?
      WHERE id = ? AND user_id = ?`
@@ -1374,11 +1419,11 @@ app.put('/api/supplements/:id', (req, res) => {
   res.json(supplementsForDate(req.userId, req.body.date || todayStr()));
 });
 
-// Hard delete, logs included — a supplement you stopped taking shouldn't keep haunting the list,
-// and its check history has no value on its own.
+// Taking a supplement off the list archives it: it leaves the day's list but stays on file, so
+// re-adding it later is one tap on a tag and its history is still attached. Nothing is destroyed
+// here — a real delete would make "already registered" impossible to honour.
 app.delete('/api/supplements/:id', (req, res) => {
-  db.prepare('DELETE FROM supplement_logs WHERE supplement_id = ? AND user_id = ?').run(req.params.id, req.userId);
-  db.prepare('DELETE FROM supplements WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
+  db.prepare('UPDATE supplements SET archived = 1 WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
   res.json(supplementsForDate(req.userId, req.query.date || todayStr()));
 });
 

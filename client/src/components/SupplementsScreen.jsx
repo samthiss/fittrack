@@ -40,7 +40,7 @@ function groupLabel(key, t) {
     .join(' · ');
 }
 
-function SupplementForm({ initial, onSubmit, onCancel, submitLabel }) {
+function SupplementForm({ initial, onSubmit, onCancel, submitLabel, suggestions = [] }) {
   const { t } = useLanguage();
   const [form, setForm] = useState(initial);
   const [error, setError] = useState('');
@@ -72,6 +72,33 @@ function SupplementForm({ initial, onSubmit, onCancel, submitLabel }) {
         placeholder={t('supplements.namePlaceholder')}
         onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
       />
+
+      {/* Supplements taken off the list before: one tap puts back the name AND the schedule it
+          had, which is the whole point of keeping them on file. */}
+      {suggestions.length > 0 && (
+        <>
+          <h4 className="section-label">{t('supplements.previously')}</h4>
+          <div className="filter-pill-row">
+            {suggestions.map((sug) => (
+              <button
+                type="button"
+                key={sug.id}
+                className={form.name === sug.name ? 'filter-pill active' : 'filter-pill'}
+                onClick={() =>
+                  setForm({
+                    name: sug.name,
+                    frequency: sug.frequency,
+                    times_per_day: sug.times_per_day,
+                    time_of_day: sug.time_of_day || [],
+                  })
+                }
+              >
+                {sug.name}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       <h4 className="section-label">{t('supplements.intake')}</h4>
       <div className="filter-pill-row">
@@ -173,7 +200,7 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
 
   // The screen renders even before the first fetch lands (or if it failed): the header and the
   // "+" must stay reachable, otherwise a hiccup on the request leaves an empty page with no way back.
-  const { supplements = [], dueCount = 0, takenCount = 0 } = data || {};
+  const { supplements = [], archived = [], dueCount = 0, takenCount = 0 } = data || {};
   const pct = dueCount > 0 ? Math.round((takenCount / dueCount) * 100) : 0;
   const allTaken = dueCount > 0 && takenCount === dueCount;
 
@@ -274,6 +301,7 @@ export default function SupplementsScreen({ data, date, onBack, onAdd, onUpdate,
       {adding && (
         <SupplementForm
           initial={EMPTY_FORM}
+          suggestions={archived}
           onSubmit={handleAdd}
           onCancel={() => setAdding(false)}
           submitLabel={t('supplements.add')}
