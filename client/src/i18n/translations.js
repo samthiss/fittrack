@@ -592,6 +592,7 @@ export const translations = {
 
     // Rich foods page
     'richFoods.hint': 'Classés du plus dense au moins dense pour 100 g.',
+    'richFoods.link': 'Aliments riches',
 
     // Meal planner
     'planner.searchPlaceholder': 'Rechercher une recette ou un aliment...',
@@ -1441,6 +1442,7 @@ export const translations = {
 
     // Rich foods page
     'richFoods.hint': 'Ranked by nutrient density per 100 g, from highest to lowest.',
+    'richFoods.link': 'Rich foods',
 
     // Meal planner
     'planner.searchPlaceholder': 'Search a recipe or a food...',

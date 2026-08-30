@@ -1008,6 +1008,10 @@ button.exercise-last-time span {
 }
 
 .report-row-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   font-size: 11.5px;
   color: var(--text-muted, var(--dim));
   margin-top: 6px;
@@ -2952,12 +2956,36 @@ textarea.wide {
   padding: 3px 0;
 }
 
-.rich-foods-link {
-  color: var(--acc);
-  font-size: 12px;
+/* The way into "foods richest in X", one per nutrient row. A chip on the figures line rather
+   than an underlined sentence in the label: it repeats a dozen times down the report, so it has
+   to be scannable and stay out of the way of the nutrient name and its value. */
+.rich-foods-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  margin-left: auto;
+  padding: 4px 9px 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-family: var(--font-display, var(--sans));
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  transition: border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
+}
+
+.rich-foods-chip:hover,
+.rich-foods-chip:active {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  box-shadow: var(--glow-accent);
 }
 
 .rich-foods-hide-btn {
@@ -2977,9 +3005,7 @@ textarea.wide {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.rich-foods-link:hover {
-  color: var(--text-primary);
-}
+
 
 .limit-tag {
   font-size: 12px;

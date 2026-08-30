@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import ImprovementInsights from './ImprovementInsights';
 import SourceList from './SourceList';
+import RichFoodsLink from './RichFoodsLink';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -60,15 +61,6 @@ export default function WeekReport({ period, onOpenRichFoods }) {
 
   function toggle(key) {
     setExpandedKey((prev) => (prev === key ? null : key));
-  }
-
-  function RichFoodsLink({ nutrientKey, label }) {
-    if (!onOpenRichFoods) return null;
-    return (
-      <span className="rich-foods-link" onClick={(e) => { e.stopPropagation(); onOpenRichFoods(nutrientKey); }}>
-        {' '}Aliments riches en {label}
-      </span>
-    );
   }
 
   return (
@@ -136,7 +128,6 @@ export default function WeekReport({ period, onOpenRichFoods }) {
                 <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? () => toggle(l.key) : undefined}>
                   {l.label}
                   {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
-                  <RichFoodsLink nutrientKey={l.key} label={l.label} onOpenRichFoods={onOpenRichFoods} />
                 </span>
                 <span className={`report-row-value status-${status}`}>
                   {l.over
@@ -148,7 +139,10 @@ export default function WeekReport({ period, onOpenRichFoods }) {
                 <div className="report-row-bar-fill" style={{ width: `${Math.min(100, l.pct)}%`, background: STATUS_COLOR[status] }} />
               </div>
               <div className="report-row-sub">
-                {l.consumed.toFixed(0)} / {l.reference.toFixed(0)} {l.unit} {t('week.perDay')}
+                <span>
+                  {l.consumed.toFixed(0)} / {l.reference.toFixed(0)} {l.unit} {t('week.perDay')}
+                </span>
+                <RichFoodsLink nutrientKey={l.key} label={l.label} onOpenRichFoods={onOpenRichFoods} />
               </div>
               {expanded && <SourceList sources={sources} unit={l.unit} />}
             </div>
@@ -172,7 +166,6 @@ export default function WeekReport({ period, onOpenRichFoods }) {
                 <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? () => toggle(m.key) : undefined}>
                   {m.label}
                   {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
-                  <RichFoodsLink nutrientKey={m.key} label={m.label} onOpenRichFoods={onOpenRichFoods} />
                 </span>
                 <span className={`report-row-value status-${status}`}>{Math.round(m.pct)}%</span>
               </div>
@@ -180,7 +173,10 @@ export default function WeekReport({ period, onOpenRichFoods }) {
                 <div className="report-row-bar-fill" style={{ width: `${Math.min(100, m.pct)}%`, background: STATUS_COLOR[status] }} />
               </div>
               <div className="report-row-sub">
-                {m.consumed.toFixed(1)} / {m.target.toFixed(0)} {m.unit}
+                <span>
+                  {m.consumed.toFixed(1)} / {m.target.toFixed(0)} {m.unit}
+                </span>
+                <RichFoodsLink nutrientKey={m.key} label={m.label} onOpenRichFoods={onOpenRichFoods} />
               </div>
               {expanded && <SourceList sources={sources} unit={m.unit} />}
             </div>
@@ -205,7 +201,6 @@ export default function WeekReport({ period, onOpenRichFoods }) {
                 <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? () => toggle(o.key) : undefined}>
                   {o.label}
                   {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
-                  <RichFoodsLink nutrientKey={o.key} label={o.label} onOpenRichFoods={onOpenRichFoods} />
                 </span>
                 <span className={`report-row-value status-${status}`}>
                   {o.met && <Icon name="check" size={13} />}
@@ -216,7 +211,10 @@ export default function WeekReport({ period, onOpenRichFoods }) {
                 <div className="report-row-bar-fill" style={{ width: `${Math.min(100, o.pct)}%`, background: STATUS_COLOR[status] }} />
               </div>
               <div className="report-row-sub">
-                {o.consumed.toFixed(0)} / {o.target.toFixed(0)} {o.unit}
+                <span>
+                  {o.consumed.toFixed(0)} / {o.target.toFixed(0)} {o.unit}
+                </span>
+                <RichFoodsLink nutrientKey={o.key} label={o.label} onOpenRichFoods={onOpenRichFoods} />
               </div>
               {expanded && <SourceList sources={sources} unit={o.unit} />}
             </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import SourceList from './SourceList';
+import RichFoodsLink from './RichFoodsLink';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -9,15 +10,6 @@ const STATUS_COLOR = {
   warning: 'var(--warning)',
   danger: 'var(--danger)',
 };
-
-function RichFoodsLink({ nutrientKey, label, onOpenRichFoods }) {
-  if (!onOpenRichFoods) return null;
-  return (
-    <span className="rich-foods-link" onClick={(e) => { e.stopPropagation(); onOpenRichFoods(nutrientKey); }}>
-      {' '}Aliments riches en {label}
-    </span>
-  );
-}
 
 function GoalRow({ g, sources, expanded, onToggle, t, onOpenRichFoods }) {
   const pct = g.target > 0 ? Math.min(100, Math.max(0, (g.consumed / g.target) * 100)) : 0;
@@ -32,7 +24,6 @@ function GoalRow({ g, sources, expanded, onToggle, t, onOpenRichFoods }) {
         <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? onToggle : undefined}>
           {g.label}
           {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
-          <RichFoodsLink nutrientKey={g.key} label={g.label} onOpenRichFoods={onOpenRichFoods} />
         </span>
         <span className={`report-row-value status-${status}`}>
           {goalMet ? t('today.goalMet') : `${g.remaining.toFixed(0)} ${g.unit} ${t('today.remaining')}`}
@@ -42,7 +33,10 @@ function GoalRow({ g, sources, expanded, onToggle, t, onOpenRichFoods }) {
         <div className="report-row-bar-fill" style={{ width: `${pct}%`, background: STATUS_COLOR[status] }} />
       </div>
       <div className="report-row-sub">
-        {g.consumed.toFixed(0)} / {g.target.toFixed(0)} {g.unit}
+        <span>
+          {g.consumed.toFixed(0)} / {g.target.toFixed(0)} {g.unit}
+        </span>
+        <RichFoodsLink nutrientKey={g.key} label={g.label} onOpenRichFoods={onOpenRichFoods} />
       </div>
       {expanded && <SourceList sources={sources} unit={g.unit} />}
     </div>
@@ -60,7 +54,6 @@ function LimitRow({ l, sources, expanded, onToggle, t, onOpenRichFoods }) {
         <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? onToggle : undefined}>
           {l.label}
           {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
-          <RichFoodsLink nutrientKey={l.key} label={l.label} onOpenRichFoods={onOpenRichFoods} />
         </span>
         <span className={`report-row-value status-${status}`}>
           {over
@@ -72,7 +65,10 @@ function LimitRow({ l, sources, expanded, onToggle, t, onOpenRichFoods }) {
         <div className="report-row-bar-fill" style={{ width: `${pct}%`, background: STATUS_COLOR[status] }} />
       </div>
       <div className="report-row-sub">
-        {l.consumed.toFixed(0)} / {l.reference.toFixed(0)} {l.unit}
+        <span>
+          {l.consumed.toFixed(0)} / {l.reference.toFixed(0)} {l.unit}
+        </span>
+        <RichFoodsLink nutrientKey={l.key} label={l.label} onOpenRichFoods={onOpenRichFoods} />
       </div>
       {expanded && <SourceList sources={sources} unit={l.unit} />}
     </div>
@@ -87,11 +83,13 @@ function NoGoalRow({ m, sources, expanded, onToggle, onOpenRichFoods }) {
         <span className={canExpand ? 'report-row-label clickable' : 'report-row-label'} onClick={canExpand ? onToggle : undefined}>
           {m.label}
           {canExpand && <Icon name="chevron-right" size={14} color="var(--text-muted)" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }} />}
-          <RichFoodsLink nutrientKey={m.key} label={m.label} onOpenRichFoods={onOpenRichFoods} />
         </span>
         <span className="report-row-value">
           {m.consumed.toFixed(1)} {m.unit}
         </span>
+      </div>
+      <div className="report-row-sub">
+        <RichFoodsLink nutrientKey={m.key} label={m.label} onOpenRichFoods={onOpenRichFoods} />
       </div>
       {expanded && <SourceList sources={sources} unit={m.unit} />}
     </div>
