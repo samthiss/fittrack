@@ -20,7 +20,7 @@ import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
 import webpush from 'web-push';
 import {
   localNow,
-  slotDueAt,
+  slotsDueAt,
   supplementsForSlot,
   buildReminderMessage,
   isValidTime,
@@ -4054,17 +4054,19 @@ async function runReminderTick(now = new Date()) {
     if (!profile) continue;
     const { date, time } = localNow(now, profile.reminder_timezone);
     sent += await runRepeatTick(userId, profile, date, now);
-    const slot = slotDueAt(profile, time);
-    if (!slot) continue;
-    // Claim the slot before sending: two ticks in the same minute, or a redeploy mid-minute,
-    // must not produce two notifications.
-    // Claimed with nothing sent yet (attempts 0, no last send): the column defaults differ
-    // between a fresh database and a migrated one, so the values are spelled out here instead.
-    const claim = db
-      .prepare('INSERT OR IGNORE INTO reminder_runs (user_id, date, slot, attempts, last_sent_at) VALUES (?, ?, ?, 0, NULL)')
-      .run(userId, date, slot);
-    if (claim.changes === 0) continue;
-    sent += await sendReminder(userId, date, slot);
+    for (const slot of slotsDueAt(profile, time)) {
+      // Claim the slot before sending: several ticks fall inside the catch-up window, and a
+      // redeploy restarts the process mid-window — neither may produce a second notification.
+      // The values are spelled out (attempts 0, no last send) because the column defaults differ
+      // between a fresh database and a migrated one. Note that OR IGNORE swallows *any*
+      // constraint failure, not just the duplicate it is here for — last_sent_at must therefore
+      // stay nullable, which db.js enforces on boot.
+      const claim = db
+        .prepare('INSERT OR IGNORE INTO reminder_runs (user_id, date, slot, attempts, last_sent_at) VALUES (?, ?, ?, 0, NULL)')
+        .run(userId, date, slot);
+      if (claim.changes === 0) continue;
+      sent += await sendReminder(userId, date, slot);
+    }
   }
   return sent;
 }

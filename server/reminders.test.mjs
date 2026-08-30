@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   localNow,
-  slotDueAt,
+  slotsDueAt,
   supplementsForSlot,
   buildReminderMessage,
   isValidTime,
@@ -28,13 +28,37 @@ test('localNow falls back to Paris on a bogus timezone instead of throwing', () 
   assert.deepEqual(localNow(new Date('2026-01-15T06:30:00Z'), 'Not/AZone'), { date: '2026-01-15', time: '07:30' });
 });
 
-test('slotDueAt fires only on the exact minute, and only for a configured slot', () => {
-  const profile = { reminder_morning_at: '08:00', reminder_evening_at: '20:30' };
-  assert.equal(slotDueAt(profile, '08:00'), 'morning');
-  assert.equal(slotDueAt(profile, '20:30'), 'evening');
-  assert.equal(slotDueAt(profile, '08:01'), null);
-  assert.equal(slotDueAt({ reminder_morning_at: null, reminder_evening_at: null }, '08:00'), null);
-  assert.equal(slotDueAt({ reminder_morning_at: 'nonsense' }, 'nonsense'), null);
+const schedule = { reminder_morning_at: '08:00', reminder_evening_at: '20:30' };
+
+test('slotsDueAt fires at the configured time', () => {
+  assert.deepEqual(slotsDueAt(schedule, '08:00'), ['morning']);
+  assert.deepEqual(slotsDueAt(schedule, '20:30'), ['evening']);
+  assert.deepEqual(slotsDueAt(schedule, '07:59'), []);
+});
+
+test('slotsDueAt still fires when the tick lands late — setInterval drifts and servers restart', () => {
+  // The bug this replaced: requiring an exact match meant two ticks could straddle 08:00 and skip
+  // the reminder entirely, silently, for the whole day.
+  assert.deepEqual(slotsDueAt(schedule, '08:01'), ['morning']);
+  assert.deepEqual(slotsDueAt(schedule, '08:59'), ['morning']);
+});
+
+test('slotsDueAt gives up once the reminder is stale rather than firing hours later', () => {
+  assert.deepEqual(slotsDueAt(schedule, '09:01'), []);
+  assert.deepEqual(slotsDueAt(schedule, '19:00'), []);
+});
+
+test('slotsDueAt returns both slots when both are inside their window', () => {
+  assert.deepEqual(slotsDueAt({ reminder_morning_at: '20:00', reminder_evening_at: '20:30' }, '20:35'), [
+    'morning',
+    'evening',
+  ]);
+});
+
+test('slotsDueAt ignores unset or malformed times', () => {
+  assert.deepEqual(slotsDueAt({ reminder_morning_at: null, reminder_evening_at: null }, '08:00'), []);
+  assert.deepEqual(slotsDueAt({ reminder_morning_at: 'nonsense' }, '08:00'), []);
+  assert.deepEqual(slotsDueAt(schedule, 'nonsense'), []);
 });
 
 test('isValidTime accepts HH:MM only', () => {

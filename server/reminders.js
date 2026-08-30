@@ -41,14 +41,36 @@ export function localNow(now, timeZone) {
   return { date: `${get('year')}-${get('month')}-${get('day')}`, time: `${hour}:${get('minute')}` };
 }
 
+// How late a reminder may still go out. Matching the minute exactly was wrong: setInterval drifts,
+// so two ticks can straddle the target minute and skip it entirely — and a server restarted at
+// 08:01 would silently swallow the 08:00 reminder. Firing late is what a reminder should do;
+// firing hours late is not, hence the window.
+export const CATCH_UP_MINUTES = 60;
+
+function minutesOfDay(hhmm) {
+  const [h, m] = hhmm.split(':');
+  return Number(h) * 60 + Number(m);
+}
+
 /**
- * Which reminder is due right now for this profile, if any. Exact minute match: the scheduler
- * ticks every minute, and reminder_runs makes a repeated tick harmless.
+ * Which reminders are due for this profile at `time`: those whose moment has passed within the
+ * catch-up window. Sending only once is not this function's job — the caller claims the slot in
+ * reminder_runs first, so several ticks inside the window produce a single notification.
  */
-export function slotDueAt(profile, time) {
-  if (isValidTime(profile?.reminder_morning_at) && profile.reminder_morning_at === time) return 'morning';
-  if (isValidTime(profile?.reminder_evening_at) && profile.reminder_evening_at === time) return 'evening';
-  return null;
+export function slotsDueAt(profile, time, catchUpMinutes = CATCH_UP_MINUTES) {
+  if (!isValidTime(time)) return [];
+  const now = minutesOfDay(time);
+  const slots = [];
+  for (const [slot, field] of [
+    ['morning', 'reminder_morning_at'],
+    ['evening', 'reminder_evening_at'],
+  ]) {
+    const at = profile?.[field];
+    if (!isValidTime(at)) continue;
+    const late = now - minutesOfDay(at);
+    if (late >= 0 && late <= catchUpMinutes) slots.push(slot);
+  }
+  return slots;
 }
 
 /**

@@ -265,8 +265,10 @@ db.exec(`
     sent_at TEXT NOT NULL DEFAULT (datetime('now')),
     -- How many times this reminder has gone out today, and when it last did: the repeat option
     -- re-sends every quarter of an hour from here until the supplements are ticked (or the cap).
-    attempts INTEGER NOT NULL DEFAULT 1,
-    last_sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+    -- Both describe a row that has been *claimed* but not yet sent, hence 0 and NULL — the column
+    -- must stay nullable, or the claiming INSERT OR IGNORE silently drops the row (see below).
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_sent_at TEXT,
     PRIMARY KEY (user_id, date, slot)
   );
 
@@ -600,6 +602,38 @@ function rebuildIfUnwritable(table, knownColumns, createSql) {
   } catch (err) {
     db.exec('ROLLBACK');
     throw err;
+  }
+}
+
+// A reminder_runs from the first version of this feature declares last_sent_at NOT NULL, and the
+// scheduler claims a slot by inserting NULL there. INSERT OR IGNORE swallows constraint failures
+// as readily as duplicates, so on such a table every reminder was dropped without a row, an error
+// or a log line. Rebuild it rather than working around the shape.
+{
+  const cols = db.prepare('PRAGMA table_info(reminder_runs)').all();
+  const lastSent = cols.find((c) => c.name === 'last_sent_at');
+  if (lastSent && lastSent.notnull) {
+    console.warn('Rebuilding reminder_runs: last_sent_at is NOT NULL, which silently rejects every claimed reminder.');
+    db.exec('BEGIN');
+    try {
+      db.exec('ALTER TABLE reminder_runs RENAME TO reminder_runs_old');
+      db.exec(`CREATE TABLE reminder_runs (
+        user_id INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        slot TEXT NOT NULL,
+        sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+        attempts INTEGER NOT NULL DEFAULT 0,
+        last_sent_at TEXT,
+        PRIMARY KEY (user_id, date, slot)
+      )`);
+      db.exec(`INSERT INTO reminder_runs (user_id, date, slot, sent_at, attempts, last_sent_at)
+               SELECT user_id, date, slot, sent_at, attempts, last_sent_at FROM reminder_runs_old`);
+      db.exec('DROP TABLE reminder_runs_old');
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
   }
 }
 
