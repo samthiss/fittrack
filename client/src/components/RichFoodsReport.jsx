@@ -3,6 +3,25 @@ import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
+// Fixed display order: what you'd reach for first when you're short on a nutrient — whole
+// vegetables and pulses before oils and drinks. A category with nothing in it is skipped, so a
+// nutrient found only in fish shows a single band.
+const CATEGORY_ORDER = [
+  'legumes',
+  'legumineuses',
+  'fruits',
+  'cereales',
+  'noix_graines',
+  'poissons',
+  'viandes',
+  'laitiers',
+  'herbes',
+  'huiles',
+  'condiments',
+  'boissons',
+  'divers',
+];
+
 // Accent-insensitive contains, so typing "epinard" still finds "épinard".
 function normalize(s) {
   return s
@@ -44,7 +63,24 @@ export default function RichFoodsReport({ nutrientKey, onBack }) {
 
   // Bars are relative to the richest food in the list, not to a daily target: the question this
   // screen answers is "which of these is densest", and the top item is the only meaningful 100%.
+  // Deliberately the overall maximum, not the group's — bars stay comparable across categories,
+  // which is the whole point of showing 34 g of chia next to 8.6 g of artichoke.
   const maxValue = foods.length > 0 ? Math.max(...foods.map((f) => f.value)) : 0;
+
+  // Ranks are assigned before grouping, so a row keeps its place in the overall ranking: seeing
+  // 01, 02, 03 all sitting under "Noix & graines" is itself the answer to "where are the fibres".
+  const groups = useMemo(() => {
+    const ranked = foods.map((f, i) => ({ ...f, rank: i + 1 }));
+    const byCategory = new Map();
+    for (const food of ranked) {
+      const key = food.cat || 'divers';
+      if (!byCategory.has(key)) byCategory.set(key, []);
+      byCategory.get(key).push(food);
+    }
+    const known = CATEGORY_ORDER.filter((key) => byCategory.has(key));
+    const unknown = [...byCategory.keys()].filter((key) => !CATEGORY_ORDER.includes(key));
+    return [...known, ...unknown].map((key) => ({ key, items: byCategory.get(key) }));
+  }, [foods]);
 
   return (
     <div>
@@ -96,34 +132,40 @@ export default function RichFoodsReport({ nutrientKey, onBack }) {
             />
           </div>
 
-          <div className="report-card rich-foods-card">
-            {foods.length === 0 ? (
-              <p className="hint">{t('sources.none')}</p>
-            ) : (
-              foods.map((f, i) => (
-                <div className="rich-food-row" key={f.name}>
-                  <span className="rich-food-rank">{String(i + 1).padStart(2, '0')}</span>
-                  <div className="rich-food-body">
-                    <div className="rich-food-top">
-                      <span className="rich-food-name">{f.name}</span>
-                      <span className="rich-food-value">
-                        {f.value.toFixed(1)} <span>{f.unit}</span>
-                      </span>
-                    </div>
-                    <div className="progress-track rich-food-bar">
-                      <div
-                        className="progress-fill"
-                        style={{
-                          width: `${maxValue > 0 ? Math.max(3, (f.value / maxValue) * 100) : 0}%`,
-                          background: 'var(--gradient-arc)',
-                        }}
-                      />
+          {foods.length === 0 && <p className="hint">{t('sources.none')}</p>}
+
+          {groups.map((group) => (
+            <div key={group.key}>
+              <div className="section-header">
+                <span className="section-title">{t(`foodCategory.${group.key}`)}</span>
+                <span className="section-hint">{group.items.length}</span>
+              </div>
+              <div className="report-card rich-foods-card">
+                {group.items.map((f) => (
+                  <div className="rich-food-row" key={f.name}>
+                    <span className="rich-food-rank">{String(f.rank).padStart(2, '0')}</span>
+                    <div className="rich-food-body">
+                      <div className="rich-food-top">
+                        <span className="rich-food-name">{f.name}</span>
+                        <span className="rich-food-value">
+                          {f.value.toFixed(1)} <span>{f.unit}</span>
+                        </span>
+                      </div>
+                      <div className="progress-track rich-food-bar">
+                        <div
+                          className="progress-fill"
+                          style={{
+                            width: `${maxValue > 0 ? Math.max(3, (f.value / maxValue) * 100) : 0}%`,
+                            background: 'var(--gradient-arc)',
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </>
       )}
     </div>

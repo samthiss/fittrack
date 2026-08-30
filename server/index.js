@@ -1838,17 +1838,19 @@ app.get('/api/rich-foods/:key', (req, res) => {
   const unit = MICRO_REFERENCE[key]?.unit || 'g';
   const seen = new Set();
   const items = [];
-  const pushItem = (name, value) => {
+  const pushItem = (name, value, cat) => {
     if (!name || value <= 0 || seen.has(name)) return;
     seen.add(name);
-    items.push({ name, value, unit });
+    items.push({ name, value, unit, cat });
   };
   // Reference foods only. The user's own library is deliberately left out: this screen answers
   // "what should I eat to get more of X", and a scan of a supplement tub or a branded product
   // logged once in the Journal isn't an answer to that — it just crowded out the real ones.
-  for (const f of COMMON_FOODS[key] || []) pushItem(f.name, f[key] || 0);
+  for (const f of COMMON_FOODS[key] || []) pushItem(f.name, f[key] || 0, f.cat);
   items.sort((a, b) => b.value - a.value);
-  res.json({ key, label: MICRO_REFERENCE[key]?.label || key, unit, foods: items.slice(0, 40) });
+  // No slice any more: the list is grouped by category client-side, and cutting at 40 would drop
+  // whole categories off the bottom of a long list (fibre alone has 70+ foods).
+  res.json({ key, label: MICRO_REFERENCE[key]?.label || key, unit, foods: items });
 });
 
 app.get('/api/foods/lookup/:barcode', async (req, res) => {
