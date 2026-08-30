@@ -26,7 +26,22 @@ function MainApp({ onLogout, account }) {
   // Come back where the workout was, not on the Journal: a restored session means the app died
   // under the user mid-exercise, and making them find their way back would be the same annoyance
   // one step later.
-  const [view, setView] = useState(restoredSession.session ? 'activites' : 'journal');
+  // A notification tap lands on /?view=<screen> — without this the app would open on the Journal
+  // and the reminder would have told the user nothing about where to go. A restored workout still
+  // wins: the session is more urgent than a reminder that can be reached in one tap.
+  const [view, setView] = useState(() => {
+    if (restoredSession.session) return 'activites';
+    const requested = new URLSearchParams(window.location.search).get('view');
+    return requested === 'supplements' ? 'supplements' : 'journal';
+  });
+
+  // The parameter has done its job once the screen is picked; leaving it in the URL would send
+  // the user back to that screen on every later reload of the installed app.
+  useEffect(() => {
+    if (window.location.search) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
   const [selectedMeal, setSelectedMeal] = useState(null);
   const [autoOpenAdd, setAutoOpenAdd] = useState(false);
   const [profile, setProfile] = useState(null);
