@@ -10,6 +10,9 @@ export default function AuthScreen({ onAuthenticated }) {
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
+  // The forgot-password form replaces the login form in place rather than opening a screen of its
+  // own: it asks for the email that is already typed in, and carrying it over is the whole point.
+  const [forgot, setForgot] = useState(false);
 
   const TABS = [
     { key: 'login', label: t('auth.login') },
@@ -26,6 +29,26 @@ export default function AuthScreen({ onAuthenticated }) {
   // The very first account created on a fresh install "claims" the pre-existing data (recipes,
   // journal, weight...) instead of starting empty — after that, it's a normal signup.
   const isClaimFlow = !legacyClaimed && tab === 'register';
+
+  async function handleForgot(e) {
+    e.preventDefault();
+    if (!email.trim()) {
+      setStatus({ text: t('auth.emailRequired'), error: true });
+      return;
+    }
+    setLoading(true);
+    setStatus(null);
+    try {
+      const r = await api.forgotPassword(email.trim());
+      // The server answers the same way whether or not the address has an account, so as not to
+      // turn this form into a way of testing which emails are registered — the message says "if".
+      setStatus({ text: r.message, error: false });
+    } catch (err) {
+      setStatus({ text: err.message || t('auth.genericError'), error: true });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -69,6 +92,41 @@ export default function AuthScreen({ onAuthenticated }) {
             </p>
           )}
 
+          {forgot ? (
+            <form onSubmit={handleForgot} className="card" style={{ marginTop: 14 }}>
+              <p className="hint" style={{ marginTop: 0 }}>{t('auth.forgotIntro')}</p>
+              <div className="row">
+                <label>{t('auth.email')}</label>
+                <div className="field">
+                  <input
+                    type="email"
+                    className="wide"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="card-actions">
+                <button type="submit" className="btn btn-block" disabled={loading}>
+                  {loading ? t('auth.submitting') : t('auth.forgotSubmit')}
+                </button>
+              </div>
+              {status && <p className={status.error ? 'hint error' : 'hint success'}>{status.text}</p>}
+              <button
+                type="button"
+                className="btn-ghost"
+                style={{ display: 'block', margin: '10px auto 0' }}
+                onClick={() => {
+                  setForgot(false);
+                  setStatus(null);
+                }}
+              >
+                {t('reset.backToLogin')}
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} className="card" style={{ marginTop: 14 }}>
             <div className="row">
               <label>{t('auth.email')}</label>
@@ -108,7 +166,21 @@ export default function AuthScreen({ onAuthenticated }) {
               </button>
             </div>
             {status && <p className={status.error ? 'hint error' : 'hint success'}>{status.text}</p>}
+            {tab === 'login' && (
+              <button
+                type="button"
+                className="btn-ghost"
+                style={{ display: 'block', margin: '10px auto 0' }}
+                onClick={() => {
+                  setForgot(true);
+                  setStatus(null);
+                }}
+              >
+                {t('auth.forgotLink')}
+              </button>
+            )}
           </form>
+          )}
         </main>
       </div>
     </div>

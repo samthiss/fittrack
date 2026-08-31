@@ -19,6 +19,18 @@ import { computeTdee, BMR_METHODS } from './tdee.js';
 import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
 import webpush from 'web-push';
 import { buildRestDoneMessage, isValidRestSeconds, isWorthSending } from './restTimer.js';
+import { MAIL_ENABLED, sendMail, verifyMailer } from './mailer.js';
+import {
+  TOKEN_TTL_MS,
+  REQUEST_WINDOW_MS,
+  generateToken,
+  hashToken,
+  isTokenUsable,
+  isRateLimited,
+  tokensMatch,
+  buildResetUrl,
+  buildResetEmail,
+} from './passwordReset.js';
 import {
   localNow,
   slotsDueAt,
@@ -205,6 +217,100 @@ app.post('/api/auth/claim-legacy', (req, res) => {
 app.get('/api/auth/legacy-status', (req, res) => {
   const legacy = db.prepare('SELECT id FROM users WHERE id = 1 AND password_hash = ?').get(LEGACY_MARKER);
   res.json({ claimed: !legacy });
+});
+
+// --- Mot de passe oublié ---
+// Reaching this flow means being logged out, so none of it can sit behind requireAuth. Email is
+// the channel because it is the only one that works from a device the user has never used and
+// has not enabled notifications on — which is precisely the situation someone locked out is in.
+
+// Where the reset link points. Railway serves the app and the API from one origin, so the request
+// itself knows the answer; APP_BASE_URL exists for a split deployment, where it would not.
+function appBaseUrl(req) {
+  if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL;
+  return `${req.protocol}://${req.get('host')}`;
+}
+
+// Deliberately identical whether or not the address belongs to an account: an endpoint that says
+// "unknown email" is an endpoint that confirms which addresses have accounts here.
+const RESET_REQUESTED = {
+  message: "Si un compte existe avec cette adresse, un lien de réinitialisation vient d'être envoyé.",
+};
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  if (!MAIL_ENABLED) return res.status(503).json({ error: "L'envoi d'email n'est pas configuré sur le serveur." });
+  const email = normalizeEmail(req.body?.email);
+  if (!email) return res.status(400).json({ error: 'Email requis.' });
+
+  const user = db.prepare('SELECT id, email, password_hash FROM users WHERE email = ?').get(email);
+  // The legacy placeholder has no owner and no real password to reset — it is claimed, not
+  // recovered (see /api/auth/claim-legacy).
+  if (!user || user.password_hash === LEGACY_MARKER) return res.json(RESET_REQUESTED);
+
+  const now = Date.now();
+  const recent = db
+    .prepare('SELECT COUNT(*) AS n FROM password_resets WHERE user_id = ? AND created_at_ms > ?')
+    .get(user.id, now - REQUEST_WINDOW_MS).n;
+  // Silently, and with the same body as success: telling the sender they have been throttled
+  // tells them the address exists.
+  if (isRateLimited(recent)) return res.json(RESET_REQUESTED);
+
+  // Any link already outstanding stops working now. Asking again is what someone does when they
+  // think the first link went astray, and two live links is twice the surface for one recovery.
+  db.prepare("UPDATE password_resets SET used_at = datetime('now') WHERE user_id = ? AND used_at IS NULL").run(user.id);
+
+  const token = generateToken();
+  db.prepare(
+    'INSERT INTO password_resets (user_id, token_hash, expires_at_ms, created_at_ms) VALUES (?, ?, ?, ?)'
+  ).run(user.id, hashToken(token), now + TOKEN_TTL_MS, now);
+
+  const mail = buildResetEmail({ url: buildResetUrl(appBaseUrl(req), token) });
+  try {
+    await sendMail({ to: user.email, ...mail });
+  } catch (err) {
+    console.error('Password reset email failed:', err.message);
+    // The row is burned rather than left live: the user is about to be told to try again, and a
+    // token nobody received must not stay valid for the hour.
+    db.prepare("UPDATE password_resets SET used_at = datetime('now') WHERE token_hash = ?").run(hashToken(token));
+    return res.status(502).json({ error: "L'email n'a pas pu être envoyé. Réessaie dans un instant." });
+  }
+  res.json(RESET_REQUESTED);
+});
+
+// Lets the app show the "choose a new password" form only when the link is actually good, rather
+// than after the user has typed a password twice.
+app.get('/api/auth/reset-token', (req, res) => {
+  const token = String(req.query.token || '');
+  const row = token ? db.prepare('SELECT * FROM password_resets WHERE token_hash = ?').get(hashToken(token)) : null;
+  res.json({ valid: isTokenUsable(row) });
+});
+
+app.post('/api/auth/reset-password', (req, res) => {
+  const token = String(req.body?.token || '');
+  const password = String(req.body?.password || '');
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Le mot de passe doit faire au moins 8 caractères.' });
+  }
+  const candidate = hashToken(token);
+  const row = token ? db.prepare('SELECT * FROM password_resets WHERE token_hash = ?').get(candidate) : null;
+  if (!isTokenUsable(row) || !tokensMatch(row.token_hash, candidate)) {
+    return res.status(400).json({ error: 'Ce lien est invalide ou a expiré. Redemande une réinitialisation.' });
+  }
+
+  // Marking the token used and changing the password in one transaction: a crash between the two
+  // would otherwise leave a live link for a password that had already changed.
+  db.transaction(() => {
+    db.prepare("UPDATE password_resets SET used_at = datetime('now') WHERE id = ?").run(row.id);
+    db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?').run(
+      hashPassword(password),
+      row.user_id
+    );
+    // Whoever knew the old password is logged out everywhere. If the reset was prompted by a
+    // suspicion of compromise, leaving their session alive would defeat the point of it.
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(row.user_id);
+  })();
+
+  res.status(204).end();
 });
 
 app.post('/api/auth/change-password', requireAuth, (req, res) => {
@@ -4192,4 +4298,5 @@ app.listen(PORT, () => {
   runDailyMicrobiomeClassification();
   startReminderScheduler();
   startRestTimerScheduler();
+  verifyMailer();
 });

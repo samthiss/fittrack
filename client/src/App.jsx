@@ -13,6 +13,7 @@ import MealPlanner from './components/MealPlanner';
 import SupplementsScreen from './components/SupplementsScreen';
 import Settings from './components/Settings';
 import AuthScreen from './components/AuthScreen';
+import ResetPasswordScreen from './components/ResetPasswordScreen';
 import Onboarding from './components/Onboarding';
 import { useLanguage } from './i18n/LanguageContext';
 import { parseRestByReps } from './data/restTargets';
@@ -545,6 +546,9 @@ function MainApp({ onLogout, account }) {
 function App() {
   // undefined = still checking, null = not authenticated, object = { id, email, mustChangePassword }
   const [account, setAccount] = useState(undefined);
+  // A reset link lands on /?reset=<token>. Read once at mount, because the screen clears the
+  // parameter from the URL as soon as it is done with it.
+  const [resetToken, setResetToken] = useState(() => new URLSearchParams(window.location.search).get('reset'));
 
   useEffect(() => {
     api
@@ -558,6 +562,20 @@ function App() {
     setAccount(null);
   }
 
+  // Before everything else, including the session check: someone following a reset link is by
+  // definition unable to log in, and an existing session on the device must not swallow the link.
+  if (resetToken) {
+    return (
+      <ResetPasswordScreen
+        token={resetToken}
+        onDone={() => {
+          // Drops ?reset= so a reload does not land back on a link that is now spent.
+          window.history.replaceState({}, '', window.location.pathname);
+          setResetToken(null);
+        }}
+      />
+    );
+  }
   if (account === undefined) return null;
   if (!account) return <AuthScreen onAuthenticated={setAccount} />;
   if (!account.onboardingCompleted) {

@@ -27,6 +27,11 @@ export const api = {
   login: (email, password) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
+  // Reaching these means being logged out, so none of them carry a session.
+  forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+  checkResetToken: (token) => request(`/auth/reset-token?token=${encodeURIComponent(token)}`),
+  resetPassword: (token, password) =>
+    request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
   claimLegacy: (email, password) =>
     request('/auth/claim-legacy', { method: 'POST', body: JSON.stringify({ email, password }) }),
   changePassword: (currentPassword, newPassword) =>

@@ -30,6 +30,21 @@ db.exec(`
     data TEXT NOT NULL
   );
 
+  -- Outstanding password-reset links. Only the SHA-256 of each token is stored: the token itself
+  -- exists in the email and nowhere else, so a stolen database yields no usable link (see
+  -- passwordReset.js). Rows are kept after use rather than deleted — they are the evidence the
+  -- rate limiter counts, and a used row is what makes a second click on the same link fail.
+  CREATE TABLE IF NOT EXISTS password_resets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at_ms INTEGER NOT NULL,
+    used_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at_ms INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id, created_at_ms);
+
   CREATE TABLE IF NOT EXISTS profile (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     bmr REAL NOT NULL DEFAULT 0,
