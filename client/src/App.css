@@ -5582,3 +5582,65 @@ h1 {
     animation: none;
   }
 }
+
+/* --- Checklist salle & numéro de casier --- */
+
+/* The locker number is read in a hurry, in a corridor, often one-handed — so it gets a card of
+   its own and the largest type on the screen. */
+.locker-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.locker-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.locker-value {
+  flex: 1;
+  font-family: var(--font-display, var(--sans));
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  text-shadow: var(--glow-text);
+}
+
+.locker-card.filled {
+  border-color: var(--border-strong);
+}
+
+.locker-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.checklist-row {
+  gap: 12px;
+}
+
+.checklist-label {
+  flex: 1;
+  cursor: text;
+}
+
+/* Ticked off: struck through and dimmed, so the eye lands on what is still missing. */
+.checklist-row.done .checklist-label {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.checklist-add {
+  margin-top: 12px;
+}

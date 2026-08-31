@@ -8,6 +8,7 @@ import SessionFinish from './SessionFinish';
 import ExerciseSession from './ExerciseSession';
 import AddActivityModal from './AddActivityModal';
 import PlanGroupModal from './PlanGroupModal';
+import GymChecklist from './GymChecklist';
 import { useLanguage } from '../i18n/LanguageContext';
 import { computeSessionElapsed } from '../data/sessionTiming';
 
@@ -70,6 +71,9 @@ function resetSessionElapsed(session) {
 // would be destroyed outright by a detour through Journal — losing the sets already logged and
 // stopping both timers mid-workout.
 export default function ActivitesScreen({ date, onDateChange, activityTypes, activities, planEntries, restByReps, session, onSessionChange, sessionExercise, onSessionExerciseChange, onRefresh }) {
+  // Séances / Checklist. Local to this screen rather than lifted to App: nothing outside cares
+  // which one is showing, and a workout in progress is unaffected either way.
+  const [tab, setTab] = useState('sessions');
   const { t, lang } = useLanguage();
   const [weekPresence, setWeekPresence] = useState({});
   const [showAdd, setShowAdd] = useState(false);
@@ -330,6 +334,27 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         </div>
       </header>
 
+      <div className="import-tabs">
+        <button
+          type="button"
+          className={tab === 'sessions' ? 'import-tab active' : 'import-tab'}
+          onClick={() => setTab('sessions')}
+        >
+          {t('activityLog.sessionsTab')}
+        </button>
+        <button
+          type="button"
+          className={tab === 'checklist' ? 'import-tab active' : 'import-tab'}
+          onClick={() => setTab('checklist')}
+        >
+          {t('checklist.tab')}
+        </button>
+      </div>
+
+      {tab === 'checklist' && <GymChecklist date={date} />}
+
+      {tab === 'sessions' && (
+      <>
       <div className="activites-burn-card">
         <span className="activites-burn-icon">
           <Icon name="flame" size={27} />
@@ -435,6 +460,8 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         <Icon name="plus" size={20} />
         {t('activityLog.addActivity')}
       </button>
+      </>
+      )}
 
       {showAdd && (
         <AddActivityModal

@@ -287,6 +287,35 @@ db.exec(`
     PRIMARY KEY (user_id, date, slot)
   );
 
+  -- The "don't forget" list for the gym: the items themselves, and one row per item ticked on a
+  -- given day. Ticks are per date, like the supplements, so the list starts empty again tomorrow
+  -- instead of having to be reset by hand before every session.
+  CREATE TABLE IF NOT EXISTS checklist_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    label TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS checklist_checks (
+    user_id INTEGER NOT NULL,
+    item_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, item_id, date)
+  );
+
+  -- The locker number, one per day: it is only ever needed for the length of a visit, and a
+  -- number left over from last week is worse than no number at all.
+  CREATE TABLE IF NOT EXISTS gym_lockers (
+    user_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    locker TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, date)
+  );
+
   -- One Web Push subscription per installed app (an iPhone home-screen PWA counts as one). The
   -- endpoint is the browser's own push URL and identifies the device, hence the UNIQUE on it —
   -- re-subscribing from the same device must update its keys, not pile up duplicates.

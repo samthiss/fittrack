@@ -1542,6 +1542,106 @@ function startRestTimerScheduler() {
   }, REST_TICK_MS);
 }
 
+// --- Checklist salle de sport ---
+// The list of things not to forget, and the locker number for the day. Both are per date: a tick
+// or a locker number is about one visit, and carrying either over to tomorrow would be a lie.
+const MAX_CHECKLIST_LABEL = 80;
+const MAX_LOCKER_LENGTH = 12;
+
+function checklistForDate(userId, date) {
+  const items = db
+    .prepare('SELECT id, label, sort_order FROM checklist_items WHERE user_id = ? ORDER BY sort_order, id')
+    .all(userId);
+  const checked = new Set(
+    db
+      .prepare('SELECT item_id FROM checklist_checks WHERE user_id = ? AND date = ?')
+      .all(userId, date)
+      .map((r) => r.item_id)
+  );
+  const locker = db.prepare('SELECT locker FROM gym_lockers WHERE user_id = ? AND date = ?').get(userId, date);
+  return {
+    date,
+    items: items.map((item) => ({ ...item, checked: checked.has(item.id) })),
+    checkedCount: items.filter((item) => checked.has(item.id)).length,
+    locker: locker?.locker || '',
+  };
+}
+
+app.get('/api/checklist', (req, res) => {
+  res.json(checklistForDate(req.userId, req.query.date || todayStr()));
+});
+
+app.post('/api/checklist', (req, res) => {
+  const label = String(req.body?.label || '').trim().slice(0, MAX_CHECKLIST_LABEL);
+  if (!label) return res.status(400).json({ error: 'Intitulé requis' });
+  const maxOrder = db.prepare('SELECT MAX(sort_order) AS m FROM checklist_items WHERE user_id = ?').get(req.userId).m;
+  db.prepare('INSERT INTO checklist_items (user_id, label, sort_order) VALUES (?, ?, ?)').run(
+    req.userId,
+    label,
+    (maxOrder ?? 0) + 1
+  );
+  res.status(201).json(checklistForDate(req.userId, req.body?.date || todayStr()));
+});
+
+// Declared before /api/checklist/:id — Express matches in order, and "locker" would otherwise be
+// taken for an item id by that route, which then rejects the request for having no label.
+// The locker number. An empty value clears it — that is how you say "I have left the gym", and it
+// keeps a stale number from being mistaken for today's.
+app.put('/api/checklist/locker', (req, res) => {
+  const date = req.body?.date || todayStr();
+  const locker = String(req.body?.locker ?? '').trim().slice(0, MAX_LOCKER_LENGTH);
+  if (locker) {
+    db.prepare(
+      `INSERT INTO gym_lockers (user_id, date, locker) VALUES (?, ?, ?)
+       ON CONFLICT(user_id, date) DO UPDATE SET locker = excluded.locker, updated_at = datetime('now')`
+    ).run(req.userId, date, locker);
+  } else {
+    db.prepare('DELETE FROM gym_lockers WHERE user_id = ? AND date = ?').run(req.userId, date);
+  }
+  res.json(checklistForDate(req.userId, date));
+});
+
+app.put('/api/checklist/:id', (req, res) => {
+  const label = String(req.body?.label || '').trim().slice(0, MAX_CHECKLIST_LABEL);
+  if (!label) return res.status(400).json({ error: 'Intitulé requis' });
+  db.prepare('UPDATE checklist_items SET label = ? WHERE id = ? AND user_id = ?').run(label, req.params.id, req.userId);
+  res.json(checklistForDate(req.userId, req.body?.date || todayStr()));
+});
+
+// The ticks go with the item: keeping them would leave rows pointing at a line that no longer
+// exists, and they mean nothing on their own.
+app.delete('/api/checklist/:id', (req, res) => {
+  db.prepare('DELETE FROM checklist_checks WHERE item_id = ? AND user_id = ?').run(req.params.id, req.userId);
+  db.prepare('DELETE FROM checklist_items WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
+  res.json(checklistForDate(req.userId, req.query.date || todayStr()));
+});
+
+app.post('/api/checklist/:id/check', (req, res) => {
+  const date = req.body?.date || todayStr();
+  const checked = req.body?.checked !== false;
+  if (checked) {
+    db.prepare('INSERT OR IGNORE INTO checklist_checks (user_id, item_id, date) VALUES (?, ?, ?)').run(
+      req.userId,
+      req.params.id,
+      date
+    );
+  } else {
+    db.prepare('DELETE FROM checklist_checks WHERE user_id = ? AND item_id = ? AND date = ?').run(
+      req.userId,
+      req.params.id,
+      date
+    );
+  }
+  res.json(checklistForDate(req.userId, date));
+});
+
+// Clearing the day's ticks without touching the list — for a second visit on the same day.
+app.post('/api/checklist/uncheck-all', (req, res) => {
+  const date = req.body?.date || todayStr();
+  db.prepare('DELETE FROM checklist_checks WHERE user_id = ? AND date = ?').run(req.userId, date);
+  res.json(checklistForDate(req.userId, date));
+});
+
 // --- Suppléments ---
 // A supplement is taken either N times a day or once a month; there's no free-form scheduling.
 // The monthly ones are counted over the whole calendar month, so one taken on the 3rd still reads

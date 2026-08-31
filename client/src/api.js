@@ -97,6 +97,15 @@ export const api = {
   // moment the screen locks, so only the server can be relied on to buzz on time.
   startRestTimer: (data) => request('/rest-timer', { method: 'POST', body: JSON.stringify(data) }),
   cancelRestTimer: () => request('/rest-timer', { method: 'DELETE' }),
+  getChecklist: (date) => request(`/checklist?date=${date}`),
+  addChecklistItem: (date, label) => request('/checklist', { method: 'POST', body: JSON.stringify({ date, label }) }),
+  updateChecklistItem: (id, date, label) =>
+    request(`/checklist/${id}`, { method: 'PUT', body: JSON.stringify({ date, label }) }),
+  deleteChecklistItem: (id, date) => request(`/checklist/${id}?date=${date}`, { method: 'DELETE' }),
+  setChecklistChecked: (id, date, checked) =>
+    request(`/checklist/${id}/check`, { method: 'POST', body: JSON.stringify({ date, checked }) }),
+  uncheckAllChecklist: (date) => request('/checklist/uncheck-all', { method: 'POST', body: JSON.stringify({ date }) }),
+  setLocker: (date, locker) => request('/checklist/locker', { method: 'PUT', body: JSON.stringify({ date, locker }) }),
   getSummary: (date) => request(`/summary?date=${date}`),
   getRecipes: () => request('/recipes'),
   createRecipe: (data) => request('/recipes', { method: 'POST', body: JSON.stringify(data) }),
