@@ -13,11 +13,20 @@ export default function AuthScreen({ onAuthenticated }) {
   // The forgot-password form replaces the login form in place rather than opening a screen of its
   // own: it asks for the email that is already typed in, and carrying it over is the whole point.
   const [forgot, setForgot] = useState(false);
+  // Null while unknown; the link stays hidden until the server confirms it can actually send.
+  const [mailEnabled, setMailEnabled] = useState(false);
 
   const TABS = [
     { key: 'login', label: t('auth.login') },
     { key: 'register', label: t('auth.register') },
   ];
+
+  useEffect(() => {
+    api
+      .getMailStatus()
+      .then((r) => setMailEnabled(Boolean(r.enabled)))
+      .catch(() => setMailEnabled(false));
+  }, []);
 
   useEffect(() => {
     api
@@ -166,7 +175,7 @@ export default function AuthScreen({ onAuthenticated }) {
               </button>
             </div>
             {status && <p className={status.error ? 'hint error' : 'hint success'}>{status.text}</p>}
-            {tab === 'login' && (
+            {tab === 'login' && mailEnabled && (
               <button
                 type="button"
                 className="btn-ghost"

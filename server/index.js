@@ -19,7 +19,7 @@ import { computeTdee, BMR_METHODS } from './tdee.js';
 import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
 import webpush from 'web-push';
 import { buildRestDoneMessage, isValidRestSeconds, isWorthSending } from './restTimer.js';
-import { MAIL_ENABLED, sendMail, verifyMailer } from './mailer.js';
+import { MAIL_ENABLED, isMailReady, sendMail, verifyMailer } from './mailer.js';
 import {
   TOKEN_TTL_MS,
   REQUEST_WINDOW_MS,
@@ -220,6 +220,12 @@ app.get('/api/auth/legacy-status', (req, res) => {
 });
 
 // --- Mot de passe oublié ---
+// Whether the login screen should offer the link at all. Public, and deliberately says nothing
+// beyond yes/no: it is read before anyone has authenticated.
+app.get('/api/auth/mail-status', (req, res) => {
+  res.json({ enabled: isMailReady() });
+});
+
 // Reaching this flow means being logged out, so none of it can sit behind requireAuth. Email is
 // the channel because it is the only one that works from a device the user has never used and
 // has not enabled notifications on — which is precisely the situation someone locked out is in.

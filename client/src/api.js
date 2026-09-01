@@ -28,6 +28,8 @@ export const api = {
     request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   // Reaching these means being logged out, so none of them carry a session.
+  // Read before the login screen draws: no point offering a reset the server cannot send.
+  getMailStatus: () => request('/auth/mail-status'),
   forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
   checkResetToken: (token) => request(`/auth/reset-token?token=${encodeURIComponent(token)}`),
   resetPassword: (token, password) =>
