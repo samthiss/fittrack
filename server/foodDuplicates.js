@@ -3,11 +3,74 @@
 // they are the part that has to be right, since merging is destructive.
 
 // Words that describe the same food differently rather than a different food. Removing them
-// before comparing is what makes "Blanc de poulet cuit" and "poulet blanc" meet.
+// before comparing is what makes "Blanc de poulet cuit" and "poulet blanc" meet — and, on a
+// scanned German packet, "Frische Bio Eier" and "Eier".
+//
+// Deliberately absent: anything that changes what the food IS. "entier", "écrémé", "voll",
+// "fettarm", "complet" and the percentages stay, because whole milk and skimmed milk are not the
+// same food and merging them would rewrite the fat of every day they appear in.
 const NOISE = new Set([
-  'de', 'du', 'des', 'la', 'le', 'les', "l'", 'au', 'aux', 'a', 'en', 'et',
-  'nature', 'naturel', 'frais', 'fraiche', 'bio', 'maison',
+  // français
+  'de', 'du', 'des', 'la', 'le', 'les', "l'", 'au', 'aux', 'a', 'en', 'et', 'sans',
+  'nature', 'naturel', 'naturelle', 'frais', 'fraiche', 'fraiches', 'bio', 'maison', 'qualite',
+  // anglais
+  'the', 'with', 'and', 'fresh', 'organic', 'natural', 'plain', 'pure', 'style', 'free', 'range',
+  // allemand — les mots d'emballage qu'on retrouve sur tout produit scanné
+  'der', 'die', 'das', 'mit', 'ohne', 'und', 'vom', 'von', 'aus', 'im', 'in',
+  'frisch', 'frische', 'frischer', 'frisches', 'natur', 'naturell', 'original', 'klassisch',
+  'feine', 'feiner', 'fein', 'echte', 'echter', 'ganze', 'ganzer', 'gut', 'gute',
 ]);
+
+// Food words that mean the same thing in French, English and German. A barcode scanned in Germany
+// writes "Eier" where the catalogue writes "Œuf" — without this they are two foods forever.
+// Only unambiguous nouns are listed: a wrong synonym here proposes a wrong merge, and a merge is
+// destructive. Compounds ("Vollmilch") expand to several tokens so they meet their French
+// multi-word equivalent.
+const SYNONYMS = {
+  oeuf: 'oeuf', oeufs: 'oeuf', egg: 'oeuf', eggs: 'oeuf', ei: 'oeuf', eier: 'oeuf',
+  lait: 'lait', milk: 'lait', milch: 'lait',
+  vollmilch: 'lait entier', magermilch: 'lait ecreme',
+  poulet: 'poulet', chicken: 'poulet', hahnchen: 'poulet', huhn: 'poulet', huhnchen: 'poulet',
+  hahnchenbrust: 'poulet blanc', huhnerbrust: 'poulet blanc',
+  dinde: 'dinde', turkey: 'dinde', pute: 'dinde', putenbrust: 'dinde blanc',
+  boeuf: 'boeuf', beef: 'boeuf', rind: 'boeuf', rindfleisch: 'boeuf',
+  porc: 'porc', pork: 'porc', schwein: 'porc', schweinefleisch: 'porc',
+  jambon: 'jambon', ham: 'jambon', schinken: 'jambon',
+  saumon: 'saumon', salmon: 'saumon', lachs: 'saumon',
+  thon: 'thon', tuna: 'thon', thunfisch: 'thon',
+  poisson: 'poisson', fish: 'poisson', fisch: 'poisson',
+  riz: 'riz', rice: 'riz', reis: 'riz',
+  pates: 'pates', pasta: 'pates', nudeln: 'pates',
+  pain: 'pain', bread: 'pain', brot: 'pain', vollkornbrot: 'pain complet',
+  avoine: 'avoine', oats: 'avoine', hafer: 'avoine', haferflocken: 'avoine flocons',
+  yaourt: 'yaourt', yogurt: 'yaourt', yoghurt: 'yaourt', joghurt: 'yaourt', naturjoghurt: 'yaourt',
+  fromage: 'fromage', cheese: 'fromage', kase: 'fromage',
+  quark: 'quark', skyr: 'skyr',
+  beurre: 'beurre', butter: 'beurre',
+  creme: 'creme', cream: 'creme', sahne: 'creme',
+  huile: 'huile', oil: 'huile', ol: 'huile', olivenol: 'huile olive', sonnenblumenol: 'huile tournesol',
+  pomme: 'pomme', apple: 'pomme', apfel: 'pomme',
+  kartoffel: 'pomme terre', kartoffeln: 'pomme terre', potato: 'pomme terre', potatoes: 'pomme terre',
+  banane: 'banane', banana: 'banane',
+  tomate: 'tomate', tomato: 'tomate', tomaten: 'tomate', tomatoes: 'tomate',
+  carotte: 'carotte', carrot: 'carotte', karotte: 'carotte', mohre: 'carotte', mohren: 'carotte',
+  concombre: 'concombre', cucumber: 'concombre', gurke: 'concombre',
+  salade: 'salade', salad: 'salade', salat: 'salade',
+  epinards: 'epinards', spinach: 'epinards', spinat: 'epinards',
+  haricots: 'haricots', beans: 'haricots', bohnen: 'haricots',
+  lentilles: 'lentilles', lentils: 'lentilles', linsen: 'lentilles',
+  chiches: 'chiches', chickpeas: 'pois chiches', kichererbsen: 'pois chiches',
+  amandes: 'amandes', almonds: 'amandes', mandeln: 'amandes',
+  noix: 'noix', walnuts: 'noix', walnusse: 'noix',
+  miel: 'miel', honey: 'miel', honig: 'miel',
+  sucre: 'sucre', sugar: 'sucre', zucker: 'sucre',
+  eau: 'eau', water: 'eau', wasser: 'eau',
+  jus: 'jus', juice: 'jus', saft: 'jus',
+  blanc: 'blanc', breast: 'blanc', brust: 'blanc',
+  entier: 'entier', whole: 'entier', voll: 'entier',
+  ecreme: 'ecreme', skimmed: 'ecreme', fettarm: 'ecreme', mager: 'ecreme',
+  complet: 'complet', wholemeal: 'complet', vollkorn: 'complet',
+};
 
 /**
  * A comparable form of a food name: lowercase, unaccented, punctuation gone, filler words gone,
@@ -21,14 +84,21 @@ export function nameKey(name) {
   return String(name || '')
     .toLowerCase()
     // NFD decomposes accents but not ligatures: 'œuf' would lose its œ entirely and compare as
-    // 'uf', which no hand-typed 'oeuf' can ever match.
+    // 'uf', which no hand-typed 'oeuf' can ever match. ß likewise.
     .replace(/œ/g, 'oe')
     .replace(/æ/g, 'ae')
+    .replace(/ß/g, 'ss')
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9%\s]/g, ' ')
+    // A decimal comma is a decimal point: "Milch 3,5%" must not split into "3" and "5%".
+    .replace(/(\d),(\d)/g, '$1.$2')
+    .replace(/[^a-z0-9%.\s]/g, ' ')
     .split(/\s+/)
-    .filter((w) => w && !NOISE.has(w))
+    // A bare number is a pack quantity ("2 Eier"), not part of the food. A number carrying a %
+    // is not: 0% and 5% yoghurt are different products.
+    .filter((w) => w && !NOISE.has(w) && !/^\d+(\.\d+)?$/.test(w))
+    .flatMap((w) => (SYNONYMS[w] || w).split(' '))
+    .filter((w, i, all) => all.indexOf(w) === i)
     .sort()
     .join(' ');
 }
@@ -102,8 +172,58 @@ export function findDuplicateGroups(foods) {
     for (const [, list] of stated) if (list.length > 1) groups.push(list);
     if (stateless.length > 1) groups.push(stateless);
   }
+
+  return attachShorterNames(groups, byStem);
+}
+
+/**
+ * A shorter name joins a longer one when the longer one is the only possible answer. "Eier",
+ * scanned off a German packet, is a subset of "Œuf entier" and of nothing else, so the two are
+ * the same food. "Lait" is a subset of "Lait entier", "Lait écrémé" and "Lait 3,5%" at once —
+ * three different products — so it is left alone rather than attached to whichever came first.
+ *
+ * This is the same restraint as raw-versus-cooked, generalised: ambiguity is a reason to propose
+ * nothing, because the user is being asked to approve a destructive merge.
+ */
+function attachShorterNames(groups, byStem) {
+  const stems = [...byStem.entries()]
+    .map(([stem, foods]) => ({ tokens: new Set(stem.split(' ')), foods }))
+    // Shortest first, so a name is absorbed by the longer one and never the other way round.
+    .sort((a, b) => a.tokens.size - b.tokens.size);
+
+  // Which group each stem's foods currently live in, so absorbing joins the existing group
+  // instead of creating a second one holding the same foods.
+  const groupOf = new Map();
+  for (const group of groups) for (const food of group) groupOf.set(food.id, group);
+
+  for (const stem of stems) {
+    const supersets = stems.filter(
+      (other) =>
+        other !== stem &&
+        other.tokens.size > stem.tokens.size &&
+        [...stem.tokens].every((t) => other.tokens.has(t))
+    );
+    if (supersets.length !== 1) continue;
+    const target = supersets[0];
+    // The target must be unambiguous in itself: a group that disagrees on cooking state cannot
+    // adopt anyone.
+    if (new Set(target.foods.map((f) => stateOf(f.name) || '')).size > 1) continue;
+
+    const existing = groupOf.get(target.foods[0].id) || groupOf.get(stem.foods[0].id);
+    if (existing) {
+      for (const food of [...stem.foods, ...target.foods]) {
+        if (!existing.includes(food)) existing.push(food);
+        groupOf.set(food.id, existing);
+      }
+    } else {
+      const group = [...stem.foods, ...target.foods];
+      groups.push(group);
+      for (const food of group) groupOf.set(food.id, group);
+    }
+  }
   return groups;
 }
+
 
 /**
  * Which food a group should collapse onto: the one already used the most, then the oldest.

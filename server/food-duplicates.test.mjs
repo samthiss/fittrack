@@ -81,3 +81,39 @@ test('stateOf reads the preparation, or admits there is none', () => {
   assert.equal(stateOf('Lentilles sèches'), 'dried');
   assert.equal(stateOf('Skyr'), null);
 });
+
+test('a German packet meets its French catalogue entry', () => {
+  // What a barcode scan in Germany actually writes, against what the catalogue calls it.
+  const groups = findDuplicateGroups([
+    { id: 1, name: '2 Eier' },
+    { id: 2, name: 'Frische Bio Eier' },
+    { id: 3, name: 'Œuf entier' },
+  ]);
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].map((f) => f.id).sort(), [1, 2, 3]);
+});
+
+test('packaging words and pack counts do not make a new food', () => {
+  assert.equal(nameKey('2 Eier'), nameKey('Frische Bio Eier'));
+  assert.equal(nameKey('Hähnchenbrust'), nameKey('Blanc de poulet'));
+  assert.equal(nameKey('Bio Vollmilch'), nameKey('Lait entier'));
+  assert.equal(nameKey('Naturjoghurt'), nameKey('Yaourt nature'));
+});
+
+test('what a percentage or a fat level distinguishes stays distinct', () => {
+  assert.notEqual(nameKey('Yaourt grec 0%'), nameKey('Yaourt grec 5%'));
+  assert.notEqual(nameKey('Vollmilch'), nameKey('Magermilch'));
+  assert.notEqual(nameKey('Lait entier'), nameKey('Lait écrémé'));
+});
+
+test('an ambiguous short name is attached to nothing', () => {
+  // "Lait" could be any of the three: proposing one of them would be a coin toss on a
+  // destructive action.
+  const groups = findDuplicateGroups([
+    { id: 1, name: 'Lait' },
+    { id: 2, name: 'Lait entier' },
+    { id: 3, name: 'Lait écrémé' },
+    { id: 4, name: 'Milch 3,5%' },
+  ]);
+  assert.deepEqual(groups, []);
+});
