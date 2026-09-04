@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
+import { normalizeSearch } from '../data/searchText';
 
 // Fixed display order: what you'd reach for first when you're short on a nutrient — whole
 // vegetables and pulses before oils and drinks. A category with nothing in it is skipped, so a
@@ -21,14 +22,6 @@ const CATEGORY_ORDER = [
   'boissons',
   'divers',
 ];
-
-// Accent-insensitive contains, so typing "epinard" still finds "épinard".
-function normalize(s) {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
 
 export default function RichFoodsReport({ nutrientKey, onBack }) {
   const { t } = useLanguage();
@@ -57,8 +50,8 @@ export default function RichFoodsReport({ nutrientKey, onBack }) {
   const foods = useMemo(() => {
     const all = data?.foods || [];
     if (!query.trim()) return all;
-    const q = normalize(query.trim());
-    return all.filter((f) => normalize(f.name).includes(q));
+    const q = normalizeSearch(query.trim());
+    return all.filter((f) => normalizeSearch(f.name).includes(q));
   }, [data, query]);
 
   // Bars are relative to the richest food in the list, not to a daily target: the question this

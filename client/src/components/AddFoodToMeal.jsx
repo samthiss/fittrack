@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import BarcodeScanner from './BarcodeScanner';
 import CameraCapture from './CameraCapture';
 import { api } from '../api';
+import { matchesSearch } from '../data/searchText';
 import { findRecurringItems } from './MealPlanner';
 import { useLanguage } from '../i18n/LanguageContext';
 import Icon from './Icon';
@@ -176,14 +177,12 @@ export default function AddFoodToMeal({
   }, [baseFoods, foods, lang]);
 
   const results = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = search.trim();
     if (!term) return [];
-    const mine = allItems.filter((item) => item.name.toLowerCase().includes(term));
+    const mine = allItems.filter((item) => matchesSearch(item.name, term));
     // Own foods first: what you have already logged beats a generic entry with the same name.
     const base =
-      itemKind === 'food'
-        ? baseItems.filter((item) => item.searchNames.some((n) => n.toLowerCase().includes(term)))
-        : [];
+      itemKind === 'food' ? baseItems.filter((item) => item.searchNames.some((n) => matchesSearch(n, term))) : [];
     return [...mine, ...base].slice(0, 40);
   }, [search, allItems, baseItems, itemKind]);
 
