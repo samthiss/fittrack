@@ -183,6 +183,34 @@ export default function AddFoodToMeal({
     return [...mine, ...base].slice(0, 40);
   }, [search, allItems, baseItems, itemKind]);
 
+  // The catalogue laid out by nutritional role, so it can be browsed for what a day is short of
+  // rather than searched by name.
+  const BASE_GROUP_ORDER = [
+    'proteines',
+    'feculents',
+    'legumineuses',
+    'legumes',
+    'fruits',
+    'bonnes_graisses',
+    'laitiers',
+    'plats',
+    'boissons',
+    'condiments',
+  ];
+
+  const baseGroups = useMemo(() => {
+    const byGroup = new Map();
+    for (const item of baseItems) {
+      const key = item.group || 'condiments';
+      if (!byGroup.has(key)) byGroup.set(key, []);
+      byGroup.get(key).push(item);
+    }
+    const known = BASE_GROUP_ORDER.filter((k) => byGroup.has(k));
+    const rest = [...byGroup.keys()].filter((k) => !BASE_GROUP_ORDER.includes(k));
+    return [...known, ...rest].map((key) => ({ key, items: byGroup.get(key) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseItems]);
+
   const frequentForKind = useMemo(
     () => frequentItems.filter((f) => f.source_type === itemKind),
     [frequentItems, itemKind]
@@ -720,6 +748,10 @@ export default function AddFoodToMeal({
                     ['recent', t('addFood.modeRecent')],
                     ['favorite', t('addFood.modeFavorite')],
                     ['all', t('addFood.modeAll')],
+                    // Only for foods: the catalogue holds no recipes. Without this the staples
+                    // were reachable only by typing their name, which is no help at all when the
+                    // point is to find out what is in there.
+                    ...(itemKind === 'food' ? [['base', t('addFood.modeBase')]] : []),
                   ].map(([key, label]) => (
                     <button
                       key={key}
@@ -732,7 +764,21 @@ export default function AddFoodToMeal({
                   ))}
                 </div>
 
-                {browseListItems.length === 0 ? (
+                {listMode === 'base' ? (
+                  baseGroups.length === 0 ? (
+                    <p className="hint">{t('addFood.baseAllAdded')}</p>
+                  ) : (
+                    baseGroups.map((group) => (
+                      <div key={group.key}>
+                        <div className="section-header">
+                          <span className="section-title">{t(`baseGroup.${group.key}`)}</span>
+                          <span className="section-hint">{group.items.length}</span>
+                        </div>
+                        {group.items.map(renderItemRow)}
+                      </div>
+                    ))
+                  )
+                ) : browseListItems.length === 0 ? (
                   <p className="hint">
                     {listMode === 'favorite'
                       ? t('addFood.noFavorites')
