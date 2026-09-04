@@ -260,6 +260,13 @@ export default function AddFoodToMeal({
       if (creatingBase) return;
       setCreatingBase(item.name);
       try {
+        // The catalogue carries its own micronutrients, so they travel with the creation: a value
+        // sent is a value the server treats as known, which is what keeps it from spending an AI
+        // call (and, right now, failing) on a number that was already written down.
+        const micros = {};
+        for (const [key, value] of Object.entries(item.base.micros || {})) {
+          micros[`${key}_per_100g`] = value;
+        }
         const created = await onCreateFood({
           name: item.base.name,
           kcal_per_100g: item.base.kcal,
@@ -267,6 +274,7 @@ export default function AddFoodToMeal({
           carbs_per_100g: item.base.carbs,
           fat_per_100g: item.base.fat,
           fiber_per_100g: item.base.fiber,
+          ...micros,
         });
         // macros100 rides along because `foods` may not have re-rendered yet when the modal opens,
         // and the preview reads from it rather than showing an empty card for a beat.
