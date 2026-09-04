@@ -198,6 +198,7 @@ function groupEntries(entries) {
 export default function MealDetail({
   meal,
   foods,
+  baseFoods,
   recipes,
   favorites,
   frequentItems,
@@ -542,6 +543,7 @@ export default function MealDetail({
               mealKey={meal.key}
               mealLabel={mealTitle}
               foods={foods}
+              baseFoods={baseFoods}
               recipes={recipes}
               favorites={favorites}
               frequentItems={frequentItems}

@@ -63,6 +63,7 @@ export default function AddFoodToMeal({
   mealKey,
   mealLabel,
   foods,
+  baseFoods = [],
   recipes,
   favorites,
   frequentItems,
@@ -87,6 +88,8 @@ export default function AddFoodToMeal({
   const [itemKind, setItemKind] = useState('food');
   const [listMode, setListMode] = useState('frequent');
   const [viewingItem, setViewingItem] = useState(null);
+  // Guards a double tap on a base food, which would otherwise fire two creations at once.
+  const [creatingBase, setCreatingBase] = useState(false);
   const [modalQty, setModalQty] = useState('100');
   const [modalUnit, setModalUnit] = useState('g');
   const [modalRecurring, setModalRecurring] = useState(false);
@@ -136,11 +139,32 @@ export default function AddFoodToMeal({
     return [...foodItems, ...recipeItems];
   }, [foods, recipes]);
 
+  // The staple catalogue, offered only for what the user doesn't already have: once a base food
+  // has been picked it exists in `foods` under the same name, and showing both would be two rows
+  // for one food, one of which silently recreates the other.
+  const baseItems = useMemo(() => {
+    const owned = new Set(foods.map((f) => f.name.trim().toLowerCase()));
+    return baseFoods
+      .filter((f) => !owned.has(f.name.trim().toLowerCase()))
+      .map((f) => ({
+        type: 'base',
+        id: `base-${f.name}`,
+        name: f.name,
+        subtitle: `${Math.round(f.kcal)} kcal / 100 g`,
+        macros: { protein: f.protein, carbs: f.carbs, fat: f.fat, fiber: f.fiber },
+        group: f.group,
+        base: f,
+      }));
+  }, [baseFoods, foods]);
+
   const results = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return [];
-    return allItems.filter((item) => item.name.toLowerCase().includes(term)).slice(0, 25);
-  }, [search, allItems]);
+    const mine = allItems.filter((item) => item.name.toLowerCase().includes(term));
+    // Own foods first: what you have already logged beats a generic entry with the same name.
+    const base = itemKind === 'food' ? baseItems.filter((item) => item.name.toLowerCase().includes(term)) : [];
+    return [...mine, ...base].slice(0, 40);
+  }, [search, allItems, baseItems, itemKind]);
 
   const frequentForKind = useMemo(
     () => frequentItems.filter((f) => f.source_type === itemKind),
@@ -226,6 +250,42 @@ export default function AddFoodToMeal({
   }
 
   async function openItemDetail(item) {
+    // A base food has no row yet, so it cannot be logged: create it first (POST /api/foods
+    // dedupes by name, so picking the same one twice reuses the row) and carry on as if it had
+    // always been in the library — the quantity modal, units, favourites and recurring all work
+    // off a real food id.
+    if (item.type === 'base') {
+      if (creatingBase) return;
+      setCreatingBase(true);
+      try {
+        const created = await onCreateFood({
+          name: item.base.name,
+          kcal_per_100g: item.base.kcal,
+          protein_per_100g: item.base.protein,
+          carbs_per_100g: item.base.carbs,
+          fat_per_100g: item.base.fat,
+          fiber_per_100g: item.base.fiber,
+        });
+        // macros100 rides along because `foods` may not have re-rendered yet when the modal opens,
+        // and the preview reads from it rather than showing an empty card for a beat.
+        item = {
+          type: 'food',
+          id: created.id,
+          name: created.name,
+          subtitle: `${Math.round(created.kcal_per_100g)} kcal / 100 g`,
+          macros: item.macros,
+          macros100: {
+            kcal: created.kcal_per_100g,
+            protein: created.protein_per_100g,
+            carbs: created.carbs_per_100g,
+            fat: created.fat_per_100g,
+            fiber: created.fiber_per_100g || 0,
+          },
+        };
+      } finally {
+        setCreatingBase(false);
+      }
+    }
     setViewingItem(item);
     setModalQty(item.type === 'food' ? '100' : '1');
     setModalUnit('g');
@@ -279,7 +339,15 @@ export default function AddFoodToMeal({
     if (!viewingItem) return null;
     const qty = Number(modalQty) || 0;
     if (viewingItem.type === 'food') {
-      const food = foods.find((f) => f.id === viewingItem.id);
+      const food = foods.find((f) => f.id === viewingItem.id) || (viewingItem.macros100
+        ? {
+            kcal_per_100g: viewingItem.macros100.kcal,
+            protein_per_100g: viewingItem.macros100.protein,
+            carbs_per_100g: viewingItem.macros100.carbs,
+            fat_per_100g: viewingItem.macros100.fat,
+            fiber_per_100g: viewingItem.macros100.fiber,
+          }
+        : null);
       if (!food) return null;
       const factor = qty / 100;
       return {
@@ -467,7 +535,12 @@ export default function AddFoodToMeal({
     return (
       <div className="result-row" key={`${item.type}-${item.id}`}>
         <div className="result-row-body" onClick={() => openItemDetail(item)}>
-          <div className="result-row-name">{item.name}</div>
+          <div className="result-row-name">
+            {item.name}
+            {/* Says where the row comes from: a catalogue entry is a generic average, not the
+                packet in your cupboard, and picking it copies it into your own foods. */}
+            {item.type === 'base' && <span className="base-food-tag">{t('addFood.baseTag')}</span>}
+          </div>
           <div className="result-row-sub">{item.subtitle}</div>
           {item.macros && (
             <div className="entry-card-macros">

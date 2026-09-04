@@ -19,6 +19,7 @@ import { computeTdee, BMR_METHODS } from './tdee.js';
 import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
 import webpush from 'web-push';
 import { buildRestDoneMessage, isValidRestSeconds, isWorthSending } from './restTimer.js';
+import { BASE_FOODS, groupOfCategory } from './baseFoods.js';
 import { MAIL_ENABLED, isMailReady, sendMail, verifyMailer } from './mailer.js';
 import {
   TOKEN_TTL_MS,
@@ -2070,6 +2071,13 @@ app.get('/api/rich-foods/:key', (req, res) => {
     note: MICRO_REFERENCE[key]?.note || null,
     foods: items,
   });
+});
+
+// The staple catalogue offered in the add-food search, so an empty library doesn't mean typing
+// four macros by hand for rice. Read-only and identical for everyone — picking one copies it into
+// the user's own foods (POST /api/foods), which is where it lives from then on.
+app.get('/api/foods/base', (req, res) => {
+  res.json(BASE_FOODS.map((f) => ({ ...f, group: groupOfCategory(f.cat) })));
 });
 
 app.get('/api/foods/lookup/:barcode', async (req, res) => {

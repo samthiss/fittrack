@@ -64,6 +64,8 @@ function MainApp({ onLogout, account }) {
   const [supplements, setSupplements] = useState(null);
   const [recipes, setRecipes] = useState([]);
   const [foods, setFoods] = useState([]);
+  // The staple catalogue never changes, so it is fetched once and not refreshed with the rest.
+  const [baseFoods, setBaseFoods] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [mealData, setMealData] = useState(null);
   const [mealFavorites, setMealFavorites] = useState([]);
@@ -129,6 +131,13 @@ function MainApp({ onLogout, account }) {
 
   const refreshRecipes = useCallback(async () => {
     setRecipes(await api.getRecipes());
+  }, []);
+
+  useEffect(() => {
+    api
+      .getBaseFoods()
+      .then(setBaseFoods)
+      .catch(() => setBaseFoods([]));
   }, []);
 
   const refreshFoods = useCallback(async () => {
@@ -449,6 +458,7 @@ function MainApp({ onLogout, account }) {
               meal={mealData}
               autoOpenAdd={autoOpenAdd}
               foods={foods}
+              baseFoods={baseFoods}
               recipes={recipes}
               favorites={mealFavorites}
               frequentItems={frequentFoods}
