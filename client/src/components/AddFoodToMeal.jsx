@@ -89,7 +89,9 @@ export default function AddFoodToMeal({
   const [listMode, setListMode] = useState('frequent');
   const [viewingItem, setViewingItem] = useState(null);
   // Guards a double tap on a base food, which would otherwise fire two creations at once.
-  const [creatingBase, setCreatingBase] = useState(false);
+  // The name of the base food being created, so its row can say it is working. A tap that takes
+  // a moment and shows nothing is a tap the user repeats — which is how one food became three.
+  const [creatingBase, setCreatingBase] = useState(null);
   const [modalQty, setModalQty] = useState('100');
   const [modalUnit, setModalUnit] = useState('g');
   const [modalRecurring, setModalRecurring] = useState(false);
@@ -256,7 +258,7 @@ export default function AddFoodToMeal({
     // off a real food id.
     if (item.type === 'base') {
       if (creatingBase) return;
-      setCreatingBase(true);
+      setCreatingBase(item.name);
       try {
         const created = await onCreateFood({
           name: item.base.name,
@@ -283,7 +285,7 @@ export default function AddFoodToMeal({
           },
         };
       } finally {
-        setCreatingBase(false);
+        setCreatingBase(null);
       }
     }
     setViewingItem(item);
@@ -532,9 +534,10 @@ export default function AddFoodToMeal({
   }
 
   function renderItemRow(item) {
+    const pending = item.type === 'base' && creatingBase === item.name;
     return (
-      <div className="result-row" key={`${item.type}-${item.id}`}>
-        <div className="result-row-body" onClick={() => openItemDetail(item)}>
+      <div className={pending ? 'result-row pending' : 'result-row'} key={`${item.type}-${item.id}`}>
+        <div className="result-row-body" onClick={() => !creatingBase && openItemDetail(item)}>
           <div className="result-row-name">
             {item.name}
             {/* Says where the row comes from: a catalogue entry is a generic average, not the
@@ -564,8 +567,13 @@ export default function AddFoodToMeal({
             )}
         </div>
         <div className="result-row-actions">
-          <button type="button" className="result-add-btn" onClick={() => openItemDetail(item)}>
-            <Icon name="plus" size={19} />
+          <button
+            type="button"
+            className="result-add-btn"
+            disabled={Boolean(creatingBase)}
+            onClick={() => openItemDetail(item)}
+          >
+            <Icon name={pending ? 'loader' : 'plus'} size={19} />
           </button>
         </div>
       </div>

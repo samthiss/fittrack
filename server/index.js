@@ -2188,35 +2188,21 @@ app.post('/api/foods', async (req, res) => {
   // manual creation form lets 0 be typed in as a real value (e.g. "this really has no sodium")
   // that must not get silently overwritten by an estimate.
   const missingKeys = NUTRIENT_KEYS.filter((k) => req.body[`${k}_per_100g`] === undefined);
-  if (missingKeys.length > 0) {
-    let stillMissing = missingKeys;
-    if (category) {
-      const categoryPeers = db.prepare('SELECT * FROM foods WHERE user_id = ? AND category = ?').all(req.userId, category);
-      stillMissing = [];
-      for (const k of missingKeys) {
-        const peer = categoryPeers.find((p) => p[`${k}_per_100g`]);
-        if (peer) nutrientValues[k] = peer[`${k}_per_100g`];
-        else stillMissing.push(k);
-      }
-    }
-    if (stillMissing.length > 0) {
-      try {
-        const estimated = await estimateNutrientsForFood(name, stillMissing, INGREDIENT_NUTRIENT_FIELDS);
-        for (const k of stillMissing) nutrientValues[k] = estimated[k] || 0;
-      } catch (err) {
-        console.error('Nutrient estimation failed for', name, ':', err.message);
-      }
+  // Copying from a peer is a database read, so it stays on the request. The AI calls do not:
+  // see enrichFoodInBackground below.
+  let stillMissing = missingKeys;
+  if (missingKeys.length > 0 && category) {
+    const categoryPeers = db.prepare('SELECT * FROM foods WHERE user_id = ? AND category = ?').all(req.userId, category);
+    stillMissing = [];
+    for (const k of missingKeys) {
+      const peer = categoryPeers.find((p) => p[`${k}_per_100g`]);
+      if (peer) nutrientValues[k] = peer[`${k}_per_100g`];
+      else stillMissing.push(k);
     }
   }
 
-  let microbiome = { plant_name: null, is_fermented: 0, is_prebiotic: 0, is_polyphenol: 0 };
-  let microbiomeClassified = 0;
-  try {
-    microbiome = await classifyFood(name);
-    microbiomeClassified = 1;
-  } catch (err) {
-    console.error('Microbiome classification failed for', name, ':', err.message);
-  }
+  const microbiome = { plant_name: null, is_fermented: 0, is_prebiotic: 0, is_polyphenol: 0 };
+  const microbiomeClassified = 0;
 
   const nutrientCols = NUTRIENT_KEYS.map((k) => `${k}_per_100g`);
   const result = db
@@ -2242,7 +2228,39 @@ app.post('/api/foods', async (req, res) => {
 
   const row = db.prepare('SELECT * FROM foods WHERE id = ?').get(result.lastInsertRowid);
   res.status(201).json(row);
+  // Answered first, enriched after — see enrichFoodInBackground.
+  enrichFoodInBackground(row, stillMissing);
 });
+
+/**
+ * Micronutrient estimation and microbiome classification for a freshly created food. Both are AI
+ * calls, and they used to run *before* the response: adding a food to a meal waited on two round
+ * trips to the model, which is seconds on a good day and much worse when the API is failing —
+ * from the phone it reads as a dead button, so the food gets tapped again.
+ *
+ * Nothing is lost by deferring them. The values land on the row a moment later, and the daily
+ * batch job (estimateMissingNutrients) picks up anything still missing, which is exactly what
+ * happens today whenever these calls fail.
+ */
+async function enrichFoodInBackground(row, missingKeys) {
+  if (missingKeys.length > 0) {
+    try {
+      const estimated = await estimateNutrientsForFood(row.name, missingKeys, INGREDIENT_NUTRIENT_FIELDS);
+      const sets = missingKeys.map((k) => `${k}_per_100g = ?`).join(', ');
+      db.prepare(`UPDATE foods SET ${sets} WHERE id = ?`).run(...missingKeys.map((k) => estimated[k] || 0), row.id);
+    } catch (err) {
+      console.error('Nutrient estimation failed for', row.name, ':', err.message);
+    }
+  }
+  try {
+    const m = await classifyFood(row.name);
+    db.prepare(
+      'UPDATE foods SET plant_name = ?, is_fermented = ?, is_prebiotic = ?, is_polyphenol = ?, microbiome_classified = 1 WHERE id = ?'
+    ).run(m.plant_name, m.is_fermented, m.is_prebiotic, m.is_polyphenol, row.id);
+  } catch (err) {
+    console.error('Microbiome classification failed for', row.name, ':', err.message);
+  }
+}
 
 app.put('/api/foods/:id', async (req, res) => {
   const current = db.prepare('SELECT * FROM foods WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);

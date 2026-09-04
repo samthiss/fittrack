@@ -5660,3 +5660,14 @@ h1 {
   text-transform: uppercase;
   vertical-align: middle;
 }
+
+/* A base food being copied into the library: the row dims and stops answering taps until its
+   food id exists, which is what keeps an impatient second tap from creating it twice. */
+.result-row.pending {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.result-row.pending .result-add-btn {
+  animation: cp-marker 1s linear infinite;
+}
