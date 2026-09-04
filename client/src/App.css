@@ -5671,3 +5671,20 @@ h1 {
 .result-row.pending .result-add-btn {
   animation: cp-marker 1s linear infinite;
 }
+
+/* Picking which of two near-identical foods survives a merge. */
+.duplicate-choice {
+  width: 100%;
+  gap: 12px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-primary);
+}
+
+.duplicate-choice.selected .name {
+  color: var(--accent);
+}

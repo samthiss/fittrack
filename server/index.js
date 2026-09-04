@@ -20,6 +20,7 @@ import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
 import webpush from 'web-push';
 import { buildRestDoneMessage, isValidRestSeconds, isWorthSending } from './restTimer.js';
 import { BASE_FOODS, groupOfCategory } from './baseFoods.js';
+import { findDuplicateGroups, pickSurvivor } from './foodDuplicates.js';
 import { MAIL_ENABLED, isMailReady, sendMail, verifyMailer } from './mailer.js';
 import {
   TOKEN_TTL_MS,
@@ -2078,6 +2079,78 @@ app.get('/api/rich-foods/:key', (req, res) => {
 // the user's own foods (POST /api/foods), which is where it lives from then on.
 app.get('/api/foods/base', (req, res) => {
   res.json(BASE_FOODS.map((f) => ({ ...f, group: groupOfCategory(f.cat) })));
+});
+
+// Foods in the library that are the same thing under two names — typically one typed by hand and
+// one picked from the catalogue later. Candidates only: nothing is merged without being asked.
+app.get('/api/foods/duplicates', (req, res) => {
+  const foods = db.prepare('SELECT * FROM foods WHERE user_id = ?').all(req.userId);
+  const counts = Object.fromEntries(
+    db
+      .prepare("SELECT source_id AS id, COUNT(*) AS n FROM food_logs WHERE user_id = ? AND source_type = 'food' GROUP BY source_id")
+      .all(req.userId)
+      .map((r) => [r.id, r.n])
+  );
+  const groups = findDuplicateGroups(foods).map((group) => {
+    const survivor = pickSurvivor(group, counts);
+    return {
+      suggestedKeepId: survivor.id,
+      items: group.map((f) => ({
+        id: f.id,
+        name: f.name,
+        kcal_per_100g: f.kcal_per_100g,
+        protein_per_100g: f.protein_per_100g,
+        carbs_per_100g: f.carbs_per_100g,
+        fat_per_100g: f.fat_per_100g,
+        useCount: counts[f.id] || 0,
+      })),
+    };
+  });
+  res.json({ groups });
+});
+
+// Collapses several foods onto one. The history is *moved*, never dropped: every journal entry,
+// favourite and planned meal pointing at a removed food is repointed at the survivor first, so a
+// merge changes which row a past meal refers to and nothing else — the day's totals are already
+// stored on the entry itself and do not move.
+app.post('/api/foods/merge', (req, res) => {
+  const keepId = Number(req.body?.keep_id);
+  const removeIds = (Array.isArray(req.body?.remove_ids) ? req.body.remove_ids : []).map(Number).filter((id) => id && id !== keepId);
+  if (!keepId || removeIds.length === 0) return res.status(400).json({ error: 'keep_id et remove_ids requis' });
+
+  const owned = db
+    .prepare(`SELECT id FROM foods WHERE user_id = ? AND id IN (${[keepId, ...removeIds].map(() => '?').join(',')})`)
+    .all(req.userId, keepId, ...removeIds)
+    .map((r) => r.id);
+  if (!owned.includes(keepId) || removeIds.some((id) => !owned.includes(id))) {
+    return res.status(404).json({ error: 'Aliment introuvable' });
+  }
+
+  const placeholders = removeIds.map(() => '?').join(',');
+  const merge = db.transaction(() => {
+    db.prepare(
+      `UPDATE food_logs SET source_id = ? WHERE user_id = ? AND source_type = 'food' AND source_id IN (${placeholders})`
+    ).run(keepId, req.userId, ...removeIds);
+    // Favourites and plan entries carry a uniqueness constraint on (meal, source_type, source_id),
+    // so repointing can collide with a row that already names the survivor. Those are dropped
+    // rather than repointed: two identical favourites is not a state the app has a meaning for.
+    for (const table of ['meal_favorites', 'meal_plan_entries']) {
+      const rows = db
+        .prepare(`SELECT * FROM ${table} WHERE user_id = ? AND source_type = 'food' AND source_id IN (${placeholders})`)
+        .all(req.userId, ...removeIds);
+      for (const row of rows) {
+        try {
+          db.prepare(`UPDATE ${table} SET source_id = ? WHERE id = ?`).run(keepId, row.id);
+        } catch {
+          db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(row.id);
+        }
+      }
+    }
+    db.prepare(`DELETE FROM foods WHERE user_id = ? AND id IN (${placeholders})`).run(req.userId, ...removeIds);
+  });
+  merge();
+
+  res.json({ kept: db.prepare('SELECT * FROM foods WHERE id = ?').get(keepId), removed: removeIds.length });
 });
 
 app.get('/api/foods/lookup/:barcode', async (req, res) => {

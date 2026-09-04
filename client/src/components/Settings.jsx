@@ -3,6 +3,7 @@ import { api } from '../api';
 import EnergyBalance from './EnergyBalance';
 import Icon from './Icon';
 import NotificationSettings from './NotificationSettings';
+import FoodDuplicates from './FoodDuplicates';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
   REP_RANGE_OPTIONS,
@@ -971,6 +972,15 @@ export default function Settings({
     );
   }
 
+  if (screen === 'duplicates') {
+    return (
+      <div>
+        <SubHeader title={t('settings.duplicates')} onBack={() => setScreen('home')} t={t} />
+        <FoodDuplicates />
+      </div>
+    );
+  }
+
   if (screen === 'notifications') {
     return (
       <div>
@@ -1265,6 +1275,13 @@ export default function Settings({
 
       <h4 className="section-label" style={{ marginTop: 18 }}>{t('settings.preferences')}</h4>
       <div className="settings-list-card">
+        <button type="button" className="settings-list-row" onClick={() => setScreen('duplicates')}>
+          <span className="settings-list-icon">
+            <Icon name="copy" size={19} />
+          </span>
+          <span className="settings-list-label">{t('settings.duplicates')}</span>
+          <Icon name="chevron-right" size={18} color="var(--text-muted)" />
+        </button>
         <button type="button" className="settings-list-row" onClick={() => setScreen('notifications')}>
           <span className="settings-list-icon">
             <Icon name="bell" size={19} />

@@ -118,6 +118,9 @@ export const api = {
   deleteRecipe: (id) => request(`/recipes/${id}`, { method: 'DELETE' }),
   // The staple catalogue: read-only, same for everyone, fetched once at boot.
   getBaseFoods: () => request('/foods/base'),
+  getFoodDuplicates: () => request('/foods/duplicates'),
+  mergeFoods: (keepId, removeIds) =>
+    request('/foods/merge', { method: 'POST', body: JSON.stringify({ keep_id: keepId, remove_ids: removeIds }) }),
   getFoods: () => request('/foods'),
   lookupFood: (barcode) => request(`/foods/lookup/${encodeURIComponent(barcode)}`),
   searchFoodsOnline: (query) => request(`/foods/search-online?q=${encodeURIComponent(query)}`),
