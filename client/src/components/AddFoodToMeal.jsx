@@ -74,7 +74,7 @@ export default function AddFoodToMeal({
   onParseText,
   onParsePhoto,
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const TOOLS = [
     { key: 'barcode', icon: 'scan-barcode', label: t('addFood.toolBarcode') },
     { key: 'write', icon: 'sparkles', label: t('addFood.toolWrite') },
@@ -146,25 +146,40 @@ export default function AddFoodToMeal({
   // for one food, one of which silently recreates the other.
   const baseItems = useMemo(() => {
     const owned = new Set(foods.map((f) => f.name.trim().toLowerCase()));
-    return baseFoods
-      .filter((f) => !owned.has(f.name.trim().toLowerCase()))
-      .map((f) => ({
-        type: 'base',
-        id: `base-${f.name}`,
-        name: f.name,
-        subtitle: `${Math.round(f.kcal)} kcal / 100 g`,
-        macros: { protein: f.protein, carbs: f.carbs, fat: f.fat, fiber: f.fiber },
-        group: f.group,
-        base: f,
-      }));
-  }, [baseFoods, foods]);
+    return (
+      baseFoods
+        // Both names are checked, not just the displayed one: a food added while the app was in
+        // French must not be offered again in English, or the same rice lands in the library
+        // twice under two names — and the dedupe on the server, which matches names, cannot catch
+        // it either.
+        .filter((f) => !owned.has(f.name.trim().toLowerCase()) && !owned.has((f.en || '').trim().toLowerCase()))
+        .map((f) => {
+          const label = lang === 'en' && f.en ? f.en : f.name;
+          return {
+            type: 'base',
+            id: `base-${f.name}`,
+            name: label,
+            // Searching in one language must find a food named in the other: the interface may be
+            // English while the habit of typing "poulet" is not.
+            searchNames: [f.name, f.en].filter(Boolean),
+            subtitle: `${Math.round(f.kcal)} kcal / 100 g`,
+            macros: { protein: f.protein, carbs: f.carbs, fat: f.fat, fiber: f.fiber },
+            group: f.group,
+            base: { ...f, label },
+          };
+        })
+    );
+  }, [baseFoods, foods, lang]);
 
   const results = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return [];
     const mine = allItems.filter((item) => item.name.toLowerCase().includes(term));
     // Own foods first: what you have already logged beats a generic entry with the same name.
-    const base = itemKind === 'food' ? baseItems.filter((item) => item.name.toLowerCase().includes(term)) : [];
+    const base =
+      itemKind === 'food'
+        ? baseItems.filter((item) => item.searchNames.some((n) => n.toLowerCase().includes(term)))
+        : [];
     return [...mine, ...base].slice(0, 40);
   }, [search, allItems, baseItems, itemKind]);
 
@@ -268,7 +283,7 @@ export default function AddFoodToMeal({
           micros[`${key}_per_100g`] = value;
         }
         const created = await onCreateFood({
-          name: item.base.name,
+          name: item.base.label,
           kcal_per_100g: item.base.kcal,
           protein_per_100g: item.base.protein,
           carbs_per_100g: item.base.carbs,
