@@ -321,6 +321,14 @@ function MainApp({ onLogout, account }) {
     await refreshRecipeFavorites();
   }
 
+  // Deleting a food leaves the journal alone on purpose: every entry stores its own label and
+  // macros, so past days keep showing what was eaten. Only the library entry goes.
+  async function handleDeleteFood(id) {
+    await api.deleteFood(id);
+    await refreshFoods();
+    await refreshFrequentFoods();
+  }
+
   async function handleCreateFoodInline(data) {
     const food = await api.addFood(data);
     await refreshFoods();
@@ -471,6 +479,7 @@ function MainApp({ onLogout, account }) {
               onLookupBarcode={api.lookupFood}
               onSearchOnline={api.searchFoodsOnline}
               onCreateFood={handleCreateFoodInline}
+              onDeleteFood={handleDeleteFood}
               onParseText={api.parseFoodText}
               onParsePhoto={api.parseFoodPhoto}
             />

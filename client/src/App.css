@@ -5688,3 +5688,10 @@ h1 {
 .duplicate-choice.selected .name {
   color: var(--accent);
 }
+
+/* Armed for deletion: the next tap on this bin removes the food for good. */
+.entry-delete-btn.confirming {
+  background: rgba(255, 59, 107, 0.18);
+  border-color: rgba(255, 59, 107, 0.5);
+  color: var(--danger);
+}

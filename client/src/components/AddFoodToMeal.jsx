@@ -71,6 +71,7 @@ export default function AddFoodToMeal({
   onLookupBarcode,
   onSearchOnline,
   onCreateFood,
+  onDeleteFood,
   onParseText,
   onParsePhoto,
 }) {
@@ -92,6 +93,9 @@ export default function AddFoodToMeal({
   // The name of the base food being created, so its row can say it is working. A tap that takes
   // a moment and shows nothing is a tap the user repeats — which is how one food became three.
   const [creatingBase, setCreatingBase] = useState(null);
+  // Armed by a first tap on the bin, destructive on the second. Deleting a food is not something
+  // to do by brushing past it in a list.
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [modalQty, setModalQty] = useState('100');
   const [modalUnit, setModalUnit] = useState('g');
   const [modalRecurring, setModalRecurring] = useState(false);
@@ -586,6 +590,10 @@ export default function AddFoodToMeal({
 
   function renderItemRow(item) {
     const pending = item.type === 'base' && creatingBase === item.name;
+    // Only from the full list, and only for the user's own foods: the catalogue is read-only, and
+    // a bin next to every search result is a bin that gets hit by accident.
+    const deletable = Boolean(onDeleteFood) && item.type === 'food' && listMode === 'all' && !search.trim();
+    const confirming = confirmDeleteId === item.id;
     return (
       <div className={pending ? 'result-row pending' : 'result-row'} key={`${item.type}-${item.id}`}>
         <div className="result-row-body" onClick={() => !creatingBase && openItemDetail(item)}>
@@ -618,6 +626,23 @@ export default function AddFoodToMeal({
             )}
         </div>
         <div className="result-row-actions">
+          {deletable && (
+            <button
+              type="button"
+              className={confirming ? 'entry-icon-btn entry-delete-btn confirming' : 'entry-icon-btn entry-delete-btn'}
+              aria-label={t('addFood.deleteFood')}
+              onClick={async () => {
+                if (!confirming) {
+                  setConfirmDeleteId(item.id);
+                  return;
+                }
+                setConfirmDeleteId(null);
+                await onDeleteFood(item.id);
+              }}
+            >
+              <Icon name="trash-2" size={16} />
+            </button>
+          )}
           <button
             type="button"
             className="result-add-btn"

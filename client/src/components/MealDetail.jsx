@@ -211,6 +211,7 @@ export default function MealDetail({
   onLookupBarcode,
   onSearchOnline,
   onCreateFood,
+  onDeleteFood,
   onParseText,
   onParsePhoto,
   autoOpenAdd,
@@ -551,6 +552,7 @@ export default function MealDetail({
               onLookupBarcode={onLookupBarcode}
               onSearchOnline={onSearchOnline}
               onCreateFood={onCreateFood}
+              onDeleteFood={onDeleteFood}
               onParseText={onParseText}
               onParsePhoto={onParsePhoto}
             />
