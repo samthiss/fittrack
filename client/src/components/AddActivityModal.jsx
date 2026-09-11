@@ -34,7 +34,11 @@ const HYROX_STATIONS = [
       // Le protocole norvégien : 4 × 4 min à 90-95 % de la FC max, 3 min de récup active entre.
       // C'est le format le plus étudié pour la VO2max, et celui qui passe le plus de temps en
       // zone haute — d'où sa durée, deux fois celle des autres.
-      { id: 'four_by_four', label: '4 × 4 min', minutes: 25, detail: '4 min à 90-95 % FCmax / 3 min récup active — le norvégien' },
+      { id: 'four_by_four', label: '4 × 4 min', minutes: 25, detail: '4 min à 90-95 % FCmax / 3 min récup active — le norvégien, 2-3 ×/semaine au maximum' },
+      { id: 'twenty_forty', label: '20/40 s', minutes: 30, detail: '20 s effort max / 40 s récup · 8-10 reps × 3-4 séries — court et très intense' },
+      // Pas un protocole VO2max : du seuil, tenu longtemps. Il construit la base aérobie, ce qui
+      // manque le plus souvent à une préparation Hyrox — d'où sa place ici malgré tout.
+      { id: 'sweet_spot', label: 'Sweet Spot', minutes: 30, detail: '85-90 % FCmax en continu, 20-40 min — base aérobie plutôt que VO2max' },
     ],
   },
   { type: 'velo_appartement', distance: 1000 },
