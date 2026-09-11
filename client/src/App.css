@@ -5967,11 +5967,32 @@ h1 {
   padding-top: 24px;
 }
 
-.interval-actions .btn-ghost {
+.interval-pause {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard);
+}
+
+.interval-pause.paused {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: var(--glow-accent);
+}
+
+/* En pause, le décompte s'éteint à moitié : sans ça, un chrono figé ressemble à un chrono
+   planté, et on se demande si la séance tourne encore. */
+.interval-screen.paused .interval-clock {
+  opacity: 0.45;
 }
 
 .interval-actions .interval-next {

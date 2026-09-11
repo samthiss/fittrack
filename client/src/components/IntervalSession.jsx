@@ -110,7 +110,9 @@ export default function IntervalSession({ protocol, onClose, onFinished }) {
 
   return (
     <div className="modal-overlay">
-      <div className={isWork ? 'modal-content interval-screen work' : 'modal-content interval-screen rest'}>
+      <div
+        className={`modal-content interval-screen ${isWork ? 'work' : 'rest'}${paused ? ' paused' : ''}`}
+      >
         <div className="meal-detail-header">
           <button type="button" className="meal-detail-back-btn" onClick={onClose} aria-label={t('meal.back')}>
             <Icon name="chevron-left" size={20} />
@@ -150,9 +152,15 @@ export default function IntervalSession({ protocol, onClose, onFinished }) {
         </div>
 
         <div className="interval-actions">
-          <button type="button" className="btn btn-ghost" onClick={togglePause}>
-            <Icon name={paused ? 'play' : 'pause'} size={18} />
-            {paused ? t('interval.resume') : t('interval.pause')}
+          {/* Rond, large, sans texte : une icône de pause se lit sans être lue, et ce bouton se
+              presse en plein effort, essoufflé, parfois les mains moites. */}
+          <button
+            type="button"
+            className={paused ? 'interval-pause paused' : 'interval-pause'}
+            onClick={togglePause}
+            aria-label={paused ? t('interval.resume') : t('interval.pause')}
+          >
+            <Icon name={paused ? 'play' : 'pause'} size={22} />
           </button>
           <button
             type="button"
