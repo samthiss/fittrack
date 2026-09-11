@@ -5700,6 +5700,9 @@ h1 {
 .hyrox-station {
   position: relative;
   overflow: hidden;
+  /* La ligne hérite d'un display:flex : sans wrap, le bloc des protocoles devient un troisième
+     élément sur la même ligne et écrase le nom et la distance l'un contre l'autre. */
+  flex-wrap: wrap;
   gap: 0;
   padding: 0;
   margin-bottom: 8px;
@@ -5709,7 +5712,9 @@ h1 {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex: 1;
+  /* flex-basis 0 plutôt que auto : le nom occupe la place restante au lieu de pousser les
+     boutons hors de la ligne sur les noms longs (« Traîneau (traction) »). */
+  flex: 1 1 0;
   min-width: 0;
   padding: 12px 14px;
   background: none;
@@ -5800,6 +5805,8 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  /* Toute la largeur, donc sous la station et non à côté d'elle. */
+  flex-basis: 100%;
   padding: 0 14px 12px 46px;
 }
 
