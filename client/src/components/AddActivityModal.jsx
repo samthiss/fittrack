@@ -303,11 +303,11 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
                     </span>
                     <span className="meal-card-body">
                       <span className="meal-card-title">{t(`activityType.${station.type}`)}</span>
+                      {/* Une fois cochée, la ligne ne redit plus la distance ici : elle est en
+                          gros à droite, entre les boutons qui la règlent. */}
                       <span className="meal-card-kcal">
                         {picked
-                          ? station.distance != null
-                            ? `${picked.distance} m · ${stationKcal(at, picked)} kcal`
-                            : `${picked.minutes} min · ${stationKcal(at, picked)} kcal`
+                          ? `${stationKcal(at, picked)} kcal`
                           : station.distance != null
                           ? `${station.distance} m`
                           : `${station.minutes} min`}
@@ -319,6 +319,10 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
                       <button type="button" className="weight-minus-btn" onClick={() => adjustStation(station, -1)}>
                         <Icon name="minus" size={16} />
                       </button>
+                      <span className="hyrox-station-value">
+                        <b>{picked.distance != null ? picked.distance : picked.minutes}</b>
+                        <span>{picked.distance != null ? 'm' : 'min'}</span>
+                      </span>
                       <button type="button" className="weight-plus-btn" onClick={() => adjustStation(station, 1)}>
                         <Icon name="plus" size={16} />
                       </button>
