@@ -48,6 +48,10 @@ export default function ActivityDetail({
   const [label, setLabel] = useState(activity.label || '');
   const [showEdit, setShowEdit] = useState(false);
   const [editDuration, setEditDuration] = useState(activity.duration_minutes);
+  // Only for the distance-measured activities (the Hyrox stations): they were entered in metres,
+  // so that is what has to come back when they are opened — a screen that answers "1000 m" with
+  // "4 min" is asking the user to work out what they logged.
+  const [editDistance, setEditDistance] = useState(activity.distance_m ?? null);
   const [editKcal, setEditKcal] = useState(Math.round(activity.kcal));
   const [editRecurring, setEditRecurring] = useState(recurringDays.length > 0);
   const [editDays, setEditDays] = useState(new Set(recurringDays));
@@ -190,6 +194,19 @@ export default function ActivityDetail({
     });
   }
 
+  // Changing the distance moves the time and the kcal with it, in the same proportion — the pace
+  // that produced them is what the user is implicitly keeping.
+  function adjustEditDistance(delta) {
+    setEditDistance((d) => {
+      const prev = Number(d) || 50;
+      const next = Math.max(50, prev + delta);
+      const ratio = next / prev;
+      setEditDuration((v) => Math.max(1, Math.round(Number(v) * ratio * 10) / 10));
+      setEditKcal((k) => Math.round(Number(k) * ratio));
+      return next;
+    });
+  }
+
   function toggleEditDay(key) {
     setEditDays((prev) => {
       const next = new Set(prev);
@@ -210,11 +227,13 @@ export default function ActivityDetail({
       const updated = await api.updateActivity(activity.id, {
         label: trimmed,
         duration_minutes: finalDuration,
+        distance_m: editDistance ?? undefined,
         kcal: finalKcal,
         recurringDays: recurringDaysPayload,
       });
       activity.label = trimmed || null;
       activity.duration_minutes = updated.duration_minutes;
+      activity.distance_m = updated.distance_m;
       activity.kcal = updated.kcal;
       activity.plan_group_id = updated.plan_group_id;
       setLabel(trimmed);
@@ -281,13 +300,22 @@ export default function ActivityDetail({
 
       {!isForce && (
         <>
-          <div className="tile-grid tile-grid-compact" style={{ marginTop: 16, gridTemplateColumns: 'repeat(2, 1fr)' }}>
+          <div
+            className="tile-grid tile-grid-compact"
+            style={{ marginTop: 16, gridTemplateColumns: `repeat(${activity.distance_m ? 3 : 2}, 1fr)` }}
+          >
             <div className="tile">
               <b style={{ color: 'var(--warning)' }}>{Math.round(activity.kcal)}</b>
               <span>{t('activityLog.kcalBurned')}</span>
             </div>
+            {activity.distance_m != null && (
+              <div className="tile">
+                <b>{Math.round(activity.distance_m)} m</b>
+                <span>{t('activityLog.distance')}</span>
+              </div>
+            )}
             <div className="tile">
-              <b>{activity.duration_minutes} min</b>
+              <b>{Math.round(activity.duration_minutes)} min</b>
               <span>{t('activityLog.duration')}</span>
             </div>
           </div>
@@ -404,6 +432,23 @@ export default function ActivityDetail({
                 autoFocus
               />
             </div>
+
+            {editDistance != null && (
+              <>
+                <h4 className="section-label">{t('activityLog.distance')}</h4>
+                <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
+                  <button type="button" className="weight-minus-btn" onClick={() => adjustEditDistance(-50)}>
+                    <Icon name="minus" size={18} />
+                  </button>
+                  <div style={{ textAlign: 'center', minWidth: 90 }}>
+                    <span className="weight-value">{editDistance}</span> <span className="rate">m</span>
+                  </div>
+                  <button type="button" className="weight-plus-btn" onClick={() => adjustEditDistance(50)}>
+                    <Icon name="plus" size={18} />
+                  </button>
+                </div>
+              </>
+            )}
 
             <h4 className="section-label">{t('activityLog.duration')}</h4>
             <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
