@@ -56,7 +56,6 @@ function serializeSetTarget(row) {
 
 export default function AddActivityModal({ activityTypes, date, todayDayKey, onClose, onAdded }) {
   const { t } = useLanguage();
-  const [search, setSearch] = useState('');
   const [kind, setKind] = useState('cardio');
   const [selectedType, setSelectedType] = useState(null);
   const [label, setLabel] = useState('');
@@ -92,17 +91,19 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     }
   }, [kind]);
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return activityTypes.filter((at) => {
-      const isForce = FORCE_TYPES.has(at.type);
-      if (kind === 'force' && !isForce) return false;
-      if (kind === 'cardio' && isForce) return false;
-      if (kind === 'hyrox') return false; // l'onglet Hyrox a sa propre liste, pas celle-ci
-      if (!term) return true;
-      return t(`activityType.${at.type}`).toLowerCase().includes(term);
-    });
-  }, [activityTypes, kind, search, t]);
+  // Plus de recherche texte depuis que le choix passe par une liste déroulante : le sélecteur
+  // natif fait déjà défiler et chercher mieux qu'un champ de saisie sur un téléphone.
+  const filtered = useMemo(
+    () =>
+      activityTypes.filter((at) => {
+        const isForce = FORCE_TYPES.has(at.type);
+        if (kind === 'force' && !isForce) return false;
+        if (kind === 'cardio' && isForce) return false;
+        if (kind === 'hyrox') return false; // l'onglet Hyrox a sa propre liste, pas celle-ci
+        return true;
+      }),
+    [activityTypes, kind]
+  );
 
   // "Force" only ever has a single option ("Entraînement de force"), so requiring a tap on it
   // before the sole button unlocks is easy to miss — auto-select whenever a filter narrows to
@@ -396,40 +397,36 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
 
         {kind === 'cardio' && (
           <>
-            <div className="search-input-row">
-              <Icon name="search" size={18} color="var(--text-muted)" />
-              <input
-                type="text"
-                className="search-input"
-                placeholder={t('activityLog.searchActivity')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-
+            {/* Une liste déroulante plutôt qu'une liste de cartes : avec 16 types de cardio, la
+                liste occupait la moitié de l'écran et demandait de faire défiler dans un cadre
+                qui défilait déjà. Le sélecteur natif s'ouvre en plein écran sur iPhone, ce qui
+                est plus confortable que tout ce qu'on peut dessiner à la main — et il rend la
+                recherche inutile. */}
             <h4 className="section-label">{t('activityLog.choose')}</h4>
-            <div className="entry-list" style={{ maxHeight: 220, overflowY: 'auto' }}>
-              {filtered.length === 0 && <p className="hint">{t('activityLog.noResults')}</p>}
-              {filtered.map((at) => {
-                const isSelected = selectedType === at.type;
-                return (
-                  <div
-                    key={at.type}
-                    className={isSelected ? 'entry-card activity-session-exercise current' : 'entry-card'}
-                    onClick={() => setSelectedType(at.type)}
-                  >
-                    <span className="meal-icon-box">
-                      <Icon name={iconForType(at.type)} size={19} />
-                    </span>
-                    <div className="entry-card-body" style={{ cursor: 'pointer' }}>
-                      <div className="entry-card-name">{t(`activityType.${at.type}`)}</div>
-                      <div className="entry-card-sub">≈ {Math.round(at.kcal_per_hour / 2)} kcal / 30 min</div>
-                    </div>
-                    {isSelected && <Icon name="circle-check-big" size={20} color="var(--acc)" />}
-                  </div>
-                );
-              })}
+            <div className="row" style={{ gap: 12 }}>
+              <span className="meal-icon-box">
+                <Icon name={iconForType(selectedType)} size={19} />
+              </span>
+              <select
+                className="activity-type-select"
+                value={selectedType || ''}
+                onChange={(e) => setSelectedType(e.target.value)}
+              >
+                <option value="" disabled>
+                  {t('activityLog.choose')}
+                </option>
+                {filtered.map((at) => (
+                  <option key={at.type} value={at.type}>
+                    {t(`activityType.${at.type}`)}
+                  </option>
+                ))}
+              </select>
             </div>
+            {selected && (
+              <p className="hint" style={{ marginTop: 6 }}>
+                ≈ {Math.round(selected.kcal_per_hour / 2)} kcal / 30 min
+              </p>
+            )}
           </>
         )}
 
