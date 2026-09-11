@@ -5750,6 +5750,19 @@ h1 {
   color: var(--text-secondary);
 }
 
+/* Le nom et les kcal sont des <span> ici (la ligne entière est un bouton), donc inline par
+   défaut : sans ça, les deux se retrouvent collés sur la même ligne. */
+.hyrox-station-main .meal-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hyrox-station-main .meal-card-title,
+.hyrox-station-main .meal-card-kcal {
+  display: block;
+}
+
 .hyrox-station-steppers {
   display: flex;
   align-items: center;
