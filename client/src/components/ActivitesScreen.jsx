@@ -427,7 +427,11 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
                   <Icon name="repeat" size={14} color="var(--acc)" style={{ marginLeft: 6, verticalAlign: -2 }} />
                 )}
               </div>
-              <div className="meal-card-kcal">{a.duration_minutes} min</div>
+              {/* La distance d'abord quand il y en a une : « 1000 m » dit ce qu'on a fait, la durée
+                  dit seulement combien de temps ça a pris. Les deux restent affichées. */}
+              <div className="meal-card-kcal">
+                {a.distance_m ? `${Math.round(a.distance_m)} m · ${Math.round(a.duration_minutes)} min` : `${a.duration_minutes} min`}
+              </div>
             </div>
             <b className="activites-row-kcal">{Math.round(a.kcal)} kcal</b>
             <Icon name="chevron-right" size={16} color="var(--text-muted)" />

@@ -7,6 +7,9 @@ import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
 import { iconForType } from '../data/activityIcons';
 
+// Les trois distances d'un entraînement Hyrox — le reste se règle au pas de 50 m.
+const DISTANCE_PRESETS = [250, 500, 1000];
+
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const FORCE_TYPES = new Set(['force']);
 
@@ -27,6 +30,9 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   const [selectedType, setSelectedType] = useState(null);
   const [label, setLabel] = useState('');
   const [duration, setDuration] = useState(30);
+  // Distance-measured types (the Hyrox stations) are entered in metres; the duration below
+  // follows from the type's pace, and stays adjustable because the pace is a default, not a fact.
+  const [distance, setDistance] = useState(1000);
   const [recurring, setRecurring] = useState(false);
   const [days, setDays] = useState(new Set([todayDayKey]));
   const [saving, setSaving] = useState(false);
@@ -73,6 +79,14 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   }, [filtered]);
 
   const selected = activityTypes.find((at) => at.type === selectedType);
+  const byDistance = selected?.unit === 'meters' && selected?.sec_per_100m > 0;
+  // Recomputed on every change of type or distance, then left alone: the stepper below writes
+  // straight into `duration`, so a measured time survives until the distance changes again.
+  useEffect(() => {
+    if (!byDistance) return;
+    setDuration(Math.max(1, Math.round(((distance / 100) * selected.sec_per_100m) / 60)));
+  }, [byDistance, distance, selected]);
+
   const estimatedKcal = selected ? Math.round(selected.kcal_per_hour * (duration / 60)) : null;
   const selectedTemplate = templates.find((tpl) => tpl.id === selectedTemplateId);
 
@@ -127,6 +141,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
         date,
         type: selectedType,
         duration_minutes: duration,
+        distance_m: byDistance ? distance : null,
         kcal: estimatedKcal,
         label: finalLabel,
         recurringGroupId: groupId,
@@ -331,7 +346,36 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
           </>
         )}
 
-        <h4 className="section-label">{t('activityLog.estimatedTime')}</h4>
+        {byDistance && (
+          <>
+            <h4 className="section-label">{t('activityLog.distance')}</h4>
+            <div className="type-list-row">
+              {DISTANCE_PRESETS.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={distance === m ? 'type-pill active' : 'type-pill'}
+                  onClick={() => setDistance(m)}
+                >
+                  {m} m
+                </button>
+              ))}
+            </div>
+            <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
+              <button type="button" className="weight-minus-btn" onClick={() => setDistance((d) => Math.max(50, d - 50))}>
+                <Icon name="minus" size={18} />
+              </button>
+              <div style={{ textAlign: 'center', minWidth: 90 }}>
+                <span className="weight-value">{distance}</span> <span className="rate">m</span>
+              </div>
+              <button type="button" className="weight-plus-btn" onClick={() => setDistance((d) => d + 50)}>
+                <Icon name="plus" size={18} />
+              </button>
+            </div>
+          </>
+        )}
+
+        <h4 className="section-label">{byDistance ? t('activityLog.timeForIt') : t('activityLog.estimatedTime')}</h4>
         <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
           <button type="button" className="weight-minus-btn" onClick={() => setDuration((d) => Math.max(5, d - 5))}>
             <Icon name="minus" size={18} />

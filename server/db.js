@@ -129,7 +129,13 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS activity_settings (
     type TEXT PRIMARY KEY,
     label TEXT NOT NULL,
-    kcal_per_hour REAL NOT NULL
+    kcal_per_hour REAL NOT NULL,
+    -- 'minutes' (par défaut) ou 'meters' : ce qu'on saisit pour cette activité. Un rameur se
+    -- compte en mètres, une séance de force en minutes, et personne ne veut convertir de tête.
+    unit TEXT NOT NULL DEFAULT 'minutes',
+    -- L'allure qui relie les deux, en secondes pour 100 m. La durée reste le moteur des kcal et
+    -- du TDEE : la distance est convertie une fois, à la saisie.
+    sec_per_100m REAL
   );
 
   CREATE TABLE IF NOT EXISTS recipes (
@@ -581,17 +587,21 @@ export const DEFAULT_ACTIVITY_SETTINGS = [
   // --- Hyrox : les machines, les stations, et la course qui les relie ---
   // Les kcal/h sont des ordres de grandeur pour un effort soutenu ; chacun peut les ajuster dans
   // Réglages > activités, où c'est justement ce que le réglage sert à faire.
-  { type: 'course_a_pied', label: 'Course à pied', kcal_per_hour: 700 },
-  { type: 'course_tapis', label: 'Course sur tapis', kcal_per_hour: 680 },
-  { type: 'ski_erg', label: 'SkiErg', kcal_per_hour: 700 },
-  { type: 'rameur', label: 'Rameur', kcal_per_hour: 650 },
-  { type: 'assault_bike', label: 'Assault bike', kcal_per_hour: 750 },
-  { type: 'velo_appartement', label: "Vélo d'appartement", kcal_per_hour: 450 },
-  { type: 'traineau_poussee', label: 'Traîneau (poussée)', kcal_per_hour: 800 },
-  { type: 'traineau_traction', label: 'Traîneau (traction)', kcal_per_hour: 750 },
-  { type: 'burpees_broad_jump', label: 'Burpees broad jump', kcal_per_hour: 800 },
-  { type: 'farmers_carry', label: 'Farmers carry', kcal_per_hour: 500 },
-  { type: 'fentes_sandbag', label: 'Fentes sac de sable', kcal_per_hour: 600 },
+  // `unit: 'meters'` : ces stations-là se comptent en mètres, pas en minutes. `sec_per_100m` est
+  // l'allure qui convertit la distance saisie en durée — moteur des kcal et du TDEE — et reste
+  // ajustable à la saisie, parce que c'est la plus personnelle des valeurs de ce fichier.
+  { type: 'course_a_pied', label: 'Course à pied', kcal_per_hour: 700, unit: 'meters', sec_per_100m: 36 },
+  { type: 'course_tapis', label: 'Course sur tapis', kcal_per_hour: 680, unit: 'meters', sec_per_100m: 36 },
+  { type: 'ski_erg', label: 'SkiErg', kcal_per_hour: 700, unit: 'meters', sec_per_100m: 26 },
+  { type: 'rameur', label: 'Rameur', kcal_per_hour: 650, unit: 'meters', sec_per_100m: 27 },
+  { type: 'assault_bike', label: 'Assault bike', kcal_per_hour: 750, unit: 'meters', sec_per_100m: 16 },
+  { type: 'velo_appartement', label: "Vélo d'appartement", kcal_per_hour: 450, unit: 'meters', sec_per_100m: 15 },
+  { type: 'traineau_poussee', label: 'Traîneau (poussée)', kcal_per_hour: 800, unit: 'meters', sec_per_100m: 120 },
+  { type: 'traineau_traction', label: 'Traîneau (traction)', kcal_per_hour: 750, unit: 'meters', sec_per_100m: 120 },
+  { type: 'burpees_broad_jump', label: 'Burpees broad jump', kcal_per_hour: 800, unit: 'meters', sec_per_100m: 300 },
+  { type: 'farmers_carry', label: 'Farmers carry', kcal_per_hour: 500, unit: 'meters', sec_per_100m: 40 },
+  { type: 'fentes_sandbag', label: 'Fentes sac de sable', kcal_per_hour: 600, unit: 'meters', sec_per_100m: 180 },
+  // Les deux qui ne se mesurent pas en mètres : des répétitions, et une course entière.
   { type: 'wall_balls', label: 'Wall balls', kcal_per_hour: 600 },
   { type: 'hyrox', label: 'Hyrox (simulation)', kcal_per_hour: 750 },
 ];
@@ -635,6 +645,9 @@ function addColumnIfMissing(table, columnName, columnDef) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`);
   }
 }
+// La distance saisie, gardée telle quelle pour l'afficher — « 1000 m » dit quelque chose que
+// « 4 min » ne dit pas, même si les deux décrivent le même effort.
+addColumnIfMissing('activity_logs', 'distance_m', 'distance_m REAL');
 addColumnIfMissing('activity_logs', 'label', 'label TEXT');
 addColumnIfMissing('activity_plan', 'label', 'label TEXT');
 // Ties together the set of day-rows created by one "recurring" submission, so viewing an
@@ -962,6 +975,11 @@ if (!activitySettingsCols.includes('user_id')) {
   `);
 }
 
+// Après la reconstruction ci-dessus, pas avant : celle-ci recrée la table à partir de ses
+// colonnes d'origine, et des colonnes ajoutées plus tôt y disparaîtraient sans un mot.
+addColumnIfMissing('activity_settings', 'unit', "unit TEXT NOT NULL DEFAULT 'minutes'");
+addColumnIfMissing('activity_settings', 'sec_per_100m', 'sec_per_100m REAL');
+
 // meal_favorites: UNIQUE(meal, source_type, source_id) -> UNIQUE(user_id, meal, source_type, source_id).
 const mealFavColumns = db.prepare('PRAGMA table_info(meal_favorites)').all().map((c) => c.name);
 if (!mealFavColumns.includes('user_id')) {
@@ -1089,12 +1107,32 @@ for (const table of ['nutrient_estimation_runs', 'microbiome_classification_runs
 // account at registration time, so a type added to that list later (e.g. jump rope) never reaches
 // accounts that already existed — INSERT OR IGNORE here re-runs the same seeding for every
 // existing user on every boot, a no-op for types they already have.
+// Les types Hyrox ont été semés une première fois sans unité (le déploiement précédent). Leur
+// poser l'unité et l'allure ici, uniquement là où personne n'y a touché, évite d'écraser un
+// réglage que l'utilisateur aurait ajusté entre-temps.
+{
+  const setUnit = db.prepare(
+    'UPDATE activity_settings SET unit = ?, sec_per_100m = ? WHERE type = ? AND sec_per_100m IS NULL'
+  );
+  for (const setting of DEFAULT_ACTIVITY_SETTINGS) {
+    if (setting.unit === 'meters') setUnit.run(setting.unit, setting.sec_per_100m, setting.type);
+  }
+}
+
 const insertMissingSetting = db.prepare(
-  `INSERT OR IGNORE INTO activity_settings (user_id, type, label, kcal_per_hour) VALUES (?, ?, ?, ?)`
+  `INSERT OR IGNORE INTO activity_settings (user_id, type, label, kcal_per_hour, unit, sec_per_100m)
+   VALUES (?, ?, ?, ?, ?, ?)`
 );
 for (const { id: userId } of db.prepare('SELECT id FROM users').all()) {
   for (const setting of DEFAULT_ACTIVITY_SETTINGS) {
-    insertMissingSetting.run(userId, setting.type, setting.label, setting.kcal_per_hour);
+    insertMissingSetting.run(
+      userId,
+      setting.type,
+      setting.label,
+      setting.kcal_per_hour,
+      setting.unit || 'minutes',
+      setting.sec_per_100m ?? null
+    );
   }
 }
 

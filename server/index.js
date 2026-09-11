@@ -135,11 +135,14 @@ function seedDefaultUserData(userId) {
     `INSERT OR IGNORE INTO profile (user_id, bmr, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal)
      VALUES (?, 1800, 250, 150, 70, 'lose', 500)`
   ).run(userId);
+  // unit / sec_per_100m travel with the seed: without them a brand-new account gets every Hyrox
+  // station back in minutes, and the distance entry silently does nothing.
   const upsertSetting = db.prepare(
-    `INSERT OR IGNORE INTO activity_settings (user_id, type, label, kcal_per_hour) VALUES (?, ?, ?, ?)`
+    `INSERT OR IGNORE INTO activity_settings (user_id, type, label, kcal_per_hour, unit, sec_per_100m)
+     VALUES (?, ?, ?, ?, ?, ?)`
   );
   for (const s of DEFAULT_ACTIVITY_SETTINGS) {
-    upsertSetting.run(userId, s.type, s.label, s.kcal_per_hour);
+    upsertSetting.run(userId, s.type, s.label, s.kcal_per_hour, s.unit || 'minutes', s.sec_per_100m ?? null);
   }
 }
 
@@ -468,6 +471,17 @@ function kcalPerHourFor(userId, type) {
   return setting ? setting.kcal_per_hour : 0;
 }
 
+// Distance-measured activities (the Hyrox stations) are entered in metres and converted here,
+// once, at the point of entry. Duration stays the single driver of kcal and of the TDEE, so
+// nothing downstream — reports, weekly totals, the energy balance — has to learn about metres.
+function durationFromDistance(userId, type, distanceM) {
+  const setting = db
+    .prepare('SELECT unit, sec_per_100m FROM activity_settings WHERE user_id = ? AND type = ?')
+    .get(userId, type);
+  if (!setting || setting.unit !== 'meters' || !setting.sec_per_100m) return null;
+  return (Number(distanceM) / 100) * setting.sec_per_100m / 60;
+}
+
 function computeSummary(userId, date, profileOverride) {
   const profile = profileOverride || getProfile(userId);
   const logs = db
@@ -736,23 +750,27 @@ app.get('/api/activities', (req, res) => {
 });
 
 app.post('/api/activities', (req, res) => {
-  const { date, type, duration_minutes, kcal, label, recurringGroupId } = req.body;
-  if (!type || !duration_minutes) {
-    return res.status(400).json({ error: 'type et duration_minutes requis' });
+  const { date, type, duration_minutes, distance_m, kcal, label, recurringGroupId } = req.body;
+  // A distance is enough on its own: the duration follows from the type's pace. Sending both is
+  // also fine, and then the duration sent wins — it is the measured one.
+  const distance = distance_m !== undefined && distance_m !== null ? Number(distance_m) : null;
+  const derived = distance ? durationFromDistance(req.userId, type, distance) : null;
+  const minutes = duration_minutes !== undefined && duration_minutes !== null ? Number(duration_minutes) : derived;
+  if (!type || !minutes) {
+    return res.status(400).json({ error: 'type et duration_minutes (ou distance_m) requis' });
   }
 
   const finalDate = date || todayStr();
   const finalKcal =
-    kcal !== undefined && kcal !== null
-      ? Number(kcal)
-      : kcalPerHourFor(req.userId, type) * (Number(duration_minutes) / 60);
+    kcal !== undefined && kcal !== null ? Number(kcal) : kcalPerHourFor(req.userId, type) * (minutes / 60);
   const finalLabel = label && label.trim() ? label.trim() : null;
 
   const result = db
     .prepare(
-      `INSERT INTO activity_logs (user_id, date, type, duration_minutes, kcal, label, plan_group_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO activity_logs (user_id, date, type, duration_minutes, distance_m, kcal, label, plan_group_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(req.userId, finalDate, type, Number(duration_minutes), finalKcal, finalLabel, recurringGroupId || null);
+    .run(req.userId, finalDate, type, minutes, distance, finalKcal, finalLabel, recurringGroupId || null);
 
   const log = db.prepare('SELECT * FROM activity_logs WHERE id = ? AND user_id = ?').get(result.lastInsertRowid, req.userId);
   res.status(201).json(log);
@@ -767,16 +785,25 @@ app.put('/api/activities/:id', (req, res) => {
   if (!log) return res.status(404).json({ error: 'introuvable' });
 
   const finalLabel = req.body.label && req.body.label.trim() ? req.body.label.trim() : null;
-  const finalDuration = req.body.duration_minutes != null ? Number(req.body.duration_minutes) : log.duration_minutes;
-  const finalKcal = req.body.kcal != null ? Number(req.body.kcal) : log.kcal;
+  // Editing a distance-measured activity works the same way as creating one: change the metres
+  // and the duration follows, unless a duration is sent too.
+  const finalDistance = req.body.distance_m != null ? Number(req.body.distance_m) : log.distance_m;
+  const derived =
+    req.body.duration_minutes == null && req.body.distance_m != null
+      ? durationFromDistance(req.userId, log.type, finalDistance)
+      : null;
+  const finalDuration =
+    req.body.duration_minutes != null ? Number(req.body.duration_minutes) : derived ?? log.duration_minutes;
+  const finalKcal =
+    req.body.kcal != null
+      ? Number(req.body.kcal)
+      : derived != null
+      ? kcalPerHourFor(req.userId, log.type) * (finalDuration / 60)
+      : log.kcal;
 
-  db.prepare('UPDATE activity_logs SET label = ?, duration_minutes = ?, kcal = ? WHERE id = ? AND user_id = ?').run(
-    finalLabel,
-    finalDuration,
-    finalKcal,
-    req.params.id,
-    req.userId
-  );
+  db.prepare(
+    'UPDATE activity_logs SET label = ?, duration_minutes = ?, distance_m = ?, kcal = ? WHERE id = ? AND user_id = ?'
+  ).run(finalLabel, finalDuration, finalDistance, finalKcal, req.params.id, req.userId);
 
   if (Array.isArray(req.body.recurringDays)) {
     const recurringDays = req.body.recurringDays.filter((d) => PLAN_DAYS.some((p) => p.key === d));
