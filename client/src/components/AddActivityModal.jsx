@@ -10,6 +10,22 @@ import { iconForType } from '../data/activityIcons';
 // Les trois distances d'un entraînement Hyrox — le reste se règle au pas de 50 m.
 const DISTANCE_PRESETS = [250, 500, 1000];
 
+// Les huit stations d'une course Hyrox, dans l'ordre où on les enchaîne, avec la distance
+// officielle pré-remplie — c'est la valeur qu'on veut neuf fois sur dix, et elle reste réglable.
+// Les wall balls se comptent en répétitions : faute d'unité pour ça, elles sont en minutes.
+const HYROX_STATIONS = [
+  { type: 'ski_erg', distance: 1000 },
+  { type: 'traineau_poussee', distance: 50 },
+  { type: 'traineau_traction', distance: 50 },
+  { type: 'burpees_broad_jump', distance: 80 },
+  { type: 'rameur', distance: 1000 },
+  { type: 'farmers_carry', distance: 200 },
+  { type: 'fentes_sandbag', distance: 100 },
+  { type: 'wall_balls', minutes: 5 },
+  // La course qui relie les stations : 8 × 1 km sur une vraie course.
+  { type: 'course_a_pied', distance: 1000 },
+];
+
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const FORCE_TYPES = new Set(['force']);
 
@@ -33,6 +49,9 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   // Distance-measured types (the Hyrox stations) are entered in metres; the duration below
   // follows from the type's pace, and stays adjustable because the pace is a default, not a fact.
   const [distance, setDistance] = useState(1000);
+  // Onglet Hyrox : chaque station cochée garde sa propre distance, d'où une map plutôt qu'un
+  // simple ensemble — c'est ce qui permet de construire la séance avant de la lancer.
+  const [stations, setStations] = useState({});
   const [recurring, setRecurring] = useState(false);
   const [days, setDays] = useState(new Set([todayDayKey]));
   const [saving, setSaving] = useState(false);
@@ -64,6 +83,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
       const isForce = FORCE_TYPES.has(at.type);
       if (kind === 'force' && !isForce) return false;
       if (kind === 'cardio' && isForce) return false;
+      if (kind === 'hyrox') return false; // l'onglet Hyrox a sa propre liste, pas celle-ci
       if (!term) return true;
       return t(`activityType.${at.type}`).toLowerCase().includes(term);
     });
@@ -88,6 +108,20 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   }, [byDistance, distance, selected]);
 
   const estimatedKcal = selected ? Math.round(selected.kcal_per_hour * (duration / 60)) : null;
+
+  const hyroxTotals = useMemo(() => {
+    let kcal = 0;
+    let minutes = 0;
+    for (const [type, picked] of Object.entries(stations)) {
+      const at = activityTypes.find((a) => a.type === type);
+      if (!at) continue;
+      const m =
+        picked.distance != null && at.sec_per_100m ? ((picked.distance / 100) * at.sec_per_100m) / 60 : picked.minutes || 0;
+      minutes += m;
+      kcal += at.kcal_per_hour * (m / 60);
+    }
+    return { kcal: Math.round(kcal), minutes: Math.round(minutes) };
+  }, [stations, activityTypes]);
   const selectedTemplate = templates.find((tpl) => tpl.id === selectedTemplateId);
 
   function toggleDay(key) {
@@ -131,8 +165,68 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     setManualExercises((list) => list.filter((_, i) => i !== index));
   }
 
+  // Un pas qui a du sens pour ce qu'il règle : 50 m sur une station, 250 m sur une machine
+  // longue, une minute sur les wall balls.
+  function stationStep(station) {
+    if (station.distance == null) return 1;
+    return station.distance >= 1000 ? 250 : 50;
+  }
+
+  function stationKcal(at, picked) {
+    const minutes =
+      picked.distance != null && at.sec_per_100m ? ((picked.distance / 100) * at.sec_per_100m) / 60 : picked.minutes || 0;
+    return Math.round(at.kcal_per_hour * (minutes / 60));
+  }
+
+  function toggleStation(station) {
+    setStations((prev) => {
+      const next = { ...prev };
+      if (next[station.type]) delete next[station.type];
+      else next[station.type] = station.distance != null ? { distance: station.distance } : { minutes: station.minutes };
+      return next;
+    });
+  }
+
+  function adjustStation(station, sign) {
+    const step = stationStep(station);
+    setStations((prev) => {
+      const picked = prev[station.type];
+      if (!picked) return prev;
+      const next = { ...prev };
+      next[station.type] =
+        picked.distance != null
+          ? { distance: Math.max(step, picked.distance + sign * step) }
+          : { minutes: Math.max(1, picked.minutes + sign) };
+      return next;
+    });
+  }
+
   async function handleSubmit() {
-    if (!selectedType || saving) return;
+    if (saving) return;
+
+    // Une séance Hyrox est enregistrée station par station, une activité chacune : c'est ce qui
+    // leur garde leurs mètres, leur allure et leurs kcal propres, et ce qui permet de revenir en
+    // modifier une seule après coup. Le total du jour les additionne de lui-même.
+    if (kind === 'hyrox') {
+      const picked = Object.entries(stations);
+      if (picked.length === 0) return;
+      setSaving(true);
+      try {
+        for (const [type, value] of picked) {
+          await api.addActivity({
+            date,
+            type,
+            ...(value.distance != null ? { distance_m: value.distance } : { duration_minutes: value.minutes }),
+          });
+        }
+        onAdded();
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    if (!selectedType) return;
     setSaving(true);
     try {
       const finalLabel = label.trim() || undefined;
@@ -182,7 +276,65 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
           <button type="button" className={kind === 'cardio' ? 'type-pill active' : 'type-pill'} onClick={() => setKind('cardio')}>
             {t('activityLog.kindCardio')}
           </button>
+          <button type="button" className={kind === 'hyrox' ? 'type-pill active' : 'type-pill'} onClick={() => setKind('hyrox')}>
+            {t('activityLog.kindHyrox')}
+          </button>
         </div>
+
+        {kind === 'hyrox' && (
+          <>
+            <p className="hint" style={{ marginTop: 0 }}>{t('activityLog.hyroxIntro')}</p>
+            {HYROX_STATIONS.map((station) => {
+              const at = activityTypes.find((a) => a.type === station.type);
+              if (!at) return null;
+              const picked = stations[station.type];
+              return (
+                <div className={picked ? 'activites-row clickable hyrox-station picked' : 'activites-row clickable hyrox-station'} key={station.type}>
+                  <button type="button" className="hyrox-station-main" onClick={() => toggleStation(station)}>
+                    <span className={picked ? 'supplement-tag-check done' : 'supplement-tag-check'}>
+                      {picked && <Icon name="check" size={12} color="var(--text-on-accent)" />}
+                    </span>
+                    <span className="activites-row-icon">
+                      <Icon name={iconForType(station.type)} size={19} />
+                    </span>
+                    <span className="meal-card-body">
+                      <span className="meal-card-title">{t(`activityType.${station.type}`)}</span>
+                      <span className="meal-card-kcal">
+                        {picked
+                          ? station.distance != null
+                            ? `${picked.distance} m · ${stationKcal(at, picked)} kcal`
+                            : `${picked.minutes} min · ${stationKcal(at, picked)} kcal`
+                          : station.distance != null
+                          ? `${station.distance} m`
+                          : `${station.minutes} min`}
+                      </span>
+                    </span>
+                  </button>
+                  {picked && (
+                    <span className="hyrox-station-steppers">
+                      <button type="button" className="weight-minus-btn" onClick={() => adjustStation(station, -1)}>
+                        <Icon name="minus" size={16} />
+                      </button>
+                      <button type="button" className="weight-plus-btn" onClick={() => adjustStation(station, 1)}>
+                        <Icon name="plus" size={16} />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+            <div className="card" style={{ marginTop: 12 }}>
+              <div className="row">
+                <span className="name">{t('activityLog.hyroxTotal').replace('{count}', Object.keys(stations).length)}</span>
+                <b className="activites-row-kcal">{hyroxTotals.kcal} kcal</b>
+              </div>
+              <div className="row" style={{ borderBottom: 0 }}>
+                <span className="name hint" style={{ padding: 0 }}>{t('activityLog.estimatedTime')}</span>
+                <b>{hyroxTotals.minutes} min</b>
+              </div>
+            </div>
+          </>
+        )}
 
         {kind === 'cardio' && (
           <>
@@ -441,7 +593,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
           e.stopPropagation();
           handleSubmit();
         }}
-        disabled={!selectedType || saving}
+        disabled={(kind === 'hyrox' ? Object.keys(stations).length === 0 : !selectedType) || saving}
       >
         {saving ? t('activityLog.saving') : t('activityLog.addToJournal')}
       </button>

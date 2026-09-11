@@ -5695,3 +5695,36 @@ h1 {
   border-color: rgba(255, 59, 107, 0.5);
   color: var(--danger);
 }
+
+/* Une station Hyrox dans le constructeur de séance : la ligne coche, les boutons règlent. */
+.hyrox-station {
+  gap: 0;
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+.hyrox-station-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hyrox-station.picked {
+  border-color: var(--border-strong);
+}
+
+.hyrox-station-steppers {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+}
