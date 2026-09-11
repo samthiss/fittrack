@@ -19,6 +19,10 @@ const HYROX_STATIONS = [
   { type: 'traineau_traction', distance: 50 },
   { type: 'burpees_broad_jump', distance: 80 },
   { type: 'rameur', distance: 1000 },
+  // Pas des stations de la course officielle, mais de l'entraînement Hyrox : autant les avoir
+  // ici plutôt que de forcer un détour par l'onglet Cardio au milieu d'une séance.
+  { type: 'assault_bike', distance: 1000 },
+  { type: 'velo_appartement', distance: 1000 },
   { type: 'farmers_carry', distance: 200 },
   { type: 'fentes_sandbag', distance: 100 },
   { type: 'wall_balls', minutes: 5 },
