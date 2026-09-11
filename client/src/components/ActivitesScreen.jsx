@@ -11,20 +11,10 @@ import PlanGroupModal from './PlanGroupModal';
 import GymChecklist from './GymChecklist';
 import { useLanguage } from '../i18n/LanguageContext';
 import { computeSessionElapsed } from '../data/sessionTiming';
+import { iconForType } from '../data/activityIcons';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
-const TYPE_ICONS = {
-  force: 'dumbbell',
-  velo_ville: 'bike',
-  stepper: 'footprints',
-};
-
-function iconForType(type) {
-  if (TYPE_ICONS[type]) return TYPE_ICONS[type];
-  if (type?.startsWith('marche')) return 'footprints';
-  return 'activity';
-}
 
 function isoDayKey(dateStr) {
   const jsDay = new Date(`${dateStr}T00:00:00Z`).getUTCDay(); // 0=Sun..6=Sat

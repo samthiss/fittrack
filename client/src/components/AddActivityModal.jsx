@@ -5,6 +5,7 @@ import WorkoutTemplateEditor from './WorkoutTemplateEditor';
 import ExercisePicker from './ExercisePicker';
 import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
+import { iconForType } from '../data/activityIcons';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const FORCE_TYPES = new Set(['force']);
@@ -18,17 +19,6 @@ function serializeSetTarget(row) {
   return row.dir === 'up' ? `${row.value}↑` : row.dir === 'down' ? `${row.value}↓` : row.value;
 }
 
-const TYPE_ICONS = {
-  force: 'dumbbell',
-  velo_ville: 'bike',
-  stepper: 'footprints',
-};
-
-function iconForType(type) {
-  if (TYPE_ICONS[type]) return TYPE_ICONS[type];
-  if (type?.startsWith('marche')) return 'footprints';
-  return 'activity';
-}
 
 export default function AddActivityModal({ activityTypes, date, todayDayKey, onClose, onAdded }) {
   const { t } = useLanguage();

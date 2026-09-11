@@ -577,6 +577,23 @@ export const DEFAULT_ACTIVITY_SETTINGS = [
   { type: 'marche_tapis_incline_12', label: 'Tapis incliné 12%', kcal_per_hour: 780 },
   { type: 'velo_ville', label: 'Vélo de ville', kcal_per_hour: 300 },
   { type: 'corde_a_sauter', label: 'Corde à sauter', kcal_per_hour: 600 },
+
+  // --- Hyrox : les machines, les stations, et la course qui les relie ---
+  // Les kcal/h sont des ordres de grandeur pour un effort soutenu ; chacun peut les ajuster dans
+  // Réglages > activités, où c'est justement ce que le réglage sert à faire.
+  { type: 'course_a_pied', label: 'Course à pied', kcal_per_hour: 700 },
+  { type: 'course_tapis', label: 'Course sur tapis', kcal_per_hour: 680 },
+  { type: 'ski_erg', label: 'SkiErg', kcal_per_hour: 700 },
+  { type: 'rameur', label: 'Rameur', kcal_per_hour: 650 },
+  { type: 'assault_bike', label: 'Assault bike', kcal_per_hour: 750 },
+  { type: 'velo_appartement', label: "Vélo d'appartement", kcal_per_hour: 450 },
+  { type: 'traineau_poussee', label: 'Traîneau (poussée)', kcal_per_hour: 800 },
+  { type: 'traineau_traction', label: 'Traîneau (traction)', kcal_per_hour: 750 },
+  { type: 'burpees_broad_jump', label: 'Burpees broad jump', kcal_per_hour: 800 },
+  { type: 'farmers_carry', label: 'Farmers carry', kcal_per_hour: 500 },
+  { type: 'fentes_sandbag', label: 'Fentes sac de sable', kcal_per_hour: 600 },
+  { type: 'wall_balls', label: 'Wall balls', kcal_per_hour: 600 },
+  { type: 'hyrox', label: 'Hyrox (simulation)', kcal_per_hour: 750 },
 ];
 
 // --- Multi-user migration ---------------------------------------------------------------------
