@@ -10,43 +10,46 @@ import { iconForType } from '../data/activityIcons';
 // Les trois distances d'un entraînement Hyrox — le reste se règle au pas de 50 m.
 const DISTANCE_PRESETS = [250, 500, 1000];
 
+// Les formats d'intervalles proposés sur les machines qui s'y prêtent : sélectionne la station,
+// puis le protocole — la durée et le nom suivent, et l'activité est enregistrée sous ce nom-là
+// plutôt que « Rameur » ou « Assault bike » tout court, qui ne distinguent pas une sortie
+// tranquille d'une séance d'intervalles.
+//
+// Classés du plus au moins efficace pour la VO2max, pas par durée : le 4 × 4 est le plus
+// documenté et celui qui passe le plus de temps en zone haute ; le Sweet Spot ferme la marche
+// parce qu'il ne vise pas la VO2max du tout — il construit la base aérobie, ce qui reste utile
+// mais répond à une autre question.
+const VO2MAX_PROTOCOLS = [
+  { id: 'four_by_four', label: '4 × 4 min', minutes: 25, goal: 'VO2max', detail: '4 min à 90-95 % FCmax / 3 min récup active — le norvégien, le plus validé. 2-3 ×/semaine au maximum.' },
+  { id: 'four_by_one', label: '4 × 1 min', minutes: 15, goal: 'VO2max', detail: '1 min max / 2 min récup complète — presque autant de stimulus en deux fois moins de temps' },
+  { id: 'twenty_forty', label: '20/40 s', minutes: 30, goal: 'VO2max + lactique', detail: '20 s effort max / 40 s récup · 8-10 reps × 3-4 séries' },
+  { id: 'quick_death', label: 'Quick Death', minutes: 10, goal: 'Puissance anaérobie', detail: '8 × 10 s all-out / 50 s récup active — trop court pour installer la VO2max, mais brutal et efficace quand le temps manque' },
+  { id: 'cal_ladder', label: 'Cal ladder', minutes: 12, goal: 'Capacité anaérobie', detail: '5 → 12 cal, récup = durée du sprint précédent — progresse avec toi au fil des semaines' },
+  { id: 'sweet_spot', label: 'Sweet Spot', minutes: 30, goal: 'Base aérobie', detail: "85-90 % FCmax en continu, 20-40 min — peu de gain VO2max, mais c'est ce qui manque le plus souvent à une prépa Hyrox" },
+];
+
+// En course, pas d'échelle de calories : elle se règle sur l'écran d'une machine, qu'une sortie
+// en extérieur n'a pas.
+const RUN_PROTOCOLS = VO2MAX_PROTOCOLS.filter((p) => p.id !== 'cal_ladder');
+
 // Les huit stations d'une course Hyrox, dans l'ordre où on les enchaîne, avec la distance
 // officielle pré-remplie — c'est la valeur qu'on veut neuf fois sur dix, et elle reste réglable.
 // Les wall balls se comptent en répétitions : faute d'unité pour ça, elles sont en minutes.
 const HYROX_STATIONS = [
-  { type: 'ski_erg', distance: 1000 },
+  { type: 'ski_erg', distance: 1000, protocols: VO2MAX_PROTOCOLS },
   { type: 'traineau_poussee', distance: 50 },
   { type: 'traineau_traction', distance: 50 },
   { type: 'burpees_broad_jump', distance: 80 },
-  { type: 'rameur', distance: 1000 },
+  { type: 'rameur', distance: 1000, protocols: VO2MAX_PROTOCOLS },
   // Pas des stations de la course officielle, mais de l'entraînement Hyrox : autant les avoir
   // ici plutôt que de forcer un détour par l'onglet Cardio au milieu d'une séance.
-  // L'assault bike se prête à autre chose qu'une distance : ce sont les formats d'intervalles
-  // qui font monter la VO2max. Sélectionne la station, puis le protocole — la durée et le nom
-  // suivent, et l'activité est enregistrée sous ce nom-là plutôt que « Assault bike » tout court.
-  {
-    type: 'assault_bike',
-    distance: 1000,
-    protocols: [
-      { id: 'quick_death', label: 'Quick Death', minutes: 10, detail: '8 × 10 s all-out / 50 s récup active' },
-      { id: 'cal_ladder', label: 'Cal ladder', minutes: 12, detail: '5 → 12 cal, récup = durée du sprint précédent' },
-      { id: 'four_by_one', label: '4 × 1 min', minutes: 15, detail: '1 min max / 2 min récup — court et très dur' },
-      // Le protocole norvégien : 4 × 4 min à 90-95 % de la FC max, 3 min de récup active entre.
-      // C'est le format le plus étudié pour la VO2max, et celui qui passe le plus de temps en
-      // zone haute — d'où sa durée, deux fois celle des autres.
-      { id: 'four_by_four', label: '4 × 4 min', minutes: 25, detail: '4 min à 90-95 % FCmax / 3 min récup active — le norvégien, 2-3 ×/semaine au maximum' },
-      { id: 'twenty_forty', label: '20/40 s', minutes: 30, detail: '20 s effort max / 40 s récup · 8-10 reps × 3-4 séries — court et très intense' },
-      // Pas un protocole VO2max : du seuil, tenu longtemps. Il construit la base aérobie, ce qui
-      // manque le plus souvent à une préparation Hyrox — d'où sa place ici malgré tout.
-      { id: 'sweet_spot', label: 'Sweet Spot', minutes: 30, detail: '85-90 % FCmax en continu, 20-40 min — base aérobie plutôt que VO2max' },
-    ],
-  },
-  { type: 'velo_appartement', distance: 1000 },
+  { type: 'assault_bike', distance: 1000, protocols: VO2MAX_PROTOCOLS },
+  { type: 'velo_appartement', distance: 1000, protocols: VO2MAX_PROTOCOLS },
   { type: 'farmers_carry', distance: 200 },
   { type: 'fentes_sandbag', distance: 100 },
   { type: 'wall_balls', minutes: 5 },
   // La course qui relie les stations : 8 × 1 km sur une vraie course.
-  { type: 'course_a_pied', distance: 1000 },
+  { type: 'course_a_pied', distance: 1000, protocols: RUN_PROTOCOLS },
 ];
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -220,7 +223,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     setStations((prev) => ({
       ...prev,
       [station.type]: protocol
-        ? { minutes: protocol.minutes, label: protocol.label, detail: protocol.detail, protocol: protocol.id }
+        ? { minutes: protocol.minutes, label: protocol.label, protocol: protocol.id }
         : { distance: station.distance },
     }));
   }
@@ -369,22 +372,30 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
                     <div className="hyrox-protocols">
                       <button
                         type="button"
-                        className={!picked.protocol ? 'filter-pill active' : 'filter-pill'}
+                        className={!picked.protocol ? 'hyrox-protocol active' : 'hyrox-protocol'}
                         onClick={() => selectProtocol(station, null)}
                       >
-                        {t('activityLog.protocolDistance')}
+                        <span className="hyrox-protocol-top">
+                          <b>{t('activityLog.protocolDistance')}</b>
+                        </span>
                       </button>
+                      {/* Chaque format porte ce qu'il développe : c'est l'information qui fait
+                          choisir, et elle doit donc se lire avant la sélection, pas après. */}
                       {station.protocols.map((protocol) => (
                         <button
                           type="button"
                           key={protocol.id}
-                          className={picked.protocol === protocol.id ? 'filter-pill active' : 'filter-pill'}
+                          className={picked.protocol === protocol.id ? 'hyrox-protocol active' : 'hyrox-protocol'}
                           onClick={() => selectProtocol(station, protocol)}
                         >
-                          {protocol.label}
+                          <span className="hyrox-protocol-top">
+                            <b>{protocol.label}</b>
+                            <span className="hyrox-protocol-goal">{protocol.goal}</span>
+                            <span className="hyrox-protocol-minutes">{protocol.minutes} min</span>
+                          </span>
+                          <span className="hyrox-protocol-detail">{protocol.detail}</span>
                         </button>
                       ))}
-                      {picked.detail && <p className="hint hyrox-protocol-detail">{picked.detail}</p>}
                     </div>
                   )}
                 </div>

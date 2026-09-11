@@ -5810,11 +5810,57 @@ h1 {
   padding: 0 14px 12px 46px;
 }
 
-.hyrox-protocol-detail {
+/* Un format d'intervalles : son nom, ce qu'il développe, sa durée, puis sa structure. Tout est
+   visible sans avoir à le sélectionner — c'est justement ce qui permet de choisir. */
+.hyrox-protocol {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   flex-basis: 100%;
-  padding: 0;
-  margin-top: 2px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hyrox-protocol.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.hyrox-protocol-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13.5px;
+}
+
+.hyrox-protocol-goal {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-display, var(--sans));
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hyrox-protocol-minutes {
+  margin-left: auto;
   font-size: 11.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.hyrox-protocol-detail {
+  font-size: 11.5px;
+  color: var(--text-secondary);
 }
 
 /* Le sélecteur de type d'activité : prend toute la largeur restante et garde la typographie des
