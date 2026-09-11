@@ -9,6 +9,7 @@ import ExerciseSession from './ExerciseSession';
 import AddActivityModal from './AddActivityModal';
 import PlanGroupModal from './PlanGroupModal';
 import GymChecklist from './GymChecklist';
+import Vo2maxScreen from './Vo2maxScreen';
 import { useLanguage } from '../i18n/LanguageContext';
 import { computeSessionElapsed } from '../data/sessionTiming';
 import { iconForType } from '../data/activityIcons';
@@ -61,7 +62,7 @@ function resetSessionElapsed(session) {
 // would be destroyed outright by a detour through Journal — losing the sets already logged and
 // stopping both timers mid-workout.
 export default function ActivitesScreen({ date, onDateChange, activityTypes, activities, planEntries, restByReps, session, onSessionChange, sessionExercise, onSessionExerciseChange, onRefresh }) {
-  // Séances / Checklist. Local to this screen rather than lifted to App: nothing outside cares
+  // Séances / Checklist / VO2max. Local to this screen rather than lifted to App: nothing outside cares
   // which one is showing, and a workout in progress is unaffected either way.
   const [tab, setTab] = useState('sessions');
   const { t, lang } = useLanguage();
@@ -339,9 +340,17 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         >
           {t('checklist.tab')}
         </button>
+        <button
+          type="button"
+          className={tab === 'vo2max' ? 'import-tab active' : 'import-tab'}
+          onClick={() => setTab('vo2max')}
+        >
+          {t('vo2max.tab')}
+        </button>
       </div>
 
       {tab === 'checklist' && <GymChecklist date={date} />}
+      {tab === 'vo2max' && <Vo2maxScreen />}
 
       {tab === 'sessions' && (
       <>

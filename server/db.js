@@ -261,6 +261,19 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- VO2max relevée à la main, typiquement recopiée depuis Apple Santé : une PWA n'a pas accès à
+  -- HealthKit, et une valeur saisie de temps en temps suffit pour ce qu'on en fait — suivre une
+  -- tendance sur des mois. Une seule valeur par jour : deux mesures le même jour sont deux
+  -- estimations de la même chose, pas deux points de suivi.
+  CREATE TABLE IF NOT EXISTS vo2max_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    value REAL NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, date)
+  );
+
   -- Suppléments (magnésium, vitamine D, oméga-3...) the user takes on a schedule, managed from
   -- the Journal's "Suppléments" section. "frequency" is 'daily' (times_per_day intakes every day)
   -- or 'monthly' (a single intake per calendar month). "time_of_day" is an optional JSON array of

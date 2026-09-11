@@ -6013,3 +6013,108 @@ h1 {
   text-align: center;
   padding: 32px;
 }
+
+/* ── VO2max ─────────────────────────────────────────────────────────────── */
+
+.vo2max-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 16px;
+}
+
+/* The number is the whole point of the screen, so it gets the room a headline gets. */
+.vo2max-value {
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -1px;
+  color: var(--accent);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.vo2max-value span {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+
+.vo2max-category {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.vo2max-category.poor,
+.vo2max-scale-step.poor.active { color: var(--danger); }
+.vo2max-category.fair,
+.vo2max-scale-step.fair.active { color: #ff9f43; }
+.vo2max-category.average,
+.vo2max-scale-step.average.active { color: #ffd166; }
+.vo2max-category.good,
+.vo2max-scale-step.good.active { color: var(--accent); }
+.vo2max-category.excellent,
+.vo2max-scale-step.excellent.active { color: var(--success); }
+
+.vo2max-trend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.vo2max-chart-legend {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding-top: 6px;
+}
+
+.vo2max-chart-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.vo2max-chart-legend i {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+/* The five bands laid out in order, with the current one lit — where you are is a position on a
+   scale, not a lone adjective. */
+.vo2max-scale {
+  display: flex;
+  gap: 4px;
+  padding-top: 14px;
+}
+
+.vo2max-scale-step {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 6px 2px;
+  border-radius: 8px;
+  background: var(--surface-input);
+  color: var(--text-muted);
+  border: 1px solid transparent;
+}
+
+.vo2max-scale-step.active {
+  font-weight: 700;
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}

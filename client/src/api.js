@@ -99,6 +99,9 @@ export const api = {
   // moment the screen locks, so only the server can be relied on to buzz on time.
   startRestTimer: (data) => request('/rest-timer', { method: 'POST', body: JSON.stringify(data) }),
   cancelRestTimer: () => request('/rest-timer', { method: 'DELETE' }),
+  getVo2max: () => request('/vo2max'),
+  addVo2max: (date, value) => request('/vo2max', { method: 'POST', body: JSON.stringify({ date, value }) }),
+  deleteVo2max: (id) => request(`/vo2max/${id}`, { method: 'DELETE' }),
   getChecklist: (date) => request(`/checklist?date=${date}`),
   addChecklistItem: (date, label) => request('/checklist', { method: 'POST', body: JSON.stringify({ date, label }) }),
   updateChecklistItem: (id, date, label) =>

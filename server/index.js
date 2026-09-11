@@ -15,7 +15,8 @@ import { parseFoodPhoto } from './foodPhotoParse.js';
 import { buildMicroList, MICRO_REFERENCE, NUTRIENT_SUGGESTIONS, SUPPLEMENT_SUGGESTIONS, hasDailyGoal, COMMON_FOODS } from './nutrientReference.js';
 import { estimateMissingNutrients, estimateNutrientsForFood } from './nutrientEstimation.js';
 import { classifyFoodsBatch, classifyFood, classifyIngredientsBatch } from './microbiomeClassification.js';
-import { computeTdee, BMR_METHODS } from './tdee.js';
+import { computeTdee, BMR_METHODS, ageFromBirthdate } from './tdee.js';
+import { bandFor, categoryFor, suggestedGoal, trend as vo2maxTrend } from './vo2maxReference.js';
 import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
 import webpush from 'web-push';
 import { buildRestDoneMessage, isValidRestSeconds, isWorthSending } from './restTimer.js';
@@ -1576,6 +1577,50 @@ function startRestTimerScheduler() {
     runRestTimerTick().catch((err) => console.error('Rest timer tick failed:', err));
   }, REST_TICK_MS);
 }
+
+// --- VO2max ---
+// Saisie à la main depuis Apple Santé (une PWA ne lit pas HealthKit), classée par rapport aux
+// normes du Cooper Institute et assortie d'un objectif : le palier juste au-dessus.
+app.get('/api/vo2max', (req, res) => {
+  const logs = db
+    .prepare('SELECT id, date, value FROM vo2max_logs WHERE user_id = ? ORDER BY date')
+    .all(req.userId);
+  const profile = getProfile(req.userId);
+  const age = ageFromBirthdate(profile?.birthdate);
+  const band = bandFor(profile?.sex, age);
+  const latest = logs.length > 0 ? logs[logs.length - 1] : null;
+
+  res.json({
+    logs,
+    latest,
+    age,
+    sex: profile?.sex || null,
+    band,
+    category: latest ? categoryFor(latest.value, band) : null,
+    goal: latest ? suggestedGoal(latest.value, band) : band?.good ?? null,
+    trend: vo2maxTrend(logs),
+  });
+});
+
+app.post('/api/vo2max', (req, res) => {
+  const date = req.body?.date || todayStr();
+  const value = Number(req.body?.value);
+  // Une VO2max humaine tient entre ces bornes : en dehors, c'est une faute de frappe, et une
+  // valeur aberrante fausserait le graphique bien après qu'on l'ait oubliée.
+  if (!Number.isFinite(value) || value < 15 || value > 95) {
+    return res.status(400).json({ error: 'Valeur invalide (attendu entre 15 et 95 ml/kg/min)' });
+  }
+  db.prepare(
+    `INSERT INTO vo2max_logs (user_id, date, value) VALUES (?, ?, ?)
+     ON CONFLICT(user_id, date) DO UPDATE SET value = excluded.value`
+  ).run(req.userId, date, Math.round(value * 10) / 10);
+  res.status(201).json(db.prepare('SELECT id, date, value FROM vo2max_logs WHERE user_id = ? AND date = ?').get(req.userId, date));
+});
+
+app.delete('/api/vo2max/:id', (req, res) => {
+  db.prepare('DELETE FROM vo2max_logs WHERE id = ? AND user_id = ?').run(req.params.id, req.userId);
+  res.status(204).end();
+});
 
 // --- Checklist salle de sport ---
 // The list of things not to forget, and the locker number for the day. Both are per date: a tick
