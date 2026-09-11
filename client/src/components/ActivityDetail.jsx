@@ -5,6 +5,8 @@ import ExercisePicker from './ExercisePicker';
 import ExerciseHistory from './ExerciseHistory';
 import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
+import IntervalSession from './IntervalSession';
+import { protocolById } from '../data/intervalProtocols';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const WEEKDAY_LABEL = { mon: 'L', tue: 'M', wed: 'M', thu: 'J', fri: 'V', sat: 'S', sun: 'D' };
@@ -52,6 +54,9 @@ export default function ActivityDetail({
   // so that is what has to come back when they are opened — a screen that answers "1000 m" with
   // "4 min" is asking the user to work out what they logged.
   const [editDistance, setEditDistance] = useState(activity.distance_m ?? null);
+  // Une activité enregistrée avec un protocole se refait au chrono, phase par phase.
+  const protocol = protocolById(activity.protocol);
+  const [running, setRunning] = useState(false);
   const [editKcal, setEditKcal] = useState(Math.round(activity.kcal));
   const [editRecurring, setEditRecurring] = useState(recurringDays.length > 0);
   const [editDays, setEditDays] = useState(new Set(recurringDays));
@@ -244,6 +249,10 @@ export default function ActivityDetail({
     }
   }
 
+  if (running && protocol) {
+    return <IntervalSession protocol={protocol} onClose={() => setRunning(false)} onFinished={() => setRunning(false)} />;
+  }
+
   return (
     <div className="page-enter">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -319,10 +328,18 @@ export default function ActivityDetail({
               <span>{t('activityLog.duration')}</span>
             </div>
           </div>
-          <button type="button" className="meal-add-cta" style={{ marginTop: 16 }} onClick={() => onStart([])}>
+          {/* Un protocole d'intervalles ne se lance pas comme une séance de force : il a ses
+              phases, son décompte et ses tours, d'où un écran à lui. */}
+          <button
+            type="button"
+            className="meal-add-cta"
+            style={{ marginTop: 16 }}
+            onClick={() => (protocol ? setRunning(true) : onStart([]))}
+          >
             <Icon name="play" size={18} />
-            {t('activityLog.start')}
+            {protocol ? t('interval.start') : t('activityLog.start')}
           </button>
+          {protocol && <p className="hint interval-detail">{protocol.detail}</p>}
         </>
       )}
 

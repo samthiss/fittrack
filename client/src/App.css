@@ -5872,3 +5872,123 @@ h1 {
   font-weight: 600;
   padding: 12px 10px;
 }
+
+/* --- Écran de séance d'intervalles --- */
+/* Lu de loin, un téléphone posé sur une machine, pendant un effort : tout est surdimensionné et
+   la couleur suffit à dire s'il faut pousser ou souffler. */
+.interval-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(18px + env(safe-area-inset-top)) 18px 24px;
+  text-align: center;
+}
+
+.interval-screen .meal-detail-header {
+  width: 100%;
+}
+
+.interval-phase {
+  margin-top: 18px;
+  font-family: var(--font-display, var(--sans));
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+}
+
+.interval-screen.work .interval-phase {
+  color: var(--danger);
+  text-shadow: 0 0 16px rgba(255, 59, 107, 0.5);
+}
+
+.interval-screen.rest .interval-phase {
+  color: var(--accent);
+  text-shadow: var(--glow-text);
+}
+
+/* Le décompte occupe la moitié de l'écran : c'est la seule chose qu'on lit vraiment en plein
+   effort, souvent à un mètre de distance et avec le souffle court. */
+.interval-clock {
+  font-family: var(--font-display, var(--sans));
+  font-size: 92px;
+  font-weight: 700;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  text-shadow: var(--glow-text);
+}
+
+.interval-target {
+  font-family: var(--font-display, var(--sans));
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.interval-progress {
+  margin-top: 6px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+/* Une pastille par effort : pleine = fait, cerclée = en cours. */
+.interval-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 18px;
+  max-width: 280px;
+}
+
+.interval-dots i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+}
+
+.interval-dots i.done {
+  border-color: transparent;
+  background: var(--gradient-brand, var(--acc));
+}
+
+.interval-dots i.current {
+  border-color: var(--danger);
+  box-shadow: 0 0 10px -1px var(--danger);
+}
+
+.interval-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.interval-actions .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.interval-actions .interval-next {
+  flex: 1;
+  margin: 0;
+}
+
+.interval-detail {
+  margin-top: 12px;
+  font-size: 11.5px;
+}
+
+.interval-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px;
+}

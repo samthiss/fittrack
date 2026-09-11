@@ -6,45 +6,29 @@ import ExercisePicker from './ExercisePicker';
 import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
 import { iconForType } from '../data/activityIcons';
+import { INTERVAL_PROTOCOLS } from '../data/intervalProtocols';
 
 // Les trois distances d'un entraînement Hyrox — le reste se règle au pas de 50 m.
 const DISTANCE_PRESETS = [250, 500, 1000];
 
-// Les formats d'intervalles proposés sur les machines qui s'y prêtent : sélectionne la station,
-// puis le protocole — la durée et le nom suivent, et l'activité est enregistrée sous ce nom-là
-// plutôt que « Rameur » ou « Assault bike » tout court, qui ne distinguent pas une sortie
-// tranquille d'une séance d'intervalles.
-//
-// Classés du plus au moins efficace pour la VO2max, pas par durée : le 4 × 4 est le plus
-// documenté et celui qui passe le plus de temps en zone haute ; le Sweet Spot ferme la marche
-// parce qu'il ne vise pas la VO2max du tout — il construit la base aérobie, ce qui reste utile
-// mais répond à une autre question.
-const VO2MAX_PROTOCOLS = [
-  { id: 'four_by_four', label: '4 × 4 min', minutes: 25, goal: 'VO2max', detail: '4 min à 90-95 % FCmax / 3 min récup active — le norvégien, le plus validé. 2-3 ×/semaine au maximum.' },
-  { id: 'four_by_one', label: '4 × 1 min', minutes: 15, goal: 'VO2max', detail: '1 min max / 2 min récup complète — presque autant de stimulus en deux fois moins de temps' },
-  { id: 'twenty_forty', label: '20/40 s', minutes: 30, goal: 'VO2max + lactique', detail: '20 s effort max / 40 s récup · 8-10 reps × 3-4 séries' },
-  { id: 'quick_death', label: 'Quick Death', minutes: 10, goal: 'Puissance anaérobie', detail: '8 × 10 s all-out / 50 s récup active — trop court pour installer la VO2max, mais brutal et efficace quand le temps manque' },
-  { id: 'cal_ladder', label: 'Cal ladder', minutes: 12, goal: 'Capacité anaérobie', detail: '5 → 12 cal, récup = durée du sprint précédent — progresse avec toi au fil des semaines' },
-  { id: 'sweet_spot', label: 'Sweet Spot', minutes: 30, goal: 'Base aérobie', detail: "85-90 % FCmax en continu, 20-40 min — peu de gain VO2max, mais c'est ce qui manque le plus souvent à une prépa Hyrox" },
-];
 
 // En course, pas d'échelle de calories : elle se règle sur l'écran d'une machine, qu'une sortie
 // en extérieur n'a pas.
-const RUN_PROTOCOLS = VO2MAX_PROTOCOLS.filter((p) => p.id !== 'cal_ladder');
+const RUN_PROTOCOLS = INTERVAL_PROTOCOLS.filter((p) => p.id !== 'cal_ladder');
 
 // Les huit stations d'une course Hyrox, dans l'ordre où on les enchaîne, avec la distance
 // officielle pré-remplie — c'est la valeur qu'on veut neuf fois sur dix, et elle reste réglable.
 // Les wall balls se comptent en répétitions : faute d'unité pour ça, elles sont en minutes.
 const HYROX_STATIONS = [
-  { type: 'ski_erg', distance: 1000, protocols: VO2MAX_PROTOCOLS },
+  { type: 'ski_erg', distance: 1000, protocols: INTERVAL_PROTOCOLS },
   { type: 'traineau_poussee', distance: 50 },
   { type: 'traineau_traction', distance: 50 },
   { type: 'burpees_broad_jump', distance: 80 },
-  { type: 'rameur', distance: 1000, protocols: VO2MAX_PROTOCOLS },
+  { type: 'rameur', distance: 1000, protocols: INTERVAL_PROTOCOLS },
   // Pas des stations de la course officielle, mais de l'entraînement Hyrox : autant les avoir
   // ici plutôt que de forcer un détour par l'onglet Cardio au milieu d'une séance.
-  { type: 'assault_bike', distance: 1000, protocols: VO2MAX_PROTOCOLS },
-  { type: 'velo_appartement', distance: 1000, protocols: VO2MAX_PROTOCOLS },
+  { type: 'assault_bike', distance: 1000, protocols: INTERVAL_PROTOCOLS },
+  { type: 'velo_appartement', distance: 1000, protocols: INTERVAL_PROTOCOLS },
   { type: 'farmers_carry', distance: 200 },
   { type: 'fentes_sandbag', distance: 100 },
   { type: 'wall_balls', minutes: 5 },
@@ -261,6 +245,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
             type,
             ...(value.distance != null ? { distance_m: value.distance } : { duration_minutes: value.minutes }),
             ...(value.label ? { label: value.label } : {}),
+            ...(value.protocol ? { protocol: value.protocol } : {}),
           });
         }
         onAdded();

@@ -750,7 +750,7 @@ app.get('/api/activities', (req, res) => {
 });
 
 app.post('/api/activities', (req, res) => {
-  const { date, type, duration_minutes, distance_m, kcal, label, recurringGroupId } = req.body;
+  const { date, type, duration_minutes, distance_m, kcal, label, protocol, recurringGroupId } = req.body;
   // A distance is enough on its own: the duration follows from the type's pace. Sending both is
   // also fine, and then the duration sent wins — it is the measured one.
   const distance = distance_m !== undefined && distance_m !== null ? Number(distance_m) : null;
@@ -767,10 +767,10 @@ app.post('/api/activities', (req, res) => {
 
   const result = db
     .prepare(
-      `INSERT INTO activity_logs (user_id, date, type, duration_minutes, distance_m, kcal, label, plan_group_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO activity_logs (user_id, date, type, duration_minutes, distance_m, kcal, label, protocol, plan_group_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(req.userId, finalDate, type, minutes, distance, finalKcal, finalLabel, recurringGroupId || null);
+    .run(req.userId, finalDate, type, minutes, distance, finalKcal, finalLabel, protocol || null, recurringGroupId || null);
 
   const log = db.prepare('SELECT * FROM activity_logs WHERE id = ? AND user_id = ?').get(result.lastInsertRowid, req.userId);
   res.status(201).json(log);

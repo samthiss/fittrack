@@ -651,6 +651,10 @@ function addColumnIfMissing(table, columnName, columnDef) {
 // La distance saisie, gardée telle quelle pour l'afficher — « 1000 m » dit quelque chose que
 // « 4 min » ne dit pas, même si les deux décrivent le même effort.
 addColumnIfMissing('activity_logs', 'distance_m', 'distance_m REAL');
+// Quel protocole d'intervalles a été choisi (4 × 4, 20/40 s…). Le libellé seul ne suffit pas :
+// il est modifiable par l'utilisateur, alors que c'est cette clé qui permet de rejouer la séance
+// phase par phase quand il l'ouvre pour la faire.
+addColumnIfMissing('activity_logs', 'protocol', 'protocol TEXT');
 addColumnIfMissing('activity_logs', 'label', 'label TEXT');
 addColumnIfMissing('activity_plan', 'label', 'label TEXT');
 // Ties together the set of day-rows created by one "recurring" submission, so viewing an
