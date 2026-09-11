@@ -81,7 +81,7 @@ export const translations = {
     'activityType.farmers_carry': 'Farmers carry',
     'activityType.fentes_sandbag': 'Fentes sac de sable',
     'activityType.wall_balls': 'Wall balls',
-    'activityType.hyrox': 'Hyrox (simulation)',
+    'activityType.hyrox': 'Hyrox full session',
 
     // Weekly plan day names (fixed set of 7, same translate-by-key approach)
     'dayName.mon': 'Lundi',
@@ -1029,7 +1029,7 @@ export const translations = {
     'activityType.farmers_carry': 'Farmers carry',
     'activityType.fentes_sandbag': 'Sandbag lunges',
     'activityType.wall_balls': 'Wall balls',
-    'activityType.hyrox': 'Hyrox (full run)',
+    'activityType.hyrox': 'Hyrox full session',
 
     // Weekly plan day names
     'dayName.mon': 'Monday',

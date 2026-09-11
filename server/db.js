@@ -603,7 +603,10 @@ export const DEFAULT_ACTIVITY_SETTINGS = [
   { type: 'fentes_sandbag', label: 'Fentes sac de sable', kcal_per_hour: 600, unit: 'meters', sec_per_100m: 180 },
   // Les deux qui ne se mesurent pas en mètres : des répétitions, et une course entière.
   { type: 'wall_balls', label: 'Wall balls', kcal_per_hour: 600 },
-  { type: 'hyrox', label: 'Hyrox (simulation)', kcal_per_hour: 750 },
+  // Une session entière : une course Hyrox, ou un entraînement complet enchaîné seul. En durée,
+  // parce que c'est le seul chiffre qu'on connaît en sortant — les stations individuelles, elles,
+  // se logguent en mètres ci-dessus.
+  { type: 'hyrox', label: 'Hyrox full session', kcal_per_hour: 750 },
 ];
 
 // --- Multi-user migration ---------------------------------------------------------------------
@@ -1107,6 +1110,11 @@ for (const table of ['nutrient_estimation_runs', 'microbiome_classification_runs
 // account at registration time, so a type added to that list later (e.g. jump rope) never reaches
 // accounts that already existed — INSERT OR IGNORE here re-runs the same seeding for every
 // existing user on every boot, a no-op for types they already have.
+// Renommage du type `hyrox` : la ligne existe déjà chez ceux qui ont eu le déploiement
+// précédent, sous son ancien nom. Ne toucher que les libellés restés au défaut d'origine, pour
+// ne pas écraser celui de quelqu'un qui l'aurait renommé lui-même.
+db.prepare("UPDATE activity_settings SET label = 'Hyrox full session' WHERE type = 'hyrox' AND label = 'Hyrox (simulation)'").run();
+
 // Les types Hyrox ont été semés une première fois sans unité (le déploiement précédent). Leur
 // poser l'unité et l'allure ici, uniquement là où personne n'y a touché, évite d'écraser un
 // réglage que l'utilisateur aurait ajusté entre-temps.
