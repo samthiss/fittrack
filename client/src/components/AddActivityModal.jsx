@@ -21,7 +21,18 @@ const HYROX_STATIONS = [
   { type: 'rameur', distance: 1000 },
   // Pas des stations de la course officielle, mais de l'entraînement Hyrox : autant les avoir
   // ici plutôt que de forcer un détour par l'onglet Cardio au milieu d'une séance.
-  { type: 'assault_bike', distance: 1000 },
+  // L'assault bike se prête à autre chose qu'une distance : ce sont les formats d'intervalles
+  // qui font monter la VO2max. Sélectionne la station, puis le protocole — la durée et le nom
+  // suivent, et l'activité est enregistrée sous ce nom-là plutôt que « Assault bike » tout court.
+  {
+    type: 'assault_bike',
+    distance: 1000,
+    protocols: [
+      { id: 'quick_death', label: 'Quick Death', minutes: 10, detail: '8 × 10 s all-out / 50 s récup active' },
+      { id: 'cal_ladder', label: 'Cal ladder', minutes: 12, detail: '5 → 12 cal, récup = durée du sprint précédent' },
+      { id: 'four_by_one', label: '4 × 1 min', minutes: 15, detail: '1 min max / 2 min récup — le plus dur, le meilleur stimulus' },
+    ],
+  },
   { type: 'velo_appartement', distance: 1000 },
   { type: 'farmers_carry', distance: 200 },
   { type: 'fentes_sandbag', distance: 100 },
@@ -170,10 +181,12 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   }
 
   // Un pas qui a du sens pour ce qu'il règle : 50 m sur une station, 250 m sur une machine
-  // longue, une minute sur les wall balls.
-  function stationStep(station) {
-    if (station.distance == null) return 1;
-    return station.distance >= 1000 ? 250 : 50;
+  // longue, une minute sur ce qui se compte en minutes. Le pas suit la valeur affichée, pas la
+  // station : l'assault bike se règle en mètres en mode distance et en minutes en mode protocole,
+  // et lui appliquer son pas de 250 sur des minutes ajouterait quatre heures d'un coup.
+  function stationStep(station, picked) {
+    if (!picked || picked.distance == null) return 1;
+    return picked.distance >= 1000 ? 250 : 50;
   }
 
   function stationKcal(at, picked) {
@@ -191,16 +204,30 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     });
   }
 
+  // Passer d'un protocole à l'autre, ou revenir à la distance. Le nom du protocole devient le
+  // libellé de l'activité : « Quick Death · 10 min » dit ce qui a été fait, là où « Assault bike »
+  // ne distingue pas une sortie tranquille d'une séance d'intervalles.
+  function selectProtocol(station, protocol) {
+    setStations((prev) => ({
+      ...prev,
+      [station.type]: protocol
+        ? { minutes: protocol.minutes, label: protocol.label, detail: protocol.detail, protocol: protocol.id }
+        : { distance: station.distance },
+    }));
+  }
+
   function adjustStation(station, sign) {
-    const step = stationStep(station);
     setStations((prev) => {
       const picked = prev[station.type];
       if (!picked) return prev;
+      const step = stationStep(station, picked);
       const next = { ...prev };
       next[station.type] =
         picked.distance != null
-          ? { distance: Math.max(step, picked.distance + sign * step) }
-          : { minutes: Math.max(1, picked.minutes + sign) };
+          ? { ...picked, distance: Math.max(step, picked.distance + sign * step) }
+          // Le nom et le détail du protocole survivent à un ajustement de sa durée : allonger
+          // « Quick Death » d'une minute n'en fait pas une sortie anonyme.
+          : { ...picked, minutes: Math.max(1, picked.minutes + sign) };
       return next;
     });
   }
@@ -221,6 +248,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
             date,
             type,
             ...(value.distance != null ? { distance_m: value.distance } : { duration_minutes: value.minutes }),
+            ...(value.label ? { label: value.label } : {}),
           });
         }
         onAdded();
@@ -327,6 +355,28 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
                         <Icon name="plus" size={16} />
                       </button>
                     </span>
+                  )}
+                  {picked && station.protocols && (
+                    <div className="hyrox-protocols">
+                      <button
+                        type="button"
+                        className={!picked.protocol ? 'filter-pill active' : 'filter-pill'}
+                        onClick={() => selectProtocol(station, null)}
+                      >
+                        {t('activityLog.protocolDistance')}
+                      </button>
+                      {station.protocols.map((protocol) => (
+                        <button
+                          type="button"
+                          key={protocol.id}
+                          className={picked.protocol === protocol.id ? 'filter-pill active' : 'filter-pill'}
+                          onClick={() => selectProtocol(station, protocol)}
+                        >
+                          {protocol.label}
+                        </button>
+                      ))}
+                      {picked.detail && <p className="hint hyrox-protocol-detail">{picked.detail}</p>}
+                    </div>
                   )}
                 </div>
               );
