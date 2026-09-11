@@ -30,7 +30,11 @@ const HYROX_STATIONS = [
     protocols: [
       { id: 'quick_death', label: 'Quick Death', minutes: 10, detail: '8 × 10 s all-out / 50 s récup active' },
       { id: 'cal_ladder', label: 'Cal ladder', minutes: 12, detail: '5 → 12 cal, récup = durée du sprint précédent' },
-      { id: 'four_by_one', label: '4 × 1 min', minutes: 15, detail: '1 min max / 2 min récup — le plus dur, le meilleur stimulus' },
+      { id: 'four_by_one', label: '4 × 1 min', minutes: 15, detail: '1 min max / 2 min récup — court et très dur' },
+      // Le protocole norvégien : 4 × 4 min à 90-95 % de la FC max, 3 min de récup active entre.
+      // C'est le format le plus étudié pour la VO2max, et celui qui passe le plus de temps en
+      // zone haute — d'où sa durée, deux fois celle des autres.
+      { id: 'four_by_four', label: '4 × 4 min', minutes: 25, detail: '4 min à 90-95 % FCmax / 3 min récup active — le norvégien' },
     ],
   },
   { type: 'velo_appartement', distance: 1000 },
