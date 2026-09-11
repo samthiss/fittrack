@@ -11,8 +11,11 @@ export const INTERVAL_PROTOCOLS = [
     id: 'four_by_four',
     label: '4 × 4 min',
     minutes: 25,
-    goal: 'VO2max',
-    detail: '4 min à 90-95 % FCmax / 3 min récup active — le norvégien, le plus validé. 2-3 ×/semaine au maximum.',
+    goal: { fr: 'VO2max', en: 'VO2max' },
+    detail: {
+      fr: '4 min à 90-95 % FCmax / 3 min récup active — le norvégien, le plus validé. 2-3 ×/semaine au maximum.',
+      en: '4 min at 90-95% max HR / 3 min active recovery — the Norwegian, the most validated. Twice or three times a week at most.',
+    },
     rounds: 4,
     work: 240,
     rest: 180,
@@ -21,8 +24,11 @@ export const INTERVAL_PROTOCOLS = [
     id: 'four_by_one',
     label: '4 × 1 min',
     minutes: 15,
-    goal: 'VO2max',
-    detail: '1 min max / 2 min récup complète — presque autant de stimulus en deux fois moins de temps',
+    goal: { fr: 'VO2max', en: 'VO2max' },
+    detail: {
+      fr: '1 min max / 2 min récup complète — presque autant de stimulus en deux fois moins de temps',
+      en: '1 min flat out / 2 min full recovery — nearly the same stimulus in half the time',
+    },
     rounds: 4,
     work: 60,
     rest: 120,
@@ -31,8 +37,11 @@ export const INTERVAL_PROTOCOLS = [
     id: 'twenty_forty',
     label: '20/40 s',
     minutes: 30,
-    goal: 'VO2max + lactique',
-    detail: '20 s effort max / 40 s récup · 8-10 reps × 3-4 séries',
+    goal: { fr: 'VO2max + lactique', en: 'VO2max + lactate' },
+    detail: {
+      fr: '20 s effort max / 40 s récup · 8-10 reps × 3-4 séries',
+      en: '20 s all-out / 40 s recovery · 8-10 reps × 3-4 sets',
+    },
     sets: 3,
     rounds: 9,
     work: 20,
@@ -43,8 +52,11 @@ export const INTERVAL_PROTOCOLS = [
     id: 'quick_death',
     label: 'Quick Death',
     minutes: 10,
-    goal: 'Puissance anaérobie',
-    detail: '8 × 10 s all-out / 50 s récup active — trop court pour installer la VO2max, mais brutal et efficace quand le temps manque',
+    goal: { fr: 'Puissance anaérobie', en: 'Anaerobic power' },
+    detail: {
+      fr: '8 × 10 s all-out / 50 s récup active — trop court pour installer la VO2max, mais brutal et efficace quand le temps manque',
+      en: '8 × 10 s all-out / 50 s active recovery — too short to build VO2max, but brutal and effective when time is short',
+    },
     rounds: 8,
     work: 10,
     rest: 50,
@@ -53,8 +65,11 @@ export const INTERVAL_PROTOCOLS = [
     id: 'cal_ladder',
     label: 'Cal ladder',
     minutes: 12,
-    goal: 'Capacité anaérobie',
-    detail: '5 → 12 cal, récup = durée du sprint précédent — progresse avec toi au fil des semaines',
+    goal: { fr: 'Capacité anaérobie', en: 'Anaerobic capacity' },
+    detail: {
+      fr: '5 → 12 cal, récup = durée du sprint précédent — progresse avec toi au fil des semaines',
+      en: '5 → 12 cal, recovery = the previous sprint\'s length — it gets harder as you get fitter',
+    },
     // Pas de durée d'effort connue d'avance : on sprinte jusqu'à un nombre de calories, et la
     // récupération dure exactement ce qu'a duré le sprint. C'est le seul format que le chrono ne
     // peut pas décompter — il le mesure.
@@ -64,11 +79,21 @@ export const INTERVAL_PROTOCOLS = [
     id: 'sweet_spot',
     label: 'Sweet Spot',
     minutes: 30,
-    goal: 'Base aérobie',
-    detail: "85-90 % FCmax en continu, 20-40 min — peu de gain VO2max, mais c'est ce qui manque le plus souvent à une prépa Hyrox",
+    goal: { fr: 'Base aérobie', en: 'Aerobic base' },
+    detail: {
+      fr: "85-90 % FCmax en continu, 20-40 min — peu de gain VO2max, mais c'est ce qui manque le plus souvent à une prépa Hyrox",
+      en: '85-90% max HR held for 20-40 min — little VO2max gain, but it is what a Hyrox block most often lacks',
+    },
     continuous: 1800,
   },
 ];
+
+// Le nom d'un protocole ne se traduit pas (« 4 × 4 min », « Sweet Spot » se disent pareil), mais
+// ce qu'il développe et comment il se déroule, si.
+export function localized(field, lang) {
+  if (!field) return '';
+  return typeof field === 'string' ? field : field[lang === 'en' ? 'en' : 'fr'];
+}
 
 export function protocolById(id) {
   return INTERVAL_PROTOCOLS.find((p) => p.id === id) || null;

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
-import { buildPhases } from '../data/intervalProtocols';
+import { buildPhases, localized } from '../data/intervalProtocols';
 
 function mmss(seconds) {
   const s = Math.max(0, Math.ceil(seconds));
@@ -19,7 +19,7 @@ function mmss(seconds) {
  * de lui-même au réveil.
  */
 export default function IntervalSession({ protocol, onClose, onFinished }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const phases = useMemo(() => buildPhases(protocol), [protocol]);
 
   const [index, setIndex] = useState(0);
@@ -116,7 +116,7 @@ export default function IntervalSession({ protocol, onClose, onFinished }) {
             <Icon name="chevron-left" size={20} />
           </button>
           <div className="meal-detail-heading">
-            <div className="meal-detail-eyebrow">{protocol.goal}</div>
+            <div className="meal-detail-eyebrow">{localized(protocol.goal, lang)}</div>
             <div className="meal-detail-title">{protocol.label}</div>
           </div>
         </div>
@@ -164,7 +164,7 @@ export default function IntervalSession({ protocol, onClose, onFinished }) {
           </button>
         </div>
 
-        <p className="hint interval-detail">{protocol.detail}</p>
+        <p className="hint interval-detail">{localized(protocol.detail, lang)}</p>
       </div>
     </div>
   );

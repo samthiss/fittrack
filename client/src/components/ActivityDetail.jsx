@@ -6,7 +6,7 @@ import ExerciseHistory from './ExerciseHistory';
 import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
 import IntervalSession from './IntervalSession';
-import { protocolById } from '../data/intervalProtocols';
+import { protocolById, localized } from '../data/intervalProtocols';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const WEEKDAY_LABEL = { mon: 'L', tue: 'M', wed: 'M', thu: 'J', fri: 'V', sat: 'S', sun: 'D' };
@@ -339,7 +339,7 @@ export default function ActivityDetail({
             <Icon name="play" size={18} />
             {protocol ? t('interval.start') : t('activityLog.start')}
           </button>
-          {protocol && <p className="hint interval-detail">{protocol.detail}</p>}
+          {protocol && <p className="hint interval-detail">{localized(protocol.detail, lang)}</p>}
         </>
       )}
 

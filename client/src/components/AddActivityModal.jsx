@@ -6,7 +6,7 @@ import ExercisePicker from './ExercisePicker';
 import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
 import { iconForType } from '../data/activityIcons';
-import { INTERVAL_PROTOCOLS } from '../data/intervalProtocols';
+import { INTERVAL_PROTOCOLS, localized } from '../data/intervalProtocols';
 
 // Les trois distances d'un entraînement Hyrox — le reste se règle au pas de 50 m.
 const DISTANCE_PRESETS = [250, 500, 1000];
@@ -50,7 +50,7 @@ function serializeSetTarget(row) {
 
 
 export default function AddActivityModal({ activityTypes, date, todayDayKey, onClose, onAdded }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [kind, setKind] = useState('cardio');
   const [selectedType, setSelectedType] = useState(null);
   const [label, setLabel] = useState('');
@@ -375,10 +375,10 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
                         >
                           <span className="hyrox-protocol-top">
                             <b>{protocol.label}</b>
-                            <span className="hyrox-protocol-goal">{protocol.goal}</span>
+                            <span className="hyrox-protocol-goal">{localized(protocol.goal, lang)}</span>
                             <span className="hyrox-protocol-minutes">{protocol.minutes} min</span>
                           </span>
-                          <span className="hyrox-protocol-detail">{protocol.detail}</span>
+                          <span className="hyrox-protocol-detail">{localized(protocol.detail, lang)}</span>
                         </button>
                       ))}
                     </div>
