@@ -13,6 +13,7 @@ import Vo2maxScreen from './Vo2maxScreen';
 import { useLanguage } from '../i18n/LanguageContext';
 import { computeSessionElapsed } from '../data/sessionTiming';
 import { iconForType } from '../data/activityIcons';
+import { activityTitle } from '../data/activityTitle';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
@@ -208,7 +209,7 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         onProgressChange={(id, update) =>
           setSession((s) => ({ ...s, exerciseProgress: { ...s.exerciseProgress, [id]: update(s.exerciseProgress?.[id]) } }))
         }
-        activityLabel={session.activity.label || t(`activityType.${session.activity.type}`)}
+        activityLabel={activityTitle(session.activity, t)}
         index={exIndex + 1}
         total={session.exercises.length}
         onBack={() => setSessionExercise(null)}
@@ -431,7 +432,7 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
             </span>
             <div className="meal-card-body">
               <div className="meal-card-title">
-                {a.label || (activityTypes.some((at) => at.type === a.type) ? t(`activityType.${a.type}`) : a.type)}
+                {activityTitle(a, t, activityTypes.some((at) => at.type === a.type) ? t(`activityType.${a.type}`) : a.type)}
                 {a.plan_group_id && (
                   <Icon name="repeat" size={14} color="var(--acc)" style={{ marginLeft: 6, verticalAlign: -2 }} />
                 )}

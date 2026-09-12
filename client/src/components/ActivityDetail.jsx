@@ -7,6 +7,7 @@ import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
 import IntervalSession from './IntervalSession';
 import { protocolById, localized } from '../data/intervalProtocols';
+import { activityTitle } from '../data/activityTitle';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const WEEKDAY_LABEL = { mon: 'L', tue: 'M', wed: 'M', thu: 'J', fri: 'V', sat: 'S', sun: 'D' };
@@ -289,7 +290,7 @@ export default function ActivityDetail({
         </button>
       </div>
 
-      <h1 style={{ marginTop: 14 }}>{label || t(`activityType.${activity.type}`)}</h1>
+      <h1 style={{ marginTop: 14 }}>{activityTitle({ ...activity, label }, t)}</h1>
 
       {recurringDays.length > 0 && (
         <div style={{ marginTop: 14 }}>
