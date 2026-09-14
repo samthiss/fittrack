@@ -118,7 +118,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     setDuration(Math.max(1, Math.round(((distance / 100) * selected.sec_per_100m) / 60)));
   }, [byDistance, distance, selected]);
 
-  const estimatedKcal = selected ? Math.round(selected.kcal_per_hour * (duration / 60)) : null;
+  const estimatedKcal = selected ? Math.round(selected.net_kcal_per_hour * (duration / 60)) : null;
 
   const hyroxTotals = useMemo(() => {
     let kcal = 0;
@@ -191,10 +191,15 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     // Un protocole d'intervalles se facture sur son mélange effort/récupération, pas sur sa durée
     // au tarif d'un effort continu : c'est le même nombre que celui qui sera enregistré.
     const protocol = picked.protocol ? protocolById(picked.protocol) : null;
-    if (protocol) return protocolKcal(protocol, at.kcal_per_hour, picked.minutes);
+    if (protocol) {
+      return protocolKcal(protocol, at.kcal_per_hour, {
+        minutes: picked.minutes,
+        restingKcalPerHour: at.resting_kcal_per_hour,
+      });
+    }
     const minutes =
       picked.distance != null && at.sec_per_100m ? ((picked.distance / 100) * at.sec_per_100m) / 60 : picked.minutes || 0;
-    return Math.round(at.kcal_per_hour * (minutes / 60));
+    return Math.round(at.net_kcal_per_hour * (minutes / 60));
   }
 
   function toggleStation(station) {
@@ -255,7 +260,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
             // Les kcal d'un protocole sont envoyées explicitement : le serveur ne connaît pas les
             // protocoles, il ne saurait qu'appliquer le tarif plat à la durée totale.
             ...(value.protocol
-              ? { kcal: protocolKcal(protocolById(value.protocol), activityTypes.find((a) => a.type === type)?.kcal_per_hour, value.minutes) }
+              ? { kcal: stationKcal(activityTypes.find((a) => a.type === type), value) }
               : {}),
           });
         }
@@ -439,7 +444,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
             </div>
             {selected && (
               <p className="hint" style={{ marginTop: 6 }}>
-                ≈ {Math.round(selected.kcal_per_hour / 2)} kcal / 30 min
+                ≈ {Math.round(selected.net_kcal_per_hour / 2)} kcal / 30 min
               </p>
             )}
           </>

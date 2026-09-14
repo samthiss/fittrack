@@ -391,7 +391,7 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         {activities.length === 0 && scheduledGroups.length === 0 && <p className="hint">{t('activityLog.none')}</p>}
         {scheduledGroups.map((g) => {
           const at = activityTypes.find((t2) => t2.type === g.type);
-          const kcal = at ? Math.round(at.kcal_per_hour * (g.duration_minutes / 60)) : null;
+          const kcal = at ? Math.round(at.net_kcal_per_hour * (g.duration_minutes / 60)) : null;
           return (
             <div
               className="activites-row clickable"

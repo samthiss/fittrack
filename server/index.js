@@ -15,7 +15,7 @@ import { parseFoodPhoto } from './foodPhotoParse.js';
 import { buildMicroList, MICRO_REFERENCE, NUTRIENT_SUGGESTIONS, SUPPLEMENT_SUGGESTIONS, hasDailyGoal, COMMON_FOODS } from './nutrientReference.js';
 import { estimateMissingNutrients, estimateNutrientsForFood } from './nutrientEstimation.js';
 import { classifyFoodsBatch, classifyFood, classifyIngredientsBatch } from './microbiomeClassification.js';
-import { computeTdee, BMR_METHODS, ageFromBirthdate } from './tdee.js';
+import { computeTdee, computeBmr, BMR_METHODS, ageFromBirthdate } from './tdee.js';
 import { bandFor, categoryFor, suggestedGoal, trend as vo2maxTrend } from './vo2maxReference.js';
 import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
 import webpush from 'web-push';
@@ -472,6 +472,27 @@ function kcalPerHourFor(userId, type) {
   return setting ? setting.kcal_per_hour : 0;
 }
 
+// Ce que le corps dépense de toute façon, ramené à l'heure.
+function restingKcalPerHour(userId) {
+  return computeBmr(getProfile(userId)).value / 24;
+}
+
+/**
+ * La dépense d'une activité, nette du métabolisme de base.
+ *
+ * Les taux configurés (750 kcal/h à l'assault bike) sont des dépenses brutes : ils incluent ce
+ * que le corps aurait brûlé au repos pendant ce temps-là. Or la journée compte déjà ce
+ * métabolisme de base sur ses 24 heures (voir computeTdee) — le laisser dans le total d'une
+ * séance le compterait deux fois, et une heure de sport paraîtrait 75 kcal plus chère qu'elle ne
+ * l'est.
+ *
+ * Jamais négatif : une activité moins coûteuse que le repos n'existe pas, elle ne rapporte rien.
+ */
+function netKcalFor(userId, type, minutes) {
+  const gross = kcalPerHourFor(userId, type);
+  return Math.max(0, (gross - restingKcalPerHour(userId)) * (minutes / 60));
+}
+
 // Distance-measured activities (the Hyrox stations) are entered in metres and converted here,
 // once, at the point of entry. Duration stays the single driver of kcal and of the TDEE, so
 // nothing downstream — reports, weekly totals, the energy balance — has to learn about metres.
@@ -554,7 +575,17 @@ function computeEnergyBalance(userId, date, summary) {
 
 // --- Activity types / settings ---
 app.get('/api/activity-types', (req, res) => {
-  res.json(getActivitySettings(req.userId));
+  // Le taux net accompagne le taux brut plutôt que d'être recalculé par le client : l'estimation
+  // affichée avant d'enregistrer et la valeur enregistrée doivent être le même nombre, et le
+  // métabolisme de base n'a rien à faire dans le navigateur.
+  const resting = restingKcalPerHour(req.userId);
+  res.json(
+    getActivitySettings(req.userId).map((a) => ({
+      ...a,
+      net_kcal_per_hour: Math.max(0, Math.round(a.kcal_per_hour - resting)),
+      resting_kcal_per_hour: Math.round(resting),
+    }))
+  );
 });
 
 app.put('/api/activity-types/:type', (req, res) => {
@@ -763,7 +794,7 @@ app.post('/api/activities', (req, res) => {
 
   const finalDate = date || todayStr();
   const finalKcal =
-    kcal !== undefined && kcal !== null ? Number(kcal) : kcalPerHourFor(req.userId, type) * (minutes / 60);
+    kcal !== undefined && kcal !== null ? Number(kcal) : netKcalFor(req.userId, type, minutes);
   const finalLabel = label && label.trim() ? label.trim() : null;
 
   const result = db
@@ -803,7 +834,7 @@ app.put('/api/activities/:id', (req, res) => {
     req.body.kcal != null
       ? Number(req.body.kcal)
       : derived != null
-      ? kcalPerHourFor(req.userId, log.type) * (finalDuration / 60)
+      ? netKcalFor(req.userId, log.type, finalDuration)
       : log.duration_minutes && finalDuration !== log.duration_minutes
       ? log.kcal * (finalDuration / log.duration_minutes)
       : log.kcal;
@@ -1382,7 +1413,7 @@ app.post('/api/activity-plan/apply-to-log', (req, res) => {
   for (const entry of entries) {
     markApplied.run(req.userId, date, entry.id);
     if (appliedIds.has(entry.id)) continue;
-    const kcal = kcalPerHourFor(req.userId, entry.type) * (entry.duration_minutes / 60);
+    const kcal = netKcalFor(req.userId, entry.type, entry.duration_minutes);
     const result = db
       .prepare('INSERT INTO activity_logs (user_id, date, type, duration_minutes, kcal, label, plan_group_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(req.userId, date, entry.type, entry.duration_minutes, kcal, entry.label ?? null, entry.group_id ?? null);

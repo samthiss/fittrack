@@ -18,6 +18,7 @@ export const INTERVAL_PROTOCOLS = [
     rounds: 4,
     work: 240,
     rest: 180,
+    restKind: 'active',
   },
   {
     id: 'four_by_one',
@@ -30,6 +31,7 @@ export const INTERVAL_PROTOCOLS = [
     rounds: 4,
     work: 60,
     rest: 120,
+    restKind: 'complete',
   },
   {
     id: 'twenty_forty',
@@ -44,6 +46,7 @@ export const INTERVAL_PROTOCOLS = [
     work: 20,
     rest: 40,
     setRest: 180,
+    restKind: 'active',
   },
   {
     id: 'quick_death',
@@ -56,6 +59,7 @@ export const INTERVAL_PROTOCOLS = [
     rounds: 8,
     work: 10,
     rest: 50,
+    restKind: 'active',
   },
   {
     id: 'cal_ladder',
@@ -74,6 +78,7 @@ export const INTERVAL_PROTOCOLS = [
     // environ quatre minutes d'effort pour quelqu'un d'entraîné, et autant de récupération
     // puisqu'elle dure ce qu'a duré le sprint.
     estimate: { work: 240, rest: 240 },
+    restKind: 'complete',
   },
   {
     id: 'sweet_spot',
@@ -159,20 +164,25 @@ export function totalSeconds(protocol) {
  * 15.
  */
 export function protocolEffort(protocol) {
-  if (!protocol) return { total: 0, work: 0, rest: 0 };
+  if (!protocol) return { total: 0, work: 0, activeRest: 0, completeRest: 0 };
+  const restField = protocol.restKind === 'complete' ? 'completeRest' : 'activeRest';
+  const out = { total: 0, work: 0, activeRest: 0, completeRest: 0 };
+
   if (protocol.estimate) {
-    const { work, rest } = protocol.estimate;
-    return { total: work + rest, work, rest };
+    out.work = protocol.estimate.work;
+    out[restField] = protocol.estimate.rest;
+  } else {
+    for (const p of buildPhases(protocol)) {
+      if (typeof p.seconds !== 'number') continue;
+      if (p.kind === 'work') out.work += p.seconds;
+      // Une pause entre deux séries est un vrai arrêt, quelle que soit la nature des récups qui
+      // séparent les répétitions : trois minutes entre deux blocs, on descend de la machine.
+      else if (p.kind === 'setRest') out.completeRest += p.seconds;
+      else out[restField] += p.seconds;
+    }
   }
-  const phases = buildPhases(protocol);
-  let work = 0;
-  let rest = 0;
-  for (const p of phases) {
-    if (typeof p.seconds !== 'number') continue;
-    if (p.kind === 'work') work += p.seconds;
-    else rest += p.seconds;
-  }
-  return { total: work + rest, work, rest };
+  out.total = out.work + out.activeRest + out.completeRest;
+  return out;
 }
 
 export function protocolMinutes(protocol) {
@@ -182,22 +192,37 @@ export function protocolMinutes(protocol) {
 // Un intervalle n'est pas une sortie régulière étalée sur la même durée : on brûle plus vite
 // pendant l'effort et beaucoup moins pendant la récupération. Facturer la séance entière au tarif
 // d'un effort continu — ce que faisait l'app — surestimait franchement un format comme le 4 × 1,
-// où six minutes sur dix sont du pédalage souple.
+// où six minutes sur dix ne sont pas de l'effort.
 //
-// Les coefficients sont des ordres de grandeur, pas des mesures : sans capteur, la seule chose
-// dont on soit sûr est qu'un all-out dépasse l'allure de référence et qu'une récup est loin en
-// dessous. Un effort continu, lui, EST l'allure de référence.
+// Et toutes les récupérations ne se valent pas. Le 4 × 4 se récupère en pédalant souple, ce qui
+// reste un effort léger ; le 4 × 1 se récupère à l'arrêt, parce que son intérêt est justement de
+// repartir frais. Une récupération complète ne compte donc pas du tout : ces minutes-là ne sont
+// pas de l'exercice, et ce qu'on y brûle est déjà couvert par le métabolisme de base de la
+// journée. Les compter serait les compter deux fois.
+//
+// Les deux coefficients restants sont des ordres de grandeur, pas des mesures : sans capteur, la
+// seule chose dont on soit sûr est qu'un all-out dépasse l'allure de référence et qu'une récup
+// active est loin en dessous. Un effort continu, lui, EST l'allure de référence.
 const WORK_FACTOR = 1.35;
-const REST_FACTOR = 0.45;
+const ACTIVE_REST_FACTOR = 0.45;
+const COMPLETE_REST_FACTOR = 0;
 
-export function protocolKcal(protocol, kcalPerHour, minutesOverride) {
+export function protocolKcal(protocol, kcalPerHour, { minutes, restingKcalPerHour = 0 } = {}) {
   const effort = protocolEffort(protocol);
   if (!effort.total || !kcalPerHour) return 0;
   const workFactor = protocol?.continuous ? 1 : WORK_FACTOR;
-  const perSecond = kcalPerHour / 3600;
-  const base = perSecond * (effort.work * workFactor + effort.rest * REST_FACTOR);
+
+  // Chaque type de phase est facturé à son propre tarif, net du repos : une récupération active
+  // vaut 45 % de l'allure de référence, moins ce que le corps aurait brûlé sans rien faire.
+  // Facturé phase par phase et non sur le total, parce que la soustraction ne doit porter que sur
+  // les minutes effectivement comptées — pas sur une récupération complète qui, elle, ne compte
+  // pas du tout.
+  const netRate = (factor) => Math.max(0, kcalPerHour * factor - restingKcalPerHour);
+  const base =
+    ((effort.work * netRate(workFactor) + effort.activeRest * netRate(ACTIVE_REST_FACTOR)) / 3600);
+
   // Allonger ou raccourcir un protocole depuis l'écran d'ajout garde son mélange effort/récup :
   // ajouter cinq minutes à un 4 × 4, c'est ajouter des tours, pas du pédalage à vide.
-  if (!minutesOverride) return Math.round(base);
-  return Math.round(base * ((minutesOverride * 60) / effort.total));
+  if (!minutes) return Math.round(base);
+  return Math.round(base * ((minutes * 60) / effort.total));
 }
