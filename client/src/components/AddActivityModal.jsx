@@ -6,7 +6,7 @@ import ExercisePicker from './ExercisePicker';
 import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
 import { iconForType } from '../data/activityIcons';
-import { INTERVAL_PROTOCOLS, localized } from '../data/intervalProtocols';
+import { INTERVAL_PROTOCOLS, localized, protocolById, protocolMinutes, protocolKcal } from '../data/intervalProtocols';
 
 // Les trois distances d'un entraînement Hyrox — le reste se règle au pas de 50 m.
 const DISTANCE_PRESETS = [250, 500, 1000];
@@ -129,7 +129,9 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
       const m =
         picked.distance != null && at.sec_per_100m ? ((picked.distance / 100) * at.sec_per_100m) / 60 : picked.minutes || 0;
       minutes += m;
-      kcal += at.kcal_per_hour * (m / 60);
+      // Le total passe par stationKcal pour ne pas refaire le calcul à sa façon : le récapitulatif
+      // doit donner la somme de ce qui est affiché ligne par ligne, pas un nombre voisin.
+      kcal += stationKcal(at, picked);
     }
     return { kcal: Math.round(kcal), minutes: Math.round(minutes) };
   }, [stations, activityTypes]);
@@ -186,6 +188,10 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   }
 
   function stationKcal(at, picked) {
+    // Un protocole d'intervalles se facture sur son mélange effort/récupération, pas sur sa durée
+    // au tarif d'un effort continu : c'est le même nombre que celui qui sera enregistré.
+    const protocol = picked.protocol ? protocolById(picked.protocol) : null;
+    if (protocol) return protocolKcal(protocol, at.kcal_per_hour, picked.minutes);
     const minutes =
       picked.distance != null && at.sec_per_100m ? ((picked.distance / 100) * at.sec_per_100m) / 60 : picked.minutes || 0;
     return Math.round(at.kcal_per_hour * (minutes / 60));
@@ -207,7 +213,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     setStations((prev) => ({
       ...prev,
       [station.type]: protocol
-        ? { minutes: protocol.minutes, label: protocol.label, protocol: protocol.id }
+        ? { minutes: protocolMinutes(protocol), label: protocol.label, protocol: protocol.id }
         : { distance: station.distance },
     }));
   }
@@ -246,6 +252,11 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
             ...(value.distance != null ? { distance_m: value.distance } : { duration_minutes: value.minutes }),
             ...(value.label ? { label: value.label } : {}),
             ...(value.protocol ? { protocol: value.protocol } : {}),
+            // Les kcal d'un protocole sont envoyées explicitement : le serveur ne connaît pas les
+            // protocoles, il ne saurait qu'appliquer le tarif plat à la durée totale.
+            ...(value.protocol
+              ? { kcal: protocolKcal(protocolById(value.protocol), activityTypes.find((a) => a.type === type)?.kcal_per_hour, value.minutes) }
+              : {}),
           });
         }
         onAdded();
@@ -376,7 +387,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
                           <span className="hyrox-protocol-top">
                             <b>{protocol.label}</b>
                             <span className="hyrox-protocol-goal">{localized(protocol.goal, lang)}</span>
-                            <span className="hyrox-protocol-minutes">{protocol.minutes} min</span>
+                            <span className="hyrox-protocol-minutes">{protocolMinutes(protocol)} min</span>
                           </span>
                           <span className="hyrox-protocol-detail">{localized(protocol.detail, lang)}</span>
                         </button>

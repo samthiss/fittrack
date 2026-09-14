@@ -795,11 +795,17 @@ app.put('/api/activities/:id', (req, res) => {
       : null;
   const finalDuration =
     req.body.duration_minutes != null ? Number(req.body.duration_minutes) : derived ?? log.duration_minutes;
+  // Les kcal suivent la durée proportionnellement plutôt que d'être refaites au tarif horaire :
+  // une séance d'intervalles a été enregistrée avec des kcal pondérées (effort cher, récupération
+  // bon marché), et les recalculer à plat les gonflerait à chaque modification. Rallonger de 25 à
+  // 30 minutes ajoute 20 % de la dépense réelle, quelle qu'ait été sa nature.
   const finalKcal =
     req.body.kcal != null
       ? Number(req.body.kcal)
       : derived != null
       ? kcalPerHourFor(req.userId, log.type) * (finalDuration / 60)
+      : log.duration_minutes && finalDuration !== log.duration_minutes
+      ? log.kcal * (finalDuration / log.duration_minutes)
       : log.kcal;
 
   db.prepare(
