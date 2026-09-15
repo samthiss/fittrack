@@ -5697,7 +5697,9 @@ h1 {
 }
 
 /* Une station Hyrox dans le constructeur de séance : la ligne coche, les boutons règlent. */
-.hyrox-station {
+/* La ligne d'un choix : une station Hyrox à composer, un type de cardio à sélectionner. Le même
+   dessin dans les deux cas — cocher une ligne veut dire la même chose, quel que soit l'onglet. */
+.pick-row {
   position: relative;
   overflow: hidden;
   /* La ligne hérite d'un display:flex : sans wrap, le bloc des protocoles devient un troisième
@@ -5708,7 +5710,7 @@ h1 {
   margin-bottom: 8px;
 }
 
-.hyrox-station-main {
+.pick-row-main {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -5728,13 +5730,13 @@ h1 {
 /* Sélectionnée : la ligne entière change d'état, pas seulement sa bordure. Un liseré d'accent à
    gauche, un fond teinté et un halo — de quoi voir d'un coup d'œil, en faisant défiler, ce qui
    compose la séance et ce qui n'en fait pas partie. */
-.hyrox-station.picked {
+.pick-row.picked {
   border-color: var(--accent);
   background: var(--accent-soft);
   box-shadow: var(--glow-accent);
 }
 
-.hyrox-station.picked::before {
+.pick-row.picked::before {
   content: '';
   position: absolute;
   left: 0;
@@ -5745,30 +5747,30 @@ h1 {
   background: var(--gradient-arc);
 }
 
-.hyrox-station.picked .meal-card-title {
+.pick-row.picked .meal-card-title {
   color: var(--accent);
 }
 
 /* Non sélectionnée : volontairement en retrait, pour que le contraste avec la précédente soit le
    signal lui-même. */
-.hyrox-station:not(.picked) .meal-card-title {
+.pick-row:not(.picked) .meal-card-title {
   color: var(--text-secondary);
 }
 
 /* Le nom et les kcal sont des <span> ici (la ligne entière est un bouton), donc inline par
    défaut : sans ça, les deux se retrouvent collés sur la même ligne. */
-.hyrox-station-main .meal-card-body {
+.pick-row-main .meal-card-body {
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 
-.hyrox-station-main .meal-card-title,
-.hyrox-station-main .meal-card-kcal {
+.pick-row-main .meal-card-title,
+.pick-row-main .meal-card-kcal {
   display: block;
 }
 
-.hyrox-station-steppers {
+.pick-row-steppers {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -5777,7 +5779,7 @@ h1 {
 
 /* La distance, en gros, là où on la règle : c'est le chiffre qu'on vient vérifier du regard en
    construisant sa séance, pas une précision à lire sous le nom de la station. */
-.hyrox-station-value {
+.pick-row-value {
   display: inline-flex;
   align-items: baseline;
   gap: 3px;
@@ -5785,7 +5787,7 @@ h1 {
   justify-content: center;
 }
 
-.hyrox-station-value b {
+.pick-row-value b {
   font-family: var(--font-display, var(--sans));
   font-size: 24px;
   font-weight: 700;
@@ -5794,7 +5796,7 @@ h1 {
   text-shadow: var(--glow-text);
 }
 
-.hyrox-station-value span {
+.pick-row-value span {
   font-size: 12px;
   color: var(--text-muted);
 }
@@ -5861,16 +5863,6 @@ h1 {
 .hyrox-protocol-detail {
   font-size: 11.5px;
   color: var(--text-secondary);
-}
-
-/* Le sélecteur de type d'activité : prend toute la largeur restante et garde la typographie des
-   champs de l'app plutôt que celle du système. */
-.activity-type-select {
-  flex: 1;
-  min-width: 0;
-  font-size: 15px;
-  font-weight: 600;
-  padding: 12px 10px;
 }
 
 /* --- Écran de séance d'intervalles --- */

@@ -6,6 +6,7 @@ import ExercisePicker from './ExercisePicker';
 import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
 import { iconForType } from '../data/activityIcons';
+import { matchesSearch } from '../data/searchText';
 import { INTERVAL_PROTOCOLS, localized, protocolById, protocolMinutes, protocolKcal } from '../data/intervalProtocols';
 
 // Les trois distances d'un entraînement Hyrox — le reste se règle au pas de 50 m.
@@ -108,6 +109,13 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
       setSelectedType(filtered[0].type);
     }
   }, [filtered]);
+
+  const [cardioSearch, setCardioSearch] = useState('');
+  const cardioList = useMemo(() => {
+    // Recherche insensible aux accents : « randonnee » doit trouver « Randonnée ».
+    if (!cardioSearch.trim()) return filtered;
+    return filtered.filter((at) => matchesSearch(t(`activityType.${at.type}`), cardioSearch));
+  }, [filtered, cardioSearch, t]);
 
   const selected = activityTypes.find((at) => at.type === selectedType);
   const byDistance = selected?.unit === 'meters' && selected?.sec_per_100m > 0;
@@ -334,8 +342,8 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
               if (!at) return null;
               const picked = stations[station.type];
               return (
-                <div className={picked ? 'activites-row clickable hyrox-station picked' : 'activites-row clickable hyrox-station'} key={station.type}>
-                  <button type="button" className="hyrox-station-main" onClick={() => toggleStation(station)}>
+                <div className={picked ? 'activites-row clickable pick-row picked' : 'activites-row clickable pick-row'} key={station.type}>
+                  <button type="button" className="pick-row-main" onClick={() => toggleStation(station)}>
                     <span className={picked ? 'supplement-tag-check done' : 'supplement-tag-check'}>
                       {picked && <Icon name="check" size={12} color="var(--text-on-accent)" />}
                     </span>
@@ -356,11 +364,11 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
                     </span>
                   </button>
                   {picked && (
-                    <span className="hyrox-station-steppers">
+                    <span className="pick-row-steppers">
                       <button type="button" className="weight-minus-btn" onClick={() => adjustStation(station, -1)}>
                         <Icon name="minus" size={16} />
                       </button>
-                      <span className="hyrox-station-value">
+                      <span className="pick-row-value">
                         <b>{picked.distance != null ? picked.distance : picked.minutes}</b>
                         <span>{picked.distance != null ? 'm' : 'min'}</span>
                       </span>
@@ -417,36 +425,46 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
 
         {kind === 'cardio' && (
           <>
-            {/* Une liste déroulante plutôt qu'une liste de cartes : avec 16 types de cardio, la
-                liste occupait la moitié de l'écran et demandait de faire défiler dans un cadre
-                qui défilait déjà. Le sélecteur natif s'ouvre en plein écran sur iPhone, ce qui
-                est plus confortable que tout ce qu'on peut dessiner à la main — et il rend la
-                recherche inutile. */}
-            <h4 className="section-label">{t('activityLog.choose')}</h4>
-            <div className="row" style={{ gap: 12 }}>
-              <span className="meal-icon-box">
-                <Icon name={iconForType(selectedType)} size={19} />
-              </span>
-              <select
-                className="activity-type-select"
-                value={selectedType || ''}
-                onChange={(e) => setSelectedType(e.target.value)}
-              >
-                <option value="" disabled>
-                  {t('activityLog.choose')}
-                </option>
-                {filtered.map((at) => (
-                  <option key={at.type} value={at.type}>
-                    {t(`activityType.${at.type}`)}
-                  </option>
-                ))}
-              </select>
+            {/* Des lignes plutôt qu'une liste déroulante, comme l'onglet Hyrox : on voit ce que
+                chaque activité coûte avant de choisir, et sélectionner se fait au même geste
+                partout dans l'écran. Avec une vingtaine de types la liste est longue, d'où le
+                champ de recherche — c'est lui qui remplace le confort du sélecteur natif. */}
+            <div className="search-input-row" style={{ marginTop: 4 }}>
+              <Icon name="search" size={18} color="var(--text-muted)" />
+              <input
+                type="text"
+                className="search-input"
+                placeholder={t('activityLog.searchActivity')}
+                value={cardioSearch}
+                onChange={(e) => setCardioSearch(e.target.value)}
+              />
             </div>
-            {selected && (
-              <p className="hint" style={{ marginTop: 6 }}>
-                ≈ {Math.round(selected.net_kcal_per_hour / 2)} kcal / 30 min
-              </p>
-            )}
+
+            {cardioList.length === 0 && <p className="hint">{t('activityLog.noMatch')}</p>}
+
+            {cardioList.map((at) => {
+              const picked = selectedType === at.type;
+              return (
+                <div className={picked ? 'activites-row clickable pick-row picked' : 'activites-row clickable pick-row'} key={at.type}>
+                  <button type="button" className="pick-row-main" onClick={() => setSelectedType(at.type)}>
+                    <span className={picked ? 'supplement-tag-check done' : 'supplement-tag-check'}>
+                      {picked && <Icon name="check" size={12} color="var(--text-on-accent)" />}
+                    </span>
+                    <span className="activites-row-icon">
+                      <Icon name={iconForType(at.type)} size={19} />
+                    </span>
+                    <span className="meal-card-body">
+                      <span className="meal-card-title">{t(`activityType.${at.type}`)}</span>
+                      <span className="meal-card-kcal">
+                        {/* Le coût par demi-heure plutôt que par heure : c'est la durée d'une
+                            séance ordinaire, donc le nombre se compare sans calcul mental. */}
+                        ≈ {Math.round(at.net_kcal_per_hour / 2)} kcal / 30 min
+                      </span>
+                    </span>
+                  </button>
+                </div>
+              );
+            })}
           </>
         )}
 

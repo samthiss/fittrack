@@ -23,6 +23,9 @@ export const ACTIVITY_METS = {
   marche_tapis: 3.0,
   walking_pad_3: 3.3,
   marche: 3.5,
+  // Une randonnée tranquille en forêt : l'allure est celle d'une marche, mais le terrain
+  // irrégulier et les dénivelés en font tout autre chose — le Compendium la donne à 6.
+  randonnee: 6.0,
   // L'inclinaison compte autant que la vitesse : marcher à 5,5 km/h à 10 % vaut de la course.
   marche_tapis_incline_6: 7.0,
   marche_tapis_incline_8: 8.0,
