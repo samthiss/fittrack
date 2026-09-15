@@ -12,6 +12,9 @@ import { INTERVAL_PROTOCOLS, localized, protocolById, protocolMinutes, protocolK
 // Les trois distances d'un entraînement Hyrox — le reste se règle au pas de 50 m.
 const DISTANCE_PRESETS = [250, 500, 1000];
 
+// Les durées se règlent par tranches de cinq minutes.
+const MINUTES_STEP = 5;
+
 
 // En course, pas d'échelle de calories : elle se règle sur l'écran d'une machine, qu'une sortie
 // en extérieur n'a pas.
@@ -202,12 +205,29 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
       : filtered.filter((at) => matchesSearch(t(`activityType.${at.type}`), cardioSearch));
     // Une demi-heure comme point de départ : c'est la séance de cardio la plus ordinaire, et le
     // stepper est là pour les autres. Les types qui se comptent en mètres gardent leur unité.
+    // La dernière valeur saisie pour ce type fait la valeur par défaut : c'est presque toujours
+    // celle qu'on veut à nouveau. Une demi-heure ne sert plus que la première fois.
     return list.map((at) =>
       at.unit === 'meters' && at.sec_per_100m > 0
-        ? { type: at.type, distance: 1000 }
-        : { type: at.type, minutes: 30 }
+        ? { type: at.type, distance: at.last_distance_m || 1000 }
+        : { type: at.type, minutes: at.last_duration_minutes || 30 }
     );
   }, [filtered, cardioSearch, t]);
+
+  // Les stations partent de leur distance officielle, sauf si une distance a déjà été saisie pour
+  // cette station — auquel cas c'est celle-là qui est proposée, y compris sur la ligne décochée,
+  // pour que ce qu'on lit avant de cocher soit ce qu'on obtient en cochant.
+  const hyroxChoices = useMemo(
+    () =>
+      HYROX_STATIONS.map((station) => {
+        const at = activityTypes.find((a) => a.type === station.type);
+        if (station.distance != null) {
+          return { ...station, distance: at?.last_distance_m || station.distance };
+        }
+        return { ...station, minutes: at?.last_duration_minutes || station.minutes };
+      }),
+    [activityTypes]
+  );
 
   const pickedCount = Object.keys(stations).length;
   // Rien de coché, ou rien de choisi pour la force : dans les deux cas il n'y a rien à
@@ -285,9 +305,13 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
   // longue, une minute sur ce qui se compte en minutes. Le pas suit la valeur affichée, pas la
   // station : l'assault bike se règle en mètres en mode distance et en minutes en mode protocole,
   // et lui appliquer son pas de 250 sur des minutes ajouterait quatre heures d'un coup.
+  // Le pas d'un réglage : assez grand pour atteindre une valeur courante en quelques appuis.
+  // Une minute par appui en demandait quarante pour passer une séance à 45 minutes.
+  // Un protocole fait exception : sa durée est déduite de son déroulé, on l'ajuste à la marge.
   function stationStep(station, picked) {
-    if (!picked || picked.distance == null) return 1;
-    return picked.distance >= 1000 ? 250 : 50;
+    if (!picked) return MINUTES_STEP;
+    if (picked.distance != null) return picked.distance >= 1000 ? 250 : 50;
+    return picked.protocol ? 1 : MINUTES_STEP;
   }
 
   function stationKcal(at, picked) {
@@ -337,7 +361,7 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
           ? { ...picked, distance: Math.max(step, picked.distance + sign * step) }
           // Le nom et le détail du protocole survivent à un ajustement de sa durée : allonger
           // « Quick Death » d'une minute n'en fait pas une sortie anonyme.
-          : { ...picked, minutes: Math.max(1, picked.minutes + sign) };
+          : { ...picked, minutes: Math.max(step, picked.minutes + sign * step) };
       return next;
     });
   }
@@ -423,7 +447,7 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
         {kind === 'hyrox' && (
           <>
             <p className="hint" style={{ marginTop: 0 }}>{t('activityLog.hyroxIntro')}</p>
-            {HYROX_STATIONS.map((choice) => (
+            {hyroxChoices.map((choice) => (
               <PickRow
                 key={choice.type}
                 choice={choice}
@@ -648,13 +672,13 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
           <>
             <h4 className="section-label">{byDistance ? t('activityLog.timeForIt') : t('activityLog.estimatedTime')}</h4>
             <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
-              <button type="button" className="weight-minus-btn" onClick={() => setDuration((d) => Math.max(5, d - 5))}>
+              <button type="button" className="weight-minus-btn" onClick={() => setDuration((d) => Math.max(MINUTES_STEP, d - MINUTES_STEP))}>
                 <Icon name="minus" size={18} />
               </button>
               <div style={{ textAlign: 'center', minWidth: 70 }}>
                 <span className="weight-value">{duration}</span> <span className="rate">min</span>
               </div>
-              <button type="button" className="weight-plus-btn" onClick={() => setDuration((d) => d + 5)}>
+              <button type="button" className="weight-plus-btn" onClick={() => setDuration((d) => d + MINUTES_STEP)}>
                 <Icon name="plus" size={18} />
               </button>
             </div>

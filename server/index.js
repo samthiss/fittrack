@@ -567,18 +567,34 @@ function computeEnergyBalance(userId, date, summary) {
 }
 
 // --- Activity types / settings ---
+// La dernière durée (ou distance) saisie pour chaque type, qui sert de valeur par défaut quand on
+// re-coche l'activité. Une valeur par défaut universelle est un compromis pour tout le monde ;
+// celle qu'on a saisie la dernière fois est presque toujours celle qu'on veut à nouveau.
+//
+// Les séances faites sur un protocole d'intervalles sont exclues : leur durée vient du déroulé du
+// protocole, pas d'un choix — la reprendre comme durée par défaut d'une sortie libre serait un
+// contresens.
+const lastEntryByType = db.prepare(
+  `SELECT type, duration_minutes, distance_m FROM activity_logs
+    WHERE user_id = ? AND protocol IS NULL
+      AND id IN (SELECT MAX(id) FROM activity_logs WHERE user_id = ? AND protocol IS NULL GROUP BY type)`
+);
+
 app.get('/api/activity-types', (req, res) => {
   // Les taux sont calculés ici et pas dans le navigateur : l'estimation affichée avant
   // d'enregistrer et la valeur enregistrée doivent être le même nombre, et le métabolisme de base
   // n'a rien à faire côté client. La colonne kcal_per_hour de la table n'est plus lue — elle
   // reste pour ne pas casser les anciennes lignes, mais c'est le MET du type qui fait foi.
   const resting = restingKcalPerHour(req.userId);
+  const last = new Map(lastEntryByType.all(req.userId, req.userId).map((r) => [r.type, r]));
   res.json(
     getActivitySettings(req.userId).map((a) => ({
       ...a,
       kcal_per_hour: Math.round(grossKcalPerHour(a.type, resting)),
       net_kcal_per_hour: Math.round(netKcalPerHour(a.type, resting)),
       resting_kcal_per_hour: Math.round(resting),
+      last_duration_minutes: last.get(a.type)?.duration_minutes ?? null,
+      last_distance_m: last.get(a.type)?.distance_m ?? null,
     }))
   );
 });
