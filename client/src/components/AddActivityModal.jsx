@@ -7,10 +7,51 @@ import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
 import { iconForType } from '../data/activityIcons';
 import { matchesSearch } from '../data/searchText';
+import {
+  TREADMILL_SPEEDS,
+  TREADMILL_GRADES,
+  DEFAULT_SPEED,
+  DEFAULT_GRADE,
+  treadmillKcal,
+  treadmillLabel,
+} from '../data/treadmill';
 import { INTERVAL_PROTOCOLS, localized, protocolById, protocolMinutes, protocolKcal } from '../data/intervalProtocols';
 
 // Les trois distances d'un entraînement Hyrox — le reste se règle au pas de 50 m.
 const DISTANCE_PRESETS = [250, 500, 1000];
+
+// Le tapis remplace huit types d'activité : quatre vitesses de walking pad et quatre
+// inclinaisons, qui ne couvraient aucune combinaison des deux. Une ligne, deux réglages, et une
+// équation qui vaut pour tout le domaine (voir data/treadmill.js).
+const TREADMILL_TYPE = 'marche_tapis';
+const TREADMILL_REPLACES = new Set([
+  'marche_tapis',
+  'walking_pad_1_5',
+  'walking_pad_2',
+  'walking_pad_2_5',
+  'walking_pad_3',
+  'marche_tapis_incline_6',
+  'marche_tapis_incline_8',
+  'marche_tapis_incline_10',
+  'marche_tapis_incline_12',
+]);
+
+// Le réglage de la dernière séance se relit dans son nom — c'est déjà là qu'il est écrit, et ça
+// évite une colonne de plus pour une information qui n'a de sens que pour cette ligne.
+function lastTreadmillSettings(label) {
+  const m = /^([\d,.]+)\s*km\/h\s*·\s*(\d+)\s*%/.exec(label || '');
+  if (!m) return { speed: DEFAULT_SPEED, grade: DEFAULT_GRADE };
+  return { speed: Number(m[1].replace(',', '.')), grade: Number(m[2]) };
+}
+
+const TREADMILL_CHOICE = {
+  type: TREADMILL_TYPE,
+  minutes: 30,
+  pills: [
+    { field: 'speed', options: TREADMILL_SPEEDS.map((v) => ({ value: v, label: `${String(v).replace('.', ',')} km/h` })) },
+    { field: 'grade', options: TREADMILL_GRADES.map((v) => ({ value: v, label: `${v} %` })) },
+  ],
+};
 
 // Les durées se règlent par tranches de cinq minutes.
 const MINUTES_STEP = 5;
@@ -67,7 +108,7 @@ function serializeSetTarget(row) {
  * compose une séance en cochant des lignes et en réglant combien de chacune. Seuls les protocoles
  * d'intervalles sont propres aux stations, et ils n'apparaissent que si la ligne en propose.
  */
-function PickRow({ choice, at, picked, kcal, onToggle, onAdjust, onProtocol, t, lang }) {
+function PickRow({ choice, at, picked, kcal, onToggle, onAdjust, onProtocol, onPill, t, lang }) {
   if (!at) return null;
   return (
     <div className={picked ? 'activites-row clickable pick-row picked' : 'activites-row clickable pick-row'}>
@@ -105,6 +146,26 @@ function PickRow({ choice, at, picked, kcal, onToggle, onAdjust, onProtocol, t, 
             <Icon name="plus" size={16} />
           </button>
         </span>
+      )}
+      {/* Les réglages de la ligne — vitesse et inclinaison du tapis — apparaissent une fois
+          cochée : avant, ils n'auraient rien à régler. */}
+      {picked && choice.pills && (
+        <div className="pick-row-pills">
+          {choice.pills.map((row) => (
+            <div className="type-list-row" key={row.field}>
+              {row.options.map((o) => (
+                <button
+                  type="button"
+                  key={o.value}
+                  className={picked[row.field] === o.value ? 'type-pill active' : 'type-pill'}
+                  onClick={() => onPill(choice, row.field, o.value)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
       )}
       {picked && choice.protocols && (
         <div className="hyrox-protocols">
@@ -210,12 +271,28 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
     // stepper est là pour les autres. Les types qui se comptent en mètres gardent leur unité.
     // La dernière valeur saisie pour ce type fait la valeur par défaut : c'est presque toujours
     // celle qu'on veut à nouveau. Une demi-heure ne sert plus que la première fois.
-    return list.map((at) =>
-      at.unit === 'meters' && at.sec_per_100m > 0
-        ? { type: at.type, distance: at.last_distance_m || 1000 }
-        : { type: at.type, minutes: at.last_duration_minutes || 30 }
-    );
-  }, [filtered, cardioSearch, t]);
+    const treadmill = activityTypes.find((at) => at.type === TREADMILL_TYPE);
+    const choices = list
+      .filter((at) => !TREADMILL_REPLACES.has(at.type))
+      .map((at) =>
+        at.unit === 'meters' && at.sec_per_100m > 0
+          ? { type: at.type, distance: at.last_distance_m || 1000 }
+          : { type: at.type, minutes: at.last_duration_minutes || 30 }
+      );
+    // Le tapis en tête, et seulement si la recherche le concerne : c'est une ligne à part, pas un
+    // type parmi les autres.
+    const matchesTreadmill =
+      !cardioSearch.trim() || matchesSearch(t(`activityType.${TREADMILL_TYPE}`), cardioSearch);
+    if (!treadmill || !matchesTreadmill) return choices;
+    return [
+      {
+        ...TREADMILL_CHOICE,
+        minutes: treadmill.last_duration_minutes || TREADMILL_CHOICE.minutes,
+        ...lastTreadmillSettings(treadmill.last_label),
+      },
+      ...choices,
+    ];
+  }, [filtered, cardioSearch, t, activityTypes]);
 
   // Les stations partent de leur distance officielle, sauf si une distance a déjà été saisie pour
   // cette station — auquel cas c'est celle-là qui est proposée, y compris sur la ligne décochée,
@@ -320,6 +397,9 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
   function stationKcal(at, picked) {
     // Un protocole d'intervalles se facture sur son mélange effort/récupération, pas sur sa durée
     // au tarif d'un effort continu : c'est le même nombre que celui qui sera enregistré.
+    if (picked.speed != null) {
+      return treadmillKcal(picked.speed, picked.grade, at.resting_kcal_per_hour, picked.minutes);
+    }
     const protocol = picked.protocol ? protocolById(picked.protocol) : null;
     if (protocol) {
       return protocolKcal(protocol, at.kcal_per_hour, {
@@ -336,6 +416,7 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
     setStations((prev) => {
       const next = { ...prev };
       if (next[station.type]) delete next[station.type];
+      else if (station.pills) next[station.type] = { minutes: station.minutes, speed: station.speed, grade: station.grade };
       else next[station.type] = station.distance != null ? { distance: station.distance } : { minutes: station.minutes };
       return next;
     });
@@ -351,6 +432,10 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
         ? { minutes: protocolMinutes(protocol), label: protocol.label, protocol: protocol.id }
         : { distance: station.distance },
     }));
+  }
+
+  function selectPill(station, field, value) {
+    setStations((prev) => (prev[station.type] ? { ...prev, [station.type]: { ...prev[station.type], [field]: value } } : prev));
   }
 
   function adjustStation(station, sign) {
@@ -385,11 +470,14 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
             date,
             type,
             ...(value.distance != null ? { distance_m: value.distance } : { duration_minutes: value.minutes }),
+            // Le réglage du tapis devient le nom de la séance : c'est ce qui distingue une séance
+            // de tapis d'une autre, et c'est aussi ce qui le rend relisible la prochaine fois.
+            ...(value.speed != null ? { label: treadmillLabel(value.speed, value.grade) } : {}),
             ...(value.label ? { label: value.label } : {}),
             ...(value.protocol ? { protocol: value.protocol } : {}),
             // Les kcal d'un protocole sont envoyées explicitement : le serveur ne connaît pas les
             // protocoles, il ne saurait qu'appliquer le tarif plat à la durée totale.
-            ...(value.protocol
+            ...(value.protocol || value.speed != null
               ? { kcal: stationKcal(activityTypes.find((a) => a.type === type), value) }
               : {}),
           });
@@ -460,6 +548,7 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
                 onToggle={toggleStation}
                 onAdjust={adjustStation}
                 onProtocol={selectProtocol}
+                onPill={selectPill}
                 t={t}
                 lang={lang}
               />
@@ -495,6 +584,7 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
                 onToggle={toggleStation}
                 onAdjust={adjustStation}
                 onProtocol={selectProtocol}
+                onPill={selectPill}
                 t={t}
                 lang={lang}
               />

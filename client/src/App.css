@@ -6110,3 +6110,31 @@ h1 {
   border-color: currentColor;
   background: color-mix(in srgb, currentColor 12%, transparent);
 }
+
+/* Les réglages d'une ligne cochée — vitesse et inclinaison du tapis. Deux rangées de pastilles
+   qui défilent horizontalement : dix vitesses ne tiennent pas sur la largeur d'un téléphone, et
+   les passer à la ligne ferait une grille difficile à parcourir du pouce. */
+.pick-row-pills {
+  flex-basis: 100%;
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pick-row-pills .type-list-row {
+  margin: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+}
+
+.pick-row-pills .type-list-row::-webkit-scrollbar {
+  display: none;
+}
+
+.pick-row-pills .type-pill {
+  flex: none;
+  padding: 7px 13px;
+  font-size: 12.5px;
+}

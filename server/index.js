@@ -575,7 +575,7 @@ function computeEnergyBalance(userId, date, summary) {
 // protocole, pas d'un choix — la reprendre comme durée par défaut d'une sortie libre serait un
 // contresens.
 const lastEntryByType = db.prepare(
-  `SELECT type, duration_minutes, distance_m FROM activity_logs
+  `SELECT type, duration_minutes, distance_m, label FROM activity_logs
     WHERE user_id = ? AND protocol IS NULL
       AND id IN (SELECT MAX(id) FROM activity_logs WHERE user_id = ? AND protocol IS NULL GROUP BY type)`
 );
@@ -595,6 +595,9 @@ app.get('/api/activity-types', (req, res) => {
       resting_kcal_per_hour: Math.round(resting),
       last_duration_minutes: last.get(a.type)?.duration_minutes ?? null,
       last_distance_m: last.get(a.type)?.distance_m ?? null,
+      // Le nom de la dernière séance : le tapis y écrit sa vitesse et son inclinaison, et les
+      // relit pour se rouvrir sur le même réglage.
+      last_label: last.get(a.type)?.label ?? null,
     }))
   );
 });

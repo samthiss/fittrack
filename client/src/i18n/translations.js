@@ -56,7 +56,7 @@ export const translations = {
     // Activity type names (fixed set of 9 defaults, not user-renamable — same client-side
     // translation-by-key approach as meal names)
     'activityType.marche': 'Marche (tranquille)',
-    'activityType.marche_tapis': 'Marche sur tapis',
+    'activityType.marche_tapis': 'Tapis de marche',
     'activityType.walking_pad_1_5': 'Walking pad 1,5 km/h',
     'activityType.walking_pad_2': 'Walking pad 2 km/h',
     'activityType.walking_pad_2_5': 'Walking pad 2,5 km/h',
@@ -1045,7 +1045,7 @@ export const translations = {
 
     // Activity type names
     'activityType.marche': 'Walking (leisurely)',
-    'activityType.marche_tapis': 'Treadmill walking',
+    'activityType.marche_tapis': 'Treadmill',
     'activityType.walking_pad_1_5': 'Walking pad 1.5 km/h',
     'activityType.walking_pad_2': 'Walking pad 2 km/h',
     'activityType.walking_pad_2_5': 'Walking pad 2.5 km/h',
