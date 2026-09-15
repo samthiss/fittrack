@@ -129,7 +129,6 @@ export default function Settings({
   mustChangePassword,
   onRefreshSummary,
   onSaveProfile,
-  onUpdateActivityType,
   onLogout,
 }) {
   const { t, lang, setLang } = useLanguage();
@@ -390,19 +389,6 @@ export default function Settings({
 
   // --- Activity settings screen state ---
   const [activitySearch, setActivitySearch] = useState('');
-  const [activityValues, setActivityValues] = useState({});
-
-  useEffect(() => {
-    const next = {};
-    for (const a of activityTypes) next[a.type] = a.kcal_per_hour;
-    setActivityValues(next);
-  }, [activityTypes]);
-
-  function handleActivityBlur(type) {
-    const value = Number(activityValues[type]);
-    const original = activityTypes.find((a) => a.type === type)?.kcal_per_hour;
-    if (value >= 0 && value !== original) onUpdateActivityType(type, value);
-  }
 
   // --- Password screen ---
   const [currentPassword, setCurrentPassword] = useState('');
@@ -1079,21 +1065,18 @@ export default function Settings({
                 <Icon name={iconForActivity(a.type)} size={19} />
               </span>
               <span className="settings-list-label">{t(`activityType.${a.type}`)}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={activityValues[a.type] ?? ''}
-                  onChange={(e) => setActivityValues((v) => ({ ...v, [a.type]: e.target.value }))}
-                  onBlur={() => handleActivityBlur(a.type)}
-                  style={{ width: 58, height: 36, borderRadius: 10, textAlign: 'center', fontWeight: 700 }}
-                />
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>kcal/h</span>
-              </div>
+              <span className="settings-list-value">
+                {a.net_kcal_per_hour} <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>kcal/h</span>
+              </span>
             </div>
           ))}
         </div>
+
+        {activityTypes[0]?.resting_kcal_per_hour != null && (
+          <p className="hint">
+            {t('activitySettings.restingNote').replace('{value}', activityTypes[0].resting_kcal_per_hour)}
+          </p>
+        )}
       </div>
     );
   }

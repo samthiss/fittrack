@@ -185,7 +185,9 @@ export const translations = {
     // Activity settings
     'activitySettings.title': 'Réglages des activités',
     'activitySettings.hint':
-      'Fixe toi-même le nombre de kcal brûlées par heure pour chaque activité, pour que le calcul reste stable et sans mauvaise surprise.',
+      "Ce que chaque activité te coûte par heure, au-delà de ce que ton corps dépense au repos. Calculé depuis ton sexe, ton âge, ta taille et ton poids — ça se met à jour tout seul quand ton profil change.",
+    'activitySettings.restingNote':
+      'Ton métabolisme de base vaut {value} kcal/h. Il est déjà compté sur tes 24 heures, donc il est retiré de chaque séance plutôt que compté deux fois.',
     'activitySettings.save': 'Enregistrer',
 
     // Deficit summary
@@ -1170,7 +1172,9 @@ export const translations = {
     // Activity settings
     'activitySettings.title': 'Activity settings',
     'activitySettings.hint':
-      "Set the number of kcal burned per hour for each activity yourself, so the calculation stays stable and predictable.",
+      'What each activity costs you per hour, on top of what your body spends at rest. Computed from your sex, age, height and weight — it updates itself when your profile changes.',
+    'activitySettings.restingNote':
+      'Your basal rate is {value} kcal/h. The day already counts it across its 24 hours, so it is taken out of each session rather than counted twice.',
     'activitySettings.save': 'Save',
 
     // Deficit summary

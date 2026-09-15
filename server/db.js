@@ -581,6 +581,9 @@ for (const col of ['kcal', 'protein', 'carbs', 'fat']) {
 
 db.prepare(`DELETE FROM activity_settings WHERE type = 'marche_tapis_incline'`).run();
 
+// kcal_per_hour n'est plus lu depuis la version qui calcule la dépense à partir du MET de
+// l'activité et du métabolisme de base (voir activityMets.js). La colonne reste alimentée pour ne
+// pas casser les lignes existantes ; le label, l'unité et l'allure, eux, servent toujours.
 export const DEFAULT_ACTIVITY_SETTINGS = [
   { type: 'marche', label: 'Marche (tranquille)', kcal_per_hour: 250 },
   { type: 'marche_tapis', label: 'Marche sur tapis', kcal_per_hour: 230 },

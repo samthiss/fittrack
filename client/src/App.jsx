@@ -233,11 +233,6 @@ function MainApp({ onLogout, account }) {
     if (selectedMeal) await refreshMeal(selectedMeal);
   }
 
-  async function handleActivityTypeUpdate(type, kcalPerHour) {
-    await api.updateActivityType(type, { kcal_per_hour: kcalPerHour });
-    await refreshCore();
-  }
-
   async function handleAddWater(amountMl) {
     await api.addWater(date, amountMl);
     setWater(await api.getWater(date));
@@ -538,7 +533,6 @@ function MainApp({ onLogout, account }) {
               mustChangePassword={account.mustChangePassword}
               onRefreshSummary={refreshCore}
               onSaveProfile={handleProfileSave}
-              onUpdateActivityType={handleActivityTypeUpdate}
               onLogout={onLogout}
             />
           )}

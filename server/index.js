@@ -16,6 +16,7 @@ import { buildMicroList, MICRO_REFERENCE, NUTRIENT_SUGGESTIONS, SUPPLEMENT_SUGGE
 import { estimateMissingNutrients, estimateNutrientsForFood } from './nutrientEstimation.js';
 import { classifyFoodsBatch, classifyFood, classifyIngredientsBatch } from './microbiomeClassification.js';
 import { computeTdee, computeBmr, BMR_METHODS, ageFromBirthdate } from './tdee.js';
+import { grossKcalPerHour, netKcalPerHour } from './activityMets.js';
 import { bandFor, categoryFor, suggestedGoal, trend as vo2maxTrend } from './vo2maxReference.js';
 import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
 import webpush from 'web-push';
@@ -465,14 +466,9 @@ function getActivitySettings(userId) {
   return db.prepare('SELECT * FROM activity_settings WHERE user_id = ? ORDER BY rowid').all(userId);
 }
 
-function kcalPerHourFor(userId, type) {
-  const setting = db
-    .prepare('SELECT kcal_per_hour FROM activity_settings WHERE user_id = ? AND type = ?')
-    .get(userId, type);
-  return setting ? setting.kcal_per_hour : 0;
-}
-
-// Ce que le corps dépense de toute façon, ramené à l'heure.
+// Ce que le corps dépense de toute façon, ramené à l'heure. Calculé depuis le sexe, l'âge, la
+// taille et le poids du profil — c'est ce qui fait que deux personnes n'ont pas la même facture
+// pour la même heure de tapis.
 function restingKcalPerHour(userId) {
   return computeBmr(getProfile(userId)).value / 24;
 }
@@ -480,17 +476,14 @@ function restingKcalPerHour(userId) {
 /**
  * La dépense d'une activité, nette du métabolisme de base.
  *
- * Les taux configurés (750 kcal/h à l'assault bike) sont des dépenses brutes : ils incluent ce
- * que le corps aurait brûlé au repos pendant ce temps-là. Or la journée compte déjà ce
- * métabolisme de base sur ses 24 heures (voir computeTdee) — le laisser dans le total d'une
- * séance le compterait deux fois, et une heure de sport paraîtrait 75 kcal plus chère qu'elle ne
- * l'est.
+ * Le coût brut d'une activité inclut ce que le corps aurait brûlé au repos pendant ce temps-là.
+ * Or la journée compte déjà ce métabolisme de base sur ses 24 heures (voir computeTdee) — le
+ * laisser dans le total d'une séance le compterait deux fois.
  *
  * Jamais négatif : une activité moins coûteuse que le repos n'existe pas, elle ne rapporte rien.
  */
 function netKcalFor(userId, type, minutes) {
-  const gross = kcalPerHourFor(userId, type);
-  return Math.max(0, (gross - restingKcalPerHour(userId)) * (minutes / 60));
+  return netKcalPerHour(type, restingKcalPerHour(userId)) * (minutes / 60);
 }
 
 // Distance-measured activities (the Hyrox stations) are entered in metres and converted here,
@@ -575,38 +568,24 @@ function computeEnergyBalance(userId, date, summary) {
 
 // --- Activity types / settings ---
 app.get('/api/activity-types', (req, res) => {
-  // Le taux net accompagne le taux brut plutôt que d'être recalculé par le client : l'estimation
-  // affichée avant d'enregistrer et la valeur enregistrée doivent être le même nombre, et le
-  // métabolisme de base n'a rien à faire dans le navigateur.
+  // Les taux sont calculés ici et pas dans le navigateur : l'estimation affichée avant
+  // d'enregistrer et la valeur enregistrée doivent être le même nombre, et le métabolisme de base
+  // n'a rien à faire côté client. La colonne kcal_per_hour de la table n'est plus lue — elle
+  // reste pour ne pas casser les anciennes lignes, mais c'est le MET du type qui fait foi.
   const resting = restingKcalPerHour(req.userId);
   res.json(
     getActivitySettings(req.userId).map((a) => ({
       ...a,
-      net_kcal_per_hour: Math.max(0, Math.round(a.kcal_per_hour - resting)),
+      kcal_per_hour: Math.round(grossKcalPerHour(a.type, resting)),
+      net_kcal_per_hour: Math.round(netKcalPerHour(a.type, resting)),
       resting_kcal_per_hour: Math.round(resting),
     }))
   );
 });
 
-app.put('/api/activity-types/:type', (req, res) => {
-  const { kcal_per_hour } = req.body;
-  if (kcal_per_hour === undefined || Number(kcal_per_hour) < 0) {
-    return res.status(400).json({ error: 'kcal_per_hour invalide' });
-  }
-
-  const result = db
-    .prepare('UPDATE activity_settings SET kcal_per_hour = ? WHERE user_id = ? AND type = ?')
-    .run(Number(kcal_per_hour), req.userId, req.params.type);
-
-  if (result.changes === 0) {
-    return res.status(404).json({ error: 'activité inconnue' });
-  }
-
-  const setting = db
-    .prepare('SELECT * FROM activity_settings WHERE user_id = ? AND type = ?')
-    .get(req.userId, req.params.type);
-  res.json(setting);
-});
+// Le taux n'est plus réglable : il se déduit du MET de l'activité et du métabolisme de base.
+// Un nombre que l'utilisateur devait deviner, puis maintenir à chaque changement de poids, était
+// une source d'erreur déguisée en liberté.
 
 // --- Profile ---
 app.get('/api/profile', (req, res) => {

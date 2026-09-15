@@ -41,8 +41,6 @@ export const api = {
   completeOnboarding: () => request('/auth/complete-onboarding', { method: 'POST' }),
 
   getActivityTypes: () => request('/activity-types'),
-  updateActivityType: (type, data) =>
-    request(`/activity-types/${type}`, { method: 'PUT', body: JSON.stringify(data) }),
   getProfile: () => request('/profile'),
   updateProfile: (data) =>
     request('/profile', { method: 'PUT', body: JSON.stringify(data) }),
