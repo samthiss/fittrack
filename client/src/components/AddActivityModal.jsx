@@ -148,22 +148,25 @@ function PickRow({ choice, at, picked, kcal, onToggle, onAdjust, onProtocol, onP
         </span>
       )}
       {/* Les réglages de la ligne — vitesse et inclinaison du tapis — apparaissent une fois
-          cochée : avant, ils n'auraient rien à régler. */}
+          cochée : avant, ils n'auraient rien à régler. Des listes déroulantes plutôt que des
+          pastilles : dix vitesses et sept pentes ne tiennent pas sur la largeur d'un téléphone,
+          et le sélecteur natif s'ouvre en roue sur iPhone, ce qui se règle au pouce. */}
       {picked && choice.pills && (
-        <div className="pick-row-pills">
+        <div className="pick-row-selects">
           {choice.pills.map((row) => (
-            <div className="type-list-row" key={row.field}>
-              {row.options.map((o) => (
-                <button
-                  type="button"
-                  key={o.value}
-                  className={picked[row.field] === o.value ? 'type-pill active' : 'type-pill'}
-                  onClick={() => onPill(choice, row.field, o.value)}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
+            <label className="pick-row-select" key={row.field}>
+              <span>{t(`activityLog.${row.field}`)}</span>
+              <select
+                value={picked[row.field]}
+                onChange={(e) => onPill(choice, row.field, Number(e.target.value))}
+              >
+                {row.options.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           ))}
         </div>
       )}
