@@ -42,7 +42,6 @@ const HYROX_STATIONS = [
 // une station — elle se saisit en durée, donc elle reste dans le cardio.
 const HYROX_STATION_TYPES = new Set(HYROX_STATIONS.map((s) => s.type));
 
-const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const FORCE_TYPES = new Set(['force']);
 
 // A per-set target row is edited as { value: '5-9' | '8-12' | '10-15' | '15-20' | 'Max', dir:
@@ -55,7 +54,87 @@ function serializeSetTarget(row) {
 }
 
 
-export default function AddActivityModal({ activityTypes, date, todayDayKey, onClose, onAdded }) {
+/**
+ * Une ligne à cocher, avec sa quantité réglable à droite.
+ *
+ * Le même composant sert aux stations Hyrox et aux activités de cardio : dans les deux cas on
+ * compose une séance en cochant des lignes et en réglant combien de chacune. Seuls les protocoles
+ * d'intervalles sont propres aux stations, et ils n'apparaissent que si la ligne en propose.
+ */
+function PickRow({ choice, at, picked, kcal, onToggle, onAdjust, onProtocol, t, lang }) {
+  if (!at) return null;
+  return (
+    <div className={picked ? 'activites-row clickable pick-row picked' : 'activites-row clickable pick-row'}>
+      <button type="button" className="pick-row-main" onClick={() => onToggle(choice)}>
+        <span className={picked ? 'supplement-tag-check done' : 'supplement-tag-check'}>
+          {picked && <Icon name="check" size={12} color="var(--text-on-accent)" />}
+        </span>
+        <span className="activites-row-icon">
+          <Icon name={iconForType(choice.type)} size={19} />
+        </span>
+        <span className="meal-card-body">
+          <span className="meal-card-title">{t(`activityType.${choice.type}`)}</span>
+          {/* Une fois cochée, la ligne ne redit plus la quantité ici : elle est en gros à droite,
+              entre les boutons qui la règlent. Décochée, elle annonce ce que coûterait le choix
+              par défaut — de quoi comparer avant de cocher. */}
+          <span className="meal-card-kcal">
+            {picked
+              ? `${kcal(at, picked)} kcal`
+              : choice.distance != null
+              ? `${choice.distance} m · ${kcal(at, { distance: choice.distance })} kcal`
+              : `${choice.minutes} min · ${kcal(at, { minutes: choice.minutes })} kcal`}
+          </span>
+        </span>
+      </button>
+      {picked && (
+        <span className="pick-row-steppers">
+          <button type="button" className="weight-minus-btn" onClick={() => onAdjust(choice, -1)}>
+            <Icon name="minus" size={16} />
+          </button>
+          <span className="pick-row-value">
+            <b>{picked.distance != null ? picked.distance : picked.minutes}</b>
+            <span>{picked.distance != null ? 'm' : 'min'}</span>
+          </span>
+          <button type="button" className="weight-plus-btn" onClick={() => onAdjust(choice, 1)}>
+            <Icon name="plus" size={16} />
+          </button>
+        </span>
+      )}
+      {picked && choice.protocols && (
+        <div className="hyrox-protocols">
+          <button
+            type="button"
+            className={!picked.protocol ? 'hyrox-protocol active' : 'hyrox-protocol'}
+            onClick={() => onProtocol(choice, null)}
+          >
+            <span className="hyrox-protocol-top">
+              <b>{t('activityLog.protocolDistance')}</b>
+            </span>
+          </button>
+          {/* Chaque format porte ce qu'il développe : c'est l'information qui fait choisir, et
+              elle doit donc se lire avant la sélection, pas après. */}
+          {choice.protocols.map((protocol) => (
+            <button
+              type="button"
+              key={protocol.id}
+              className={picked.protocol === protocol.id ? 'hyrox-protocol active' : 'hyrox-protocol'}
+              onClick={() => onProtocol(choice, protocol)}
+            >
+              <span className="hyrox-protocol-top">
+                <b>{protocol.label}</b>
+                <span className="hyrox-protocol-goal">{localized(protocol.goal, lang)}</span>
+                <span className="hyrox-protocol-minutes">{protocolMinutes(protocol)} min</span>
+              </span>
+              <span className="hyrox-protocol-detail">{localized(protocol.detail, lang)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function AddActivityModal({ activityTypes, date, onClose, onAdded }) {
   const { t, lang } = useLanguage();
   const [kind, setKind] = useState('cardio');
   const [selectedType, setSelectedType] = useState(null);
@@ -67,8 +146,6 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   // Onglet Hyrox : chaque station cochée garde sa propre distance, d'où une map plutôt qu'un
   // simple ensemble — c'est ce qui permet de construire la séance avant de la lancer.
   const [stations, setStations] = useState({});
-  const [recurring, setRecurring] = useState(false);
-  const [days, setDays] = useState(new Set([todayDayKey]));
   const [saving, setSaving] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
@@ -112,17 +189,36 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   // before the sole button unlocks is easy to miss — auto-select whenever a filter narrows to
   // exactly one match instead of leaving the submit button silently disabled.
   useEffect(() => {
-    if (filtered.length === 1 && selectedType !== filtered[0].type) {
+    if (kind === 'force' && filtered.length === 1 && selectedType !== filtered[0].type) {
       setSelectedType(filtered[0].type);
     }
-  }, [filtered]);
+  }, [filtered, kind]);
 
   const [cardioSearch, setCardioSearch] = useState('');
   const cardioList = useMemo(() => {
     // Recherche insensible aux accents : « randonnee » doit trouver « Randonnée ».
-    if (!cardioSearch.trim()) return filtered;
-    return filtered.filter((at) => matchesSearch(t(`activityType.${at.type}`), cardioSearch));
+    const list = !cardioSearch.trim()
+      ? filtered
+      : filtered.filter((at) => matchesSearch(t(`activityType.${at.type}`), cardioSearch));
+    // Une demi-heure comme point de départ : c'est la séance de cardio la plus ordinaire, et le
+    // stepper est là pour les autres. Les types qui se comptent en mètres gardent leur unité.
+    return list.map((at) =>
+      at.unit === 'meters' && at.sec_per_100m > 0
+        ? { type: at.type, distance: 1000 }
+        : { type: at.type, minutes: 30 }
+    );
   }, [filtered, cardioSearch, t]);
+
+  const pickedCount = Object.keys(stations).length;
+  // Rien de coché, ou rien de choisi pour la force : dans les deux cas il n'y a rien à
+  // enregistrer, et le bouton doit le dire de la même façon.
+  const nothingPicked = kind === 'force' ? !selectedType : pickedCount === 0;
+
+  // Changer d'onglet vide la composition en cours : une séance Hyrox et une séance de cardio ne
+  // se mélangent pas, et retrouver des lignes cochées venues de l'autre onglet serait un piège.
+  useEffect(() => {
+    setStations({});
+  }, [kind]);
 
   const selected = activityTypes.find((at) => at.type === selectedType);
   const byDistance = selected?.unit === 'meters' && selected?.sec_per_100m > 0;
@@ -152,14 +248,6 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   }, [stations, activityTypes]);
   const selectedTemplate = templates.find((tpl) => tpl.id === selectedTemplateId);
 
-  function toggleDay(key) {
-    setDays((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
 
   function pickTemplate(tpl) {
     setSelectedTemplateId((id) => (id === tpl.id ? null : tpl.id));
@@ -257,10 +345,10 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
   async function handleSubmit() {
     if (saving) return;
 
-    // Une séance Hyrox est enregistrée station par station, une activité chacune : c'est ce qui
+    // Une séance composée est enregistrée ligne par ligne, une activité chacune : c'est ce qui
     // leur garde leurs mètres, leur allure et leurs kcal propres, et ce qui permet de revenir en
     // modifier une seule après coup. Le total du jour les additionne de lui-même.
-    if (kind === 'hyrox') {
+    if (kind === 'hyrox' || kind === 'cardio') {
       const picked = Object.entries(stations);
       if (picked.length === 0) return;
       setSaving(true);
@@ -289,31 +377,22 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     if (!selectedType) return;
     setSaving(true);
     try {
-      const finalLabel = label.trim() || undefined;
-      const groupId = recurring && days.size > 0 ? crypto.randomUUID() : undefined;
       const created = await api.addActivity({
         date,
         type: selectedType,
         duration_minutes: duration,
         distance_m: byDistance ? distance : null,
         kcal: estimatedKcal,
-        label: finalLabel,
-        recurringGroupId: groupId,
+        label: label.trim() || undefined,
       });
-      if (kind === 'force') {
-        const exercisesToAdd = [...(selectedTemplate?.exercises || []), ...manualExercises];
-        if (exercisesToAdd.length > 0) await api.addActivityExercisesBulk(created.id, exercisesToAdd);
-      }
-      if (groupId) {
-        await api.addActivityPlan({ days: [...days], type: selectedType, duration_minutes: duration, label: finalLabel, groupId });
-      }
+      const exercisesToAdd = [...(selectedTemplate?.exercises || []), ...manualExercises];
+      if (exercisesToAdd.length > 0) await api.addActivityExercisesBulk(created.id, exercisesToAdd);
       onAdded();
     } finally {
       setSaving(false);
     }
   }
 
-  const WEEKDAY_LABEL = { mon: 'L', tue: 'M', wed: 'M', thu: 'J', fri: 'V', sat: 'S', sun: 'D' };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -344,98 +423,28 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
         {kind === 'hyrox' && (
           <>
             <p className="hint" style={{ marginTop: 0 }}>{t('activityLog.hyroxIntro')}</p>
-            {HYROX_STATIONS.map((station) => {
-              const at = activityTypes.find((a) => a.type === station.type);
-              if (!at) return null;
-              const picked = stations[station.type];
-              return (
-                <div className={picked ? 'activites-row clickable pick-row picked' : 'activites-row clickable pick-row'} key={station.type}>
-                  <button type="button" className="pick-row-main" onClick={() => toggleStation(station)}>
-                    <span className={picked ? 'supplement-tag-check done' : 'supplement-tag-check'}>
-                      {picked && <Icon name="check" size={12} color="var(--text-on-accent)" />}
-                    </span>
-                    <span className="activites-row-icon">
-                      <Icon name={iconForType(station.type)} size={19} />
-                    </span>
-                    <span className="meal-card-body">
-                      <span className="meal-card-title">{t(`activityType.${station.type}`)}</span>
-                      {/* Une fois cochée, la ligne ne redit plus la distance ici : elle est en
-                          gros à droite, entre les boutons qui la règlent. */}
-                      <span className="meal-card-kcal">
-                        {picked
-                          ? `${stationKcal(at, picked)} kcal`
-                          : station.distance != null
-                          ? `${station.distance} m`
-                          : `${station.minutes} min`}
-                      </span>
-                    </span>
-                  </button>
-                  {picked && (
-                    <span className="pick-row-steppers">
-                      <button type="button" className="weight-minus-btn" onClick={() => adjustStation(station, -1)}>
-                        <Icon name="minus" size={16} />
-                      </button>
-                      <span className="pick-row-value">
-                        <b>{picked.distance != null ? picked.distance : picked.minutes}</b>
-                        <span>{picked.distance != null ? 'm' : 'min'}</span>
-                      </span>
-                      <button type="button" className="weight-plus-btn" onClick={() => adjustStation(station, 1)}>
-                        <Icon name="plus" size={16} />
-                      </button>
-                    </span>
-                  )}
-                  {picked && station.protocols && (
-                    <div className="hyrox-protocols">
-                      <button
-                        type="button"
-                        className={!picked.protocol ? 'hyrox-protocol active' : 'hyrox-protocol'}
-                        onClick={() => selectProtocol(station, null)}
-                      >
-                        <span className="hyrox-protocol-top">
-                          <b>{t('activityLog.protocolDistance')}</b>
-                        </span>
-                      </button>
-                      {/* Chaque format porte ce qu'il développe : c'est l'information qui fait
-                          choisir, et elle doit donc se lire avant la sélection, pas après. */}
-                      {station.protocols.map((protocol) => (
-                        <button
-                          type="button"
-                          key={protocol.id}
-                          className={picked.protocol === protocol.id ? 'hyrox-protocol active' : 'hyrox-protocol'}
-                          onClick={() => selectProtocol(station, protocol)}
-                        >
-                          <span className="hyrox-protocol-top">
-                            <b>{protocol.label}</b>
-                            <span className="hyrox-protocol-goal">{localized(protocol.goal, lang)}</span>
-                            <span className="hyrox-protocol-minutes">{protocolMinutes(protocol)} min</span>
-                          </span>
-                          <span className="hyrox-protocol-detail">{localized(protocol.detail, lang)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            <div className="card" style={{ marginTop: 12 }}>
-              <div className="row">
-                <span className="name">{t('activityLog.hyroxTotal').replace('{count}', Object.keys(stations).length)}</span>
-                <b className="activites-row-kcal">{hyroxTotals.kcal} kcal</b>
-              </div>
-              <div className="row" style={{ borderBottom: 0 }}>
-                <span className="name hint" style={{ padding: 0 }}>{t('activityLog.estimatedTime')}</span>
-                <b>{hyroxTotals.minutes} min</b>
-              </div>
-            </div>
+            {HYROX_STATIONS.map((choice) => (
+              <PickRow
+                key={choice.type}
+                choice={choice}
+                at={activityTypes.find((a) => a.type === choice.type)}
+                picked={stations[choice.type]}
+                kcal={stationKcal}
+                onToggle={toggleStation}
+                onAdjust={adjustStation}
+                onProtocol={selectProtocol}
+                t={t}
+                lang={lang}
+              />
+            ))}
           </>
         )}
 
         {kind === 'cardio' && (
           <>
-            {/* Des lignes plutôt qu'une liste déroulante, comme l'onglet Hyrox : on voit ce que
-                chaque activité coûte avant de choisir, et sélectionner se fait au même geste
-                partout dans l'écran. Avec une vingtaine de types la liste est longue, d'où le
-                champ de recherche — c'est lui qui remplace le confort du sélecteur natif. */}
+            {/* Des lignes à cocher comme l'onglet Hyrox, et pour la même raison : une séance de
+                cardio est rarement un seul exercice. On en coche plusieurs, chacune avec sa
+                durée, et chacune est enregistrée comme sa propre activité. */}
             <div className="search-input-row" style={{ marginTop: 4 }}>
               <Icon name="search" size={18} color="var(--text-muted)" />
               <input
@@ -449,30 +458,36 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
 
             {cardioList.length === 0 && <p className="hint">{t('activityLog.noMatch')}</p>}
 
-            {cardioList.map((at) => {
-              const picked = selectedType === at.type;
-              return (
-                <div className={picked ? 'activites-row clickable pick-row picked' : 'activites-row clickable pick-row'} key={at.type}>
-                  <button type="button" className="pick-row-main" onClick={() => setSelectedType(at.type)}>
-                    <span className={picked ? 'supplement-tag-check done' : 'supplement-tag-check'}>
-                      {picked && <Icon name="check" size={12} color="var(--text-on-accent)" />}
-                    </span>
-                    <span className="activites-row-icon">
-                      <Icon name={iconForType(at.type)} size={19} />
-                    </span>
-                    <span className="meal-card-body">
-                      <span className="meal-card-title">{t(`activityType.${at.type}`)}</span>
-                      <span className="meal-card-kcal">
-                        {/* Le coût par demi-heure plutôt que par heure : c'est la durée d'une
-                            séance ordinaire, donc le nombre se compare sans calcul mental. */}
-                        ≈ {Math.round(at.net_kcal_per_hour / 2)} kcal / 30 min
-                      </span>
-                    </span>
-                  </button>
-                </div>
-              );
-            })}
+            {cardioList.map((choice) => (
+              <PickRow
+                key={choice.type}
+                choice={choice}
+                at={activityTypes.find((a) => a.type === choice.type)}
+                picked={stations[choice.type]}
+                kcal={stationKcal}
+                onToggle={toggleStation}
+                onAdjust={adjustStation}
+                onProtocol={selectProtocol}
+                t={t}
+                lang={lang}
+              />
+            ))}
           </>
+        )}
+
+        {/* Le récapitulatif des deux onglets qui composent : ce qu'on s'apprête à enregistrer,
+            additionné, avant d'appuyer. */}
+        {(kind === 'hyrox' || kind === 'cardio') && pickedCount > 0 && (
+          <div className="card" style={{ marginTop: 12 }}>
+            <div className="row">
+              <span className="name">{t('activityLog.hyroxTotal').replace('{count}', pickedCount)}</span>
+              <b className="activites-row-kcal">{hyroxTotals.kcal} kcal</b>
+            </div>
+            <div className="row" style={{ borderBottom: 0 }}>
+              <span className="name hint" style={{ padding: 0 }}>{t('activityLog.estimatedTime')}</span>
+              <b>{hyroxTotals.minutes} min</b>
+            </div>
+          </div>
         )}
 
         {kind === 'force' && (
@@ -598,7 +613,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
           </>
         )}
 
-        {byDistance && (
+        {kind === 'force' && byDistance && (
           <>
             <h4 className="section-label">{t('activityLog.distance')}</h4>
             <div className="type-list-row">
@@ -627,51 +642,26 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
           </>
         )}
 
-        <h4 className="section-label">{byDistance ? t('activityLog.timeForIt') : t('activityLog.estimatedTime')}</h4>
-        <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
-          <button type="button" className="weight-minus-btn" onClick={() => setDuration((d) => Math.max(5, d - 5))}>
-            <Icon name="minus" size={18} />
-          </button>
-          <div style={{ textAlign: 'center', minWidth: 70 }}>
-            <span className="weight-value">{duration}</span> <span className="rate">min</span>
-          </div>
-          <button type="button" className="weight-plus-btn" onClick={() => setDuration((d) => d + 5)}>
-            <Icon name="plus" size={18} />
-          </button>
-        </div>
-
-        <h4 className="section-label">{t('activityLog.recurrence')}</h4>
-        <div
-          className={recurring ? 'recurring-feature-row active' : 'recurring-feature-row'}
-          onClick={() => setRecurring((v) => !v)}
-        >
-          <span className="recurring-feature-icon">
-            <Icon name="repeat" size={20} />
-          </span>
-          <div className="recurring-feature-body">
-            <div className="recurring-feature-title">{t('activityLog.recurringActivity')}</div>
-            <div className="recurring-feature-desc">{t('activityLog.recurringActivityDesc')}</div>
-          </div>
-          <span className={recurring ? 'recurring-feature-check checked' : 'recurring-feature-check'}>
-            <Icon name="check" size={16} />
-          </span>
-        </div>
-        {recurring && (
-          <div className="day-chip-row" style={{ marginTop: 18 }}>
-            {DAY_ORDER.map((key) => (
-              <button
-                key={key}
-                type="button"
-                className={days.has(key) ? 'day-chip active' : 'day-chip'}
-                onClick={() => toggleDay(key)}
-              >
-                {WEEKDAY_LABEL[key]}
+        {/* Durée et kcal d'une sélection unique : la force seule en a besoin, cardio et Hyrox
+            règlent chaque ligne chez elle. */}
+        {kind === 'force' && (
+          <>
+            <h4 className="section-label">{byDistance ? t('activityLog.timeForIt') : t('activityLog.estimatedTime')}</h4>
+            <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
+              <button type="button" className="weight-minus-btn" onClick={() => setDuration((d) => Math.max(5, d - 5))}>
+                <Icon name="minus" size={18} />
               </button>
-            ))}
-          </div>
+              <div style={{ textAlign: 'center', minWidth: 70 }}>
+                <span className="weight-value">{duration}</span> <span className="rate">min</span>
+              </div>
+              <button type="button" className="weight-plus-btn" onClick={() => setDuration((d) => d + 5)}>
+                <Icon name="plus" size={18} />
+              </button>
+            </div>
+          </>
         )}
 
-        {selected && (
+        {kind === 'force' && selected && (
           <div className="row" style={{ marginTop: 14 }}>
             <div className="name">
               <span>{t('activityLog.estimatedBurn')}</span>
@@ -685,7 +675,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
         )}
 
       </div>
-      {!selectedType && <p className="hint" style={{ textAlign: 'center', margin: '0 16px 8px' }}>{t('activityLog.pickTypeHint')}</p>}
+      {nothingPicked && <p className="hint" style={{ textAlign: 'center', margin: '0 16px 8px' }}>{t('activityLog.pickTypeHint')}</p>}
       <button
         type="button"
         className="done-btn done-btn-primary"
@@ -693,7 +683,7 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
           e.stopPropagation();
           handleSubmit();
         }}
-        disabled={(kind === 'hyrox' ? Object.keys(stations).length === 0 : !selectedType) || saving}
+        disabled={nothingPicked || saving}
       >
         {saving ? t('activityLog.saving') : t('activityLog.addToJournal')}
       </button>

@@ -70,15 +70,6 @@ export const api = {
   createWorkoutTemplate: (data) => request('/workout-templates', { method: 'POST', body: JSON.stringify(data) }),
   updateWorkoutTemplate: (id, data) => request(`/workout-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteWorkoutTemplate: (id) => request(`/workout-templates/${id}`, { method: 'DELETE' }),
-  getActivityPlan: () => request('/activity-plan'),
-  addActivityPlan: (data) =>
-    request('/activity-plan', { method: 'POST', body: JSON.stringify(data) }),
-  deleteActivityPlan: (id) => request(`/activity-plan/${id}`, { method: 'DELETE' }),
-  updateActivityPlanGroup: (groupId, data) =>
-    request(`/activity-plan/group/${groupId}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteActivityPlanGroup: (groupId) => request(`/activity-plan/group/${groupId}`, { method: 'DELETE' }),
-  applyActivityPlanToLog: (date) =>
-    request('/activity-plan/apply-to-log', { method: 'POST', body: JSON.stringify({ date }) }),
   getWater: (date) => request(`/water?date=${date}`),
   addWater: (date, amountMl) => request('/water', { method: 'POST', body: JSON.stringify({ date, amount_ml: amountMl }) }),
   deleteWater: (id) => request(`/water/${id}`, { method: 'DELETE' }),

@@ -9,9 +9,6 @@ import IntervalSession from './IntervalSession';
 import { protocolById, localized } from '../data/intervalProtocols';
 import { activityTitle } from '../data/activityTitle';
 
-const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-const WEEKDAY_LABEL = { mon: 'L', tue: 'M', wed: 'M', thu: 'J', fri: 'V', sat: 'S', sun: 'D' };
-const WEEKDAY_LABEL_EN = { mon: 'M', tue: 'T', wed: 'W', thu: 'T', fri: 'F', sat: 'S', sun: 'S' };
 
 // A per-set target row is edited as { value: '5-9' | '10-15' | 'Max', dir: 'up' | 'down' | null }
 // (a fixed 3-way choice instead of free text, so every template stays consistent/parseable) and
@@ -30,7 +27,6 @@ function parseSetTarget(target) {
 
 export default function ActivityDetail({
   activity,
-  recurringDays = [],
   initialExercises,
   loadExercises,
   onBack,
@@ -59,8 +55,6 @@ export default function ActivityDetail({
   const protocol = protocolById(activity.protocol);
   const [running, setRunning] = useState(false);
   const [editKcal, setEditKcal] = useState(Math.round(activity.kcal));
-  const [editRecurring, setEditRecurring] = useState(recurringDays.length > 0);
-  const [editDays, setEditDays] = useState(new Set(recurringDays));
   const [editSaving, setEditSaving] = useState(false);
   const [name, setName] = useState('');
   const [sets, setSets] = useState(4);
@@ -213,14 +207,6 @@ export default function ActivityDetail({
     });
   }
 
-  function toggleEditDay(key) {
-    setEditDays((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
 
   async function handleSaveEdit() {
     if (editSaving) return;
@@ -229,13 +215,11 @@ export default function ActivityDetail({
       const trimmed = label.trim();
       const finalDuration = Number(editDuration) || activity.duration_minutes;
       const finalKcal = Number(editKcal) || activity.kcal;
-      const recurringDaysPayload = editRecurring ? [...editDays] : [];
       const updated = await api.updateActivity(activity.id, {
         label: trimmed,
         duration_minutes: finalDuration,
         distance_m: editDistance ?? undefined,
         kcal: finalKcal,
-        recurringDays: recurringDaysPayload,
       });
       activity.label = trimmed || null;
       activity.duration_minutes = updated.duration_minutes;
@@ -291,22 +275,6 @@ export default function ActivityDetail({
       </div>
 
       <h1 style={{ marginTop: 14 }}>{activityTitle({ ...activity, label }, t)}</h1>
-
-      {recurringDays.length > 0 && (
-        <div style={{ marginTop: 14 }}>
-          <h4 className="section-label">{t('activityLog.recurringDays')}</h4>
-          <div className="day-chip-row">
-            {DAY_ORDER.map((key) => (
-              <span
-                key={key}
-                className={recurringDays.includes(key) ? 'day-chip active' : 'day-chip'}
-              >
-                {(lang === 'en' ? WEEKDAY_LABEL_EN : WEEKDAY_LABEL)[key]}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
       {!isForce && (
         <>
@@ -494,36 +462,6 @@ export default function ActivityDetail({
               </button>
             </div>
 
-            <h4 className="section-label">{t('activityLog.recurrence')}</h4>
-            <div
-              className={editRecurring ? 'recurring-feature-row active' : 'recurring-feature-row'}
-              onClick={() => setEditRecurring((v) => !v)}
-            >
-              <span className="recurring-feature-icon">
-                <Icon name="repeat" size={20} />
-              </span>
-              <div className="recurring-feature-body">
-                <div className="recurring-feature-title">{t('activityLog.recurringActivity')}</div>
-                <div className="recurring-feature-desc">{t('activityLog.recurringActivityDesc')}</div>
-              </div>
-              <span className={editRecurring ? 'recurring-feature-check checked' : 'recurring-feature-check'}>
-                <Icon name="check" size={16} />
-              </span>
-            </div>
-            {editRecurring && (
-              <div className="day-chip-row" style={{ marginTop: 18 }}>
-                {DAY_ORDER.map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    className={editDays.has(key) ? 'day-chip active' : 'day-chip'}
-                    onClick={() => toggleEditDay(key)}
-                  >
-                    {(lang === 'en' ? WEEKDAY_LABEL_EN : WEEKDAY_LABEL)[key]}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
           <button
             type="button"

@@ -219,7 +219,12 @@ export function protocolKcal(protocol, kcalPerHour, { minutes, restingKcalPerHou
   // pas du tout.
   const netRate = (factor) => Math.max(0, kcalPerHour * factor - restingKcalPerHour);
   const base =
-    ((effort.work * netRate(workFactor) + effort.activeRest * netRate(ACTIVE_REST_FACTOR)) / 3600);
+    (effort.work * netRate(workFactor) +
+      effort.activeRest * netRate(ACTIVE_REST_FACTOR) +
+      // Zéro aujourd'hui : une récupération complète n'est pas de l'exercice. La ligne reste pour
+      // que le coefficient soit visible et réglable au même endroit que les deux autres.
+      effort.completeRest * netRate(COMPLETE_REST_FACTOR)) /
+    3600;
 
   // Allonger ou raccourcir un protocole depuis l'écran d'ajout garde son mélange effort/récup :
   // ajouter cinq minutes à un 4 × 4, c'est ajouter des tours, pas du pédalage à vide.

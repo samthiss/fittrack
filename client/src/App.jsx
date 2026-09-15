@@ -77,13 +77,12 @@ function MainApp({ onLogout, account }) {
   const [date, setDate] = useState(todayStr());
   const [activitesDate, setActivitesDate] = useState(todayStr());
   const [activites, setActivites] = useState([]);
-  const [activitesPlan, setActivitesPlan] = useState([]);
   const [richFoodsKey, setRichFoodsKey] = useState(null);
 
   // Both dates are picked once, at mount — and FitTrack is a standalone home-screen app that can
   // sit open for days, so past midnight it kept showing yesterday as "today": yesterday's journal,
-  // yesterday's activities, and no auto-apply of the meal plan or the recurring activities (both
-  // are gated on the shown date being today). Rechecked when the app comes back to the foreground
+  // yesterday's activities, and no auto-apply of the meal plan (which is gated on the shown date
+  // being today). Rechecked when the app comes back to the foreground
   // and once a minute while it's up, which is enough for a boundary that moves once a day.
   //
   // Only a view still sitting on the old today follows the rollover: a date the user navigated to
@@ -107,16 +106,6 @@ function MainApp({ onLogout, account }) {
   }, []);
 
   const refreshCore = useCallback(async () => {
-    // Today's recurring activities flow in automatically, same idea as the meal plan auto-apply.
-    // Scoped to today only, same reasoning as the meal plan: back/forward-filling other days
-    // would misrepresent what was actually done.
-    if (date === todayStr()) {
-      try {
-        await api.applyActivityPlanToLog(date);
-      } catch {
-        // no plan yet, or nothing to add — fine either way
-      }
-    }
     const [profileData, typesData, summaryData, waterData] = await Promise.all([
       api.getProfile(),
       api.getActivityTypes(),
@@ -193,16 +182,7 @@ function MainApp({ onLogout, account }) {
   // Owned here (not in ActivitesScreen) so switching tabs and back doesn't remount the screen's
   // state to empty and flash "0 kcal" while it refetches — same reasoning as refreshDashboard.
   const refreshActivites = useCallback(async () => {
-    if (activitesDate === todayStr()) {
-      try {
-        await api.applyActivityPlanToLog(activitesDate);
-      } catch {
-        // no plan yet, or nothing to add — fine either way
-      }
-    }
-    const [logs, plan] = await Promise.all([api.getActivities(activitesDate), api.getActivityPlan()]);
-    setActivites(logs);
-    setActivitesPlan(plan.entries);
+    setActivites(await api.getActivities(activitesDate));
   }, [activitesDate]);
 
   useEffect(() => {
@@ -501,7 +481,6 @@ function MainApp({ onLogout, account }) {
               onDateChange={setActivitesDate}
               activityTypes={activityTypes}
               activities={activites}
-              planEntries={activitesPlan}
               restByReps={restByReps}
               session={session}
               onSessionChange={setSession}

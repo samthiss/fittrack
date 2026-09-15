@@ -7,7 +7,6 @@ import CardioSession from './CardioSession';
 import SessionFinish from './SessionFinish';
 import ExerciseSession from './ExerciseSession';
 import AddActivityModal from './AddActivityModal';
-import PlanGroupModal from './PlanGroupModal';
 import GymChecklist from './GymChecklist';
 import Vo2maxScreen from './Vo2maxScreen';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -17,11 +16,6 @@ import { activityTitle } from '../data/activityTitle';
 
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
-
-function isoDayKey(dateStr) {
-  const jsDay = new Date(`${dateStr}T00:00:00Z`).getUTCDay(); // 0=Sun..6=Sat
-  return DAY_ORDER[(jsDay + 6) % 7];
-}
 
 function mondayOfWeek(dateStr) {
   const d = new Date(`${dateStr}T00:00:00Z`);
@@ -54,7 +48,7 @@ function resetSessionElapsed(session) {
   return { ...session, baseElapsed: 0, runStartedAt: session.running ? Date.now() : null };
 }
 
-// Data (activityTypes/activities/planEntries/date) is owned by App.jsx and passed in as props —
+// Data (activityTypes/activities/date) is owned by App.jsx and passed in as props —
 // same pattern as the Journal dashboard — so switching tabs and back doesn't remount this
 // component's state to empty and flash "0 kcal" while it refetches from scratch.
 //
@@ -62,7 +56,7 @@ function resetSessionElapsed(session) {
 // reason: App renders this screen only while the Activités tab is selected, so a local session
 // would be destroyed outright by a detour through Journal — losing the sets already logged and
 // stopping both timers mid-workout.
-export default function ActivitesScreen({ date, onDateChange, activityTypes, activities, planEntries, restByReps, session, onSessionChange, sessionExercise, onSessionExerciseChange, onRefresh }) {
+export default function ActivitesScreen({ date, onDateChange, activityTypes, activities, restByReps, session, onSessionChange, sessionExercise, onSessionExerciseChange, onRefresh }) {
   // Séances / Checklist / VO2max. Local to this screen rather than lifted to App: nothing outside cares
   // which one is showing, and a workout in progress is unaffected either way.
   const [tab, setTab] = useState('sessions');
@@ -73,7 +67,6 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
   const [finishingSession, setFinishingSession] = useState(false);
   const setSession = onSessionChange;
   const setSessionExercise = onSessionExerciseChange;
-  const [openPlanGroup, setOpenPlanGroup] = useState(null);
   const [, forceRender] = useReducer((x) => x + 1, 0);
   const refresh = onRefresh;
 
@@ -142,43 +135,16 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
     Promise.all(weekDays.map((d) => api.getActivities(d.date).then((logs) => [d.date, logs.length > 0]))).then(
       (pairs) => {
         if (cancelled) return;
-        setWeekPresence((prev) => {
-          const next = Object.fromEntries(pairs);
-          for (const d of weekDays) {
-            const dayKey = isoDayKey(d.date);
-            if (planEntries.some((e) => e.day === dayKey)) next[d.date] = true;
-          }
-          return next;
-        });
+        setWeekPresence(Object.fromEntries(pairs));
       }
     );
     return () => {
       cancelled = true;
     };
-  }, [weekDays, planEntries]);
+  }, [weekDays]);
 
   const totalKcal = activities.reduce((s, a) => s + a.kcal, 0);
   const totalMin = activities.reduce((s, a) => s + a.duration_minutes, 0);
-
-  // A recurring plan entry only becomes a real activity_logs row once its day is actually
-  // "today" (see refresh()). For any other date (future, or a past day the user never opened
-  // the app on), show it here as an editable preview so the recurrence is still visible and can
-  // still be renamed, rescheduled, or removed before it ever materializes. Grouped by group_id
-  // (not one row per plan entry) since a group can have several day-rows.
-  const loggedGroupIds = new Set(activities.filter((a) => a.plan_group_id).map((a) => a.plan_group_id));
-  const scheduledGroups = [];
-  const seenGroupIds = new Set();
-  for (const e of planEntries) {
-    if (e.day !== isoDayKey(date) || loggedGroupIds.has(e.group_id) || seenGroupIds.has(e.group_id)) continue;
-    seenGroupIds.add(e.group_id);
-    scheduledGroups.push({
-      groupId: e.group_id,
-      type: e.type,
-      duration_minutes: e.duration_minutes,
-      label: e.label,
-      days: planEntries.filter((p) => p.group_id === e.group_id).map((p) => p.day),
-    });
-  }
 
   async function handleDelete(id) {
     await api.deleteActivity(id);
@@ -284,13 +250,9 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
   }
 
   if (openActivity) {
-    const recurringDays = openActivity.plan_group_id
-      ? planEntries.filter((e) => e.group_id === openActivity.plan_group_id).map((e) => e.day)
-      : [];
     return (
       <ActivityDetail
         activity={openActivity}
-        recurringDays={recurringDays}
         initialExercises={peekExercises(openActivity.id)}
         loadExercises={loadExercises}
         onBack={() => setOpenActivity(null)}
@@ -388,34 +350,7 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
 
       <h2>{t('activityLog.today')}</h2>
       <div className="meal-card-list">
-        {activities.length === 0 && scheduledGroups.length === 0 && <p className="hint">{t('activityLog.none')}</p>}
-        {scheduledGroups.map((g) => {
-          const at = activityTypes.find((t2) => t2.type === g.type);
-          const kcal = at ? Math.round(at.net_kcal_per_hour * (g.duration_minutes / 60)) : null;
-          return (
-            <div
-              className="activites-row clickable"
-              key={`plan-${g.groupId}`}
-              style={{ opacity: 0.7 }}
-              onClick={() => setOpenPlanGroup(g)}
-            >
-              <span className="activites-row-icon">
-                <Icon name={iconForType(g.type)} size={21} />
-              </span>
-              <div className="meal-card-body">
-                <div className="meal-card-title">
-                  {g.label || t(`activityType.${g.type}`)}
-                  <Icon name="repeat" size={14} color="var(--acc)" style={{ marginLeft: 6, verticalAlign: -2 }} />
-                </div>
-                <div className="meal-card-kcal">
-                  {g.duration_minutes} min · {t('activityLog.scheduled')}
-                </div>
-              </div>
-              {kcal != null && <b className="activites-row-kcal">≈ {kcal} kcal</b>}
-              <Icon name="chevron-right" size={16} color="var(--text-muted)" />
-            </div>
-          );
-        })}
+        {activities.length === 0 && <p className="hint">{t('activityLog.none')}</p>}
         {activities.map((a) => (
           <div
             className="activites-row clickable"
@@ -433,9 +368,6 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
             <div className="meal-card-body">
               <div className="meal-card-title">
                 {activityTitle(a, t, activityTypes.some((at) => at.type === a.type) ? t(`activityType.${a.type}`) : a.type)}
-                {a.plan_group_id && (
-                  <Icon name="repeat" size={14} color="var(--acc)" style={{ marginLeft: 6, verticalAlign: -2 }} />
-                )}
               </div>
               {/* La distance d'abord quand il y en a une : « 1000 m » dit ce qu'on a fait, la durée
                   dit seulement combien de temps ça a pris. Les deux restent affichées. */}
@@ -471,7 +403,6 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         <AddActivityModal
           activityTypes={activityTypes}
           date={date}
-          todayDayKey={isoDayKey(date)}
           onClose={() => setShowAdd(false)}
           onAdded={() => {
             setShowAdd(false);
@@ -480,20 +411,6 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
         />
       )}
 
-      {openPlanGroup && (
-        <PlanGroupModal
-          group={openPlanGroup}
-          onClose={() => setOpenPlanGroup(null)}
-          onSaved={() => {
-            setOpenPlanGroup(null);
-            refresh();
-          }}
-          onDeleted={() => {
-            setOpenPlanGroup(null);
-            refresh();
-          }}
-        />
-      )}
     </div>
   );
 }
