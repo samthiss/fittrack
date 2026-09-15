@@ -24,6 +24,9 @@ const RUN_PROTOCOLS = INTERVAL_PROTOCOLS.filter((p) => p.id !== 'cal_ladder');
 // officielle pré-remplie — c'est la valeur qu'on veut neuf fois sur dix, et elle reste réglable.
 // Les wall balls se comptent en répétitions : faute d'unité pour ça, elles sont en minutes.
 const HYROX_STATIONS = [
+  // La séance complète : une course officielle ou un entraînement Hyrox entier, saisi en durée.
+  // Ce n'est pas une station, mais c'est ici qu'on la cherche — pas dans le cardio.
+  { type: 'hyrox', minutes: 60 },
   { type: 'ski_erg', distance: 1000, protocols: INTERVAL_PROTOCOLS },
   { type: 'traineau_poussee', distance: 50 },
   { type: 'traineau_traction', distance: 50 },
