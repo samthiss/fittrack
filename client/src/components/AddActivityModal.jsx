@@ -37,6 +37,11 @@ const HYROX_STATIONS = [
   { type: 'course_a_pied', distance: 1000, protocols: RUN_PROTOCOLS },
 ];
 
+// Les types que l'onglet Hyrox couvre déjà, dérivés de sa propre liste : ajouter une station
+// demain la retire du cardio sans qu'on ait à y penser. La séance Hyrox complète, elle, n'est pas
+// une station — elle se saisit en durée, donc elle reste dans le cardio.
+const HYROX_STATION_TYPES = new Set(HYROX_STATIONS.map((s) => s.type));
+
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const FORCE_TYPES = new Set(['force']);
 
@@ -87,14 +92,16 @@ export default function AddActivityModal({ activityTypes, date, todayDayKey, onC
     }
   }, [kind]);
 
-  // Plus de recherche texte depuis que le choix passe par une liste déroulante : le sélecteur
-  // natif fait déjà défiler et chercher mieux qu'un champ de saisie sur un téléphone.
   const filtered = useMemo(
     () =>
       activityTypes.filter((at) => {
         const isForce = FORCE_TYPES.has(at.type);
         if (kind === 'force' && !isForce) return false;
         if (kind === 'cardio' && isForce) return false;
+        // Les stations Hyrox ne s'affichent plus ici : l'autre onglet les saisit en mètres et
+        // leur propose les protocoles d'intervalles, donc les garder en double n'offrait que la
+        // version la plus pauvre des deux.
+        if (kind === 'cardio' && HYROX_STATION_TYPES.has(at.type)) return false;
         if (kind === 'hyrox') return false; // l'onglet Hyrox a sa propre liste, pas celle-ci
         return true;
       }),
