@@ -36,6 +36,10 @@ export const ACTIVITY_METS = {
   stepper: 5.0,
   velo_ville: 4.0,
   velo_appartement: 6.0,
+  // Valeur par défaut seulement : l'écran d'ajout demande l'intensité ou les watts et calcule
+  // lui-même (voir client/src/data/elliptical.js). Celle-ci sert aux chemins qui n'en passent
+  // pas par là.
+  velo_elliptique: 5.0,
   corde_a_sauter: 10.0,
   course_a_pied: 9.0,
   course_tapis: 9.0,

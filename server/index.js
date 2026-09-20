@@ -593,6 +593,9 @@ app.get('/api/activity-types', (req, res) => {
       kcal_per_hour: Math.round(grossKcalPerHour(a.type, resting)),
       net_kcal_per_hour: Math.round(netKcalPerHour(a.type, resting)),
       resting_kcal_per_hour: Math.round(resting),
+      // Le poids accompagne le repos : l'équation d'ergométrie de l'elliptique en a besoin, et
+      // l'estimation affichée doit valoir celle qui sera enregistrée.
+      weight_kg: getProfile(req.userId).weight_kg,
       last_duration_minutes: last.get(a.type)?.duration_minutes ?? null,
       last_distance_m: last.get(a.type)?.distance_m ?? null,
       // Le nom de la dernière séance : le tapis y écrit sa vitesse et son inclinaison, et les

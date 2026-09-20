@@ -8,6 +8,13 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { iconForType } from '../data/activityIcons';
 import { matchesSearch } from '../data/searchText';
 import {
+  ELLIPTICAL_EFFORTS,
+  ELLIPTICAL_WATTS,
+  DEFAULT_EFFORT,
+  ellipticalKcal,
+  ellipticalLabel,
+} from '../data/elliptical';
+import {
   TREADMILL_SPEEDS,
   TREADMILL_GRADES,
   DEFAULT_SPEED,
@@ -44,10 +51,40 @@ function lastTreadmillSettings(label) {
   return { speed: Number(m[1].replace(',', '.')), grade: Number(m[2]) };
 }
 
+// L'elliptique se règle comme le tapis, à ceci près qu'aucune équation validée ne le couvre :
+// on estime par l'intensité ressentie, ou par les watts quand la machine les affiche — auquel cas
+// ils l'emportent. Voir data/elliptical.js.
+const ELLIPTICAL_TYPE = 'velo_elliptique';
+
+const ELLIPTICAL_CHOICE = {
+  type: ELLIPTICAL_TYPE,
+  minutes: 30,
+  effort: DEFAULT_EFFORT,
+  watts: 0,
+  settings: [
+    {
+      field: 'effort',
+      options: ELLIPTICAL_EFFORTS.map((e) => ({ value: e.value, labelKey: `activityLog.effort_${e.key}` })),
+    },
+    {
+      field: 'watts',
+      options: [{ value: 0, labelKey: 'activityLog.wattsNone' }, ...ELLIPTICAL_WATTS.map((w) => ({ value: w, label: `${w} W` }))],
+    },
+  ],
+};
+
+// « 150 W » se relit ; une intensité nommée se retrouve par son libellé traduit, ce qui ne
+// survivrait pas à un changement de langue — on ne relit donc que les watts, et l'intensité
+// repart de « modéré ».
+function lastEllipticalSettings(label) {
+  const m = /^(\d+)\s*W$/.exec((label || '').trim());
+  return m ? { watts: Number(m[1]) } : {};
+}
+
 const TREADMILL_CHOICE = {
   type: TREADMILL_TYPE,
   minutes: 30,
-  pills: [
+  settings: [
     { field: 'speed', options: TREADMILL_SPEEDS.map((v) => ({ value: v, label: `${String(v).replace('.', ',')} km/h` })) },
     { field: 'grade', options: TREADMILL_GRADES.map((v) => ({ value: v, label: `${v} %` })) },
   ],
@@ -108,7 +145,7 @@ function serializeSetTarget(row) {
  * compose une séance en cochant des lignes et en réglant combien de chacune. Seuls les protocoles
  * d'intervalles sont propres aux stations, et ils n'apparaissent que si la ligne en propose.
  */
-function PickRow({ choice, at, picked, kcal, onToggle, onAdjust, onProtocol, onPill, t, lang }) {
+function PickRow({ choice, at, picked, kcal, onToggle, onAdjust, onProtocol, onSetting, t, lang }) {
   if (!at) return null;
   return (
     <div className={picked ? 'activites-row clickable pick-row picked' : 'activites-row clickable pick-row'}>
@@ -151,18 +188,18 @@ function PickRow({ choice, at, picked, kcal, onToggle, onAdjust, onProtocol, onP
           cochée : avant, ils n'auraient rien à régler. Des listes déroulantes plutôt que des
           pastilles : dix vitesses et sept pentes ne tiennent pas sur la largeur d'un téléphone,
           et le sélecteur natif s'ouvre en roue sur iPhone, ce qui se règle au pouce. */}
-      {picked && choice.pills && (
+      {picked && choice.settings && (
         <div className="pick-row-selects">
-          {choice.pills.map((row) => (
+          {choice.settings.map((row) => (
             <label className="pick-row-select" key={row.field}>
               <span>{t(`activityLog.${row.field}`)}</span>
               <select
                 value={picked[row.field]}
-                onChange={(e) => onPill(choice, row.field, Number(e.target.value))}
+                onChange={(e) => onSetting(choice, row.field, Number(e.target.value))}
               >
                 {row.options.map((o) => (
                   <option key={o.value} value={o.value}>
-                    {o.label}
+                    {o.label || t(o.labelKey)}
                   </option>
                 ))}
               </select>
@@ -276,7 +313,7 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
     // celle qu'on veut à nouveau. Une demi-heure ne sert plus que la première fois.
     const treadmill = activityTypes.find((at) => at.type === TREADMILL_TYPE);
     const choices = list
-      .filter((at) => !TREADMILL_REPLACES.has(at.type))
+      .filter((at) => !TREADMILL_REPLACES.has(at.type) && at.type !== ELLIPTICAL_TYPE)
       .map((at) =>
         at.unit === 'meters' && at.sec_per_100m > 0
           ? { type: at.type, distance: at.last_distance_m || 1000 }
@@ -286,15 +323,26 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
     // type parmi les autres.
     const matchesTreadmill =
       !cardioSearch.trim() || matchesSearch(t(`activityType.${TREADMILL_TYPE}`), cardioSearch);
-    if (!treadmill || !matchesTreadmill) return choices;
-    return [
-      {
+    const elliptical = activityTypes.find((at) => at.type === ELLIPTICAL_TYPE);
+    const matchesElliptical =
+      !cardioSearch.trim() || matchesSearch(t(`activityType.${ELLIPTICAL_TYPE}`), cardioSearch);
+
+    const head = [];
+    if (treadmill && matchesTreadmill) {
+      head.push({
         ...TREADMILL_CHOICE,
         minutes: treadmill.last_duration_minutes || TREADMILL_CHOICE.minutes,
         ...lastTreadmillSettings(treadmill.last_label),
-      },
-      ...choices,
-    ];
+      });
+    }
+    if (elliptical && matchesElliptical) {
+      head.push({
+        ...ELLIPTICAL_CHOICE,
+        minutes: elliptical.last_duration_minutes || ELLIPTICAL_CHOICE.minutes,
+        ...lastEllipticalSettings(elliptical.last_label),
+      });
+    }
+    return [...head, ...choices];
   }, [filtered, cardioSearch, t, activityTypes]);
 
   // Les stations partent de leur distance officielle, sauf si une distance a déjà été saisie pour
@@ -400,6 +448,15 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
   function stationKcal(at, picked) {
     // Un protocole d'intervalles se facture sur son mélange effort/récupération, pas sur sa durée
     // au tarif d'un effort continu : c'est le même nombre que celui qui sera enregistré.
+    if (picked.effort != null || picked.watts) {
+      return ellipticalKcal({
+        effort: picked.effort,
+        watts: picked.watts,
+        weightKg: at.weight_kg,
+        restingKcalPerHour: at.resting_kcal_per_hour,
+        minutes: picked.minutes,
+      });
+    }
     if (picked.speed != null) {
       return treadmillKcal(picked.speed, picked.grade, at.resting_kcal_per_hour, picked.minutes);
     }
@@ -419,7 +476,10 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
     setStations((prev) => {
       const next = { ...prev };
       if (next[station.type]) delete next[station.type];
-      else if (station.pills) next[station.type] = { minutes: station.minutes, speed: station.speed, grade: station.grade };
+      else if (station.settings) {
+        next[station.type] = { minutes: station.minutes };
+        for (const row of station.settings) next[station.type][row.field] = station[row.field] ?? row.options[0].value;
+      }
       else next[station.type] = station.distance != null ? { distance: station.distance } : { minutes: station.minutes };
       return next;
     });
@@ -437,7 +497,7 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
     }));
   }
 
-  function selectPill(station, field, value) {
+  function selectSetting(station, field, value) {
     setStations((prev) => (prev[station.type] ? { ...prev, [station.type]: { ...prev[station.type], [field]: value } } : prev));
   }
 
@@ -476,11 +536,12 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
             // Le réglage du tapis devient le nom de la séance : c'est ce qui distingue une séance
             // de tapis d'une autre, et c'est aussi ce qui le rend relisible la prochaine fois.
             ...(value.speed != null ? { label: treadmillLabel(value.speed, value.grade) } : {}),
+            ...(value.effort != null || value.watts ? { label: ellipticalLabel(value.effort, value.watts, t) } : {}),
             ...(value.label ? { label: value.label } : {}),
             ...(value.protocol ? { protocol: value.protocol } : {}),
             // Les kcal d'un protocole sont envoyées explicitement : le serveur ne connaît pas les
             // protocoles, il ne saurait qu'appliquer le tarif plat à la durée totale.
-            ...(value.protocol || value.speed != null
+            ...(value.protocol || value.speed != null || value.effort != null || value.watts
               ? { kcal: stationKcal(activityTypes.find((a) => a.type === type), value) }
               : {}),
           });
@@ -551,7 +612,7 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
                 onToggle={toggleStation}
                 onAdjust={adjustStation}
                 onProtocol={selectProtocol}
-                onPill={selectPill}
+                onSetting={selectSetting}
                 t={t}
                 lang={lang}
               />
@@ -587,7 +648,7 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
                 onToggle={toggleStation}
                 onAdjust={adjustStation}
                 onProtocol={selectProtocol}
-                onPill={selectPill}
+                onSetting={selectSetting}
                 t={t}
                 lang={lang}
               />

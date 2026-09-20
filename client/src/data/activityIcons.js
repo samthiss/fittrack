@@ -9,6 +9,7 @@ const TYPE_ICONS = {
   // générique et la liste du jour devient illisible d'un coup d'œil.
   course_a_pied: 'footprints',
   randonnee: 'trees',
+  velo_elliptique: 'bike',
   course_tapis: 'footprints',
   ski_erg: 'snowflake',
   rameur: 'sailboat',

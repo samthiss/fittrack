@@ -600,6 +600,7 @@ export const DEFAULT_ACTIVITY_SETTINGS = [
   { type: 'velo_ville', label: 'Vélo de ville', kcal_per_hour: 300 },
   { type: 'corde_a_sauter', label: 'Corde à sauter', kcal_per_hour: 600 },
   { type: 'randonnee', label: 'Randonnée', kcal_per_hour: 450 },
+  { type: 'velo_elliptique', label: 'Vélo elliptique', kcal_per_hour: 500 },
 
   // --- Hyrox : les machines, les stations, et la course qui les relie ---
   // Les kcal/h sont des ordres de grandeur pour un effort soutenu ; chacun peut les ajuster dans
