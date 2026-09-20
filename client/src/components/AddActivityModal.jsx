@@ -1,3 +1,32 @@
+// Les zones sont construites à la volée : leurs battements dépendent de l'âge de l'utilisateur,
+// donc elles ne peuvent pas être une constante du module.
+function zoneOptions(age) {
+  const maxHr = maxHrFromAge(age);
+  return ZONES.map((z) => {
+    const hr = zoneHrRange(z.zone, maxHr);
+    return { value: z.zone, label: hr ? `Zone ${z.zone} · ${hr.from}-${hr.to} bpm` : `Zone ${z.zone}` };
+  });
+}
+
+function ellipticalChoice(at) {
+  return {
+    type: ELLIPTICAL_TYPE,
+    minutes: 30,
+    zone: DEFAULT_ZONE,
+    watts: 0,
+    settings: [
+      { field: 'zone', options: zoneOptions(at?.age) },
+      {
+        field: 'watts',
+        options: [
+          { value: 0, labelKey: 'activityLog.wattsNone' },
+          ...ELLIPTICAL_WATTS.map((w) => ({ value: w, label: `${w} W` })),
+        ],
+      },
+    ],
+  };
+}
+
 import { useState, useMemo, useEffect } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
@@ -7,13 +36,8 @@ import MuscleGroupPicker from './MuscleGroupPicker';
 import { useLanguage } from '../i18n/LanguageContext';
 import { iconForType } from '../data/activityIcons';
 import { matchesSearch } from '../data/searchText';
-import {
-  ELLIPTICAL_EFFORTS,
-  ELLIPTICAL_WATTS,
-  DEFAULT_EFFORT,
-  ellipticalKcal,
-  ellipticalLabel,
-} from '../data/elliptical';
+import { ELLIPTICAL_WATTS, ellipticalKcal } from '../data/elliptical';
+import { ZONES, DEFAULT_ZONE, maxHrFromAge, zoneHrRange, zoneKcal, zoneIsPersonal } from '../data/zones';
 import {
   TREADMILL_SPEEDS,
   TREADMILL_GRADES,
@@ -51,34 +75,19 @@ function lastTreadmillSettings(label) {
   return { speed: Number(m[1].replace(',', '.')), grade: Number(m[2]) };
 }
 
-// L'elliptique se règle comme le tapis, à ceci près qu'aucune équation validée ne le couvre :
-// on estime par l'intensité ressentie, ou par les watts quand la machine les affiche — auquel cas
-// ils l'emportent. Voir data/elliptical.js.
+// L'elliptique se règle comme le tapis, à ceci près qu'aucune équation validée ne le couvre : on
+// l'estime par la zone d'intensité — calculée sur la VO2max relevée, affichée en battements (voir
+// data/zones.js) — ou par les watts quand la machine les affiche, auquel cas ils l'emportent.
 const ELLIPTICAL_TYPE = 'velo_elliptique';
 
-const ELLIPTICAL_CHOICE = {
-  type: ELLIPTICAL_TYPE,
-  minutes: 30,
-  effort: DEFAULT_EFFORT,
-  watts: 0,
-  settings: [
-    {
-      field: 'effort',
-      options: ELLIPTICAL_EFFORTS.map((e) => ({ value: e.value, labelKey: `activityLog.effort_${e.key}` })),
-    },
-    {
-      field: 'watts',
-      options: [{ value: 0, labelKey: 'activityLog.wattsNone' }, ...ELLIPTICAL_WATTS.map((w) => ({ value: w, label: `${w} W` }))],
-    },
-  ],
-};
-
-// « 150 W » se relit ; une intensité nommée se retrouve par son libellé traduit, ce qui ne
-// survivrait pas à un changement de langue — on ne relit donc que les watts, et l'intensité
-// repart de « modéré ».
+// Le dernier réglage se relit dans le nom de la séance : « 150 W » ou « Zone 2 ». Les deux sont
+// des étiquettes stables, indépendantes de la langue de l'app au moment où elles ont été écrites.
 function lastEllipticalSettings(label) {
-  const m = /^(\d+)\s*W$/.exec((label || '').trim());
-  return m ? { watts: Number(m[1]) } : {};
+  const text = (label || '').trim();
+  const watts = /^(\d+)\s*W$/.exec(text);
+  if (watts) return { watts: Number(watts[1]) };
+  const zone = /^Zone\s*(\d)$/.exec(text);
+  return zone ? { zone: Number(zone[1]) } : {};
 }
 
 const TREADMILL_CHOICE = {
@@ -205,6 +214,7 @@ function PickRow({ choice, at, picked, kcal, onToggle, onAdjust, onProtocol, onS
               </select>
             </label>
           ))}
+          {choice.hint && <span className="pick-row-hint">{choice.hint}</span>}
         </div>
       )}
       {picked && choice.protocols && (
@@ -336,9 +346,15 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
       });
     }
     if (elliptical && matchesElliptical) {
+      const base = ellipticalChoice(elliptical);
+      // Dire sur quoi la zone est calculée : sur la VO2max relevée, ou faute de mesure sur une
+      // moyenne de population. La différence est grande, et elle se corrige en une saisie.
+      base.hint = zoneIsPersonal(elliptical.vo2max, elliptical.weight_kg)
+        ? t('activityLog.zoneFromVo2max').replace('{value}', elliptical.vo2max)
+        : t('activityLog.zoneNoVo2max');
       head.push({
-        ...ELLIPTICAL_CHOICE,
-        minutes: elliptical.last_duration_minutes || ELLIPTICAL_CHOICE.minutes,
+        ...base,
+        minutes: elliptical.last_duration_minutes || base.minutes,
         ...lastEllipticalSettings(elliptical.last_label),
       });
     }
@@ -448,10 +464,20 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
   function stationKcal(at, picked) {
     // Un protocole d'intervalles se facture sur son mélange effort/récupération, pas sur sa durée
     // au tarif d'un effort continu : c'est le même nombre que celui qui sera enregistré.
-    if (picked.effort != null || picked.watts) {
-      return ellipticalKcal({
-        effort: picked.effort,
-        watts: picked.watts,
+    if (picked.zone != null || picked.watts) {
+      // Les watts sont une mesure, la zone une observation : quand les deux sont là, les watts
+      // l'emportent.
+      if (picked.watts) {
+        return ellipticalKcal({
+          watts: picked.watts,
+          weightKg: at.weight_kg,
+          restingKcalPerHour: at.resting_kcal_per_hour,
+          minutes: picked.minutes,
+        });
+      }
+      return zoneKcal({
+        zone: picked.zone,
+        vo2max: at.vo2max,
         weightKg: at.weight_kg,
         restingKcalPerHour: at.resting_kcal_per_hour,
         minutes: picked.minutes,
@@ -536,12 +562,14 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
             // Le réglage du tapis devient le nom de la séance : c'est ce qui distingue une séance
             // de tapis d'une autre, et c'est aussi ce qui le rend relisible la prochaine fois.
             ...(value.speed != null ? { label: treadmillLabel(value.speed, value.grade) } : {}),
-            ...(value.effort != null || value.watts ? { label: ellipticalLabel(value.effort, value.watts, t) } : {}),
+            ...(value.zone != null || value.watts
+              ? { label: value.watts ? `${value.watts} W` : `Zone ${value.zone}` }
+              : {}),
             ...(value.label ? { label: value.label } : {}),
             ...(value.protocol ? { protocol: value.protocol } : {}),
             // Les kcal d'un protocole sont envoyées explicitement : le serveur ne connaît pas les
             // protocoles, il ne saurait qu'appliquer le tarif plat à la durée totale.
-            ...(value.protocol || value.speed != null || value.effort != null || value.watts
+            ...(value.protocol || value.speed != null || value.zone != null || value.watts
               ? { kcal: stationKcal(activityTypes.find((a) => a.type === type), value) }
               : {}),
           });

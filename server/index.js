@@ -586,6 +586,10 @@ app.get('/api/activity-types', (req, res) => {
   // n'a rien à faire côté client. La colonne kcal_per_hour de la table n'est plus lue — elle
   // reste pour ne pas casser les anciennes lignes, mais c'est le MET du type qui fait foi.
   const resting = restingKcalPerHour(req.userId);
+  const profile = getProfile(req.userId);
+  const latestVo2max = db
+    .prepare('SELECT value FROM vo2max_logs WHERE user_id = ? ORDER BY date DESC LIMIT 1')
+    .get(req.userId);
   const last = new Map(lastEntryByType.all(req.userId, req.userId).map((r) => [r.type, r]));
   res.json(
     getActivitySettings(req.userId).map((a) => ({
@@ -593,9 +597,13 @@ app.get('/api/activity-types', (req, res) => {
       kcal_per_hour: Math.round(grossKcalPerHour(a.type, resting)),
       net_kcal_per_hour: Math.round(netKcalPerHour(a.type, resting)),
       resting_kcal_per_hour: Math.round(resting),
-      // Le poids accompagne le repos : l'équation d'ergométrie de l'elliptique en a besoin, et
-      // l'estimation affichée doit valoir celle qui sera enregistrée.
-      weight_kg: getProfile(req.userId).weight_kg,
+      // Le poids, l'âge et la VO2max accompagnent le repos : les zones d'intensité se calculent
+      // sur la VO2max relevée, s'affichent en battements déduits de l'âge, et l'ergométrie de
+      // l'elliptique a besoin du poids. L'estimation affichée doit valoir celle qui sera
+      // enregistrée, donc ces valeurs viennent d'ici plutôt que d'un second appel.
+      weight_kg: profile.weight_kg,
+      age: ageFromBirthdate(profile.birthdate),
+      vo2max: latestVo2max?.value ?? null,
       last_duration_minutes: last.get(a.type)?.duration_minutes ?? null,
       last_distance_m: last.get(a.type)?.distance_m ?? null,
       // Le nom de la dernière séance : le tapis y écrit sa vitesse et son inclinaison, et les
