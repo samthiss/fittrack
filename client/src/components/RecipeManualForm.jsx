@@ -214,9 +214,17 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
         onSaved(initialRecipe.id);
       } else {
         const created = await onCreate(payload);
+        // Le classement automatique dans la catégorie ouverte est un bonus, pas la création :
+        // s'il échoue, la recette existe quand même et l'écran doit se fermer dessus. Le faire
+        // remonter comme une erreur laissait croire que rien n'avait été enregistré — alors que
+        // la recette était bien là, et se retrouvait créée deux fois au deuxième essai.
         if (created && presetCategory) {
-          if (presetCategory.meals) await onSetCategories(created, presetCategory.meals);
-          if (presetCategory.tag) await onUpdate(created.id, { tags: [presetCategory.tag] });
+          try {
+            if (presetCategory.meals) await onSetCategories(created, presetCategory.meals);
+            if (presetCategory.tag) await onUpdate(created.id, { tags: [presetCategory.tag] });
+          } catch {
+            // La recette est créée ; elle se classe à la main depuis sa fiche.
+          }
         }
         onSaved(created?.id);
       }

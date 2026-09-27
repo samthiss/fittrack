@@ -4,11 +4,21 @@ import RecipeDetail from './RecipeDetail';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
-function getCategoryGroups(t) {
+// Les catégories d'une recette sont des repas, et les repas d'un utilisateur ne sont pas ceux du
+// voisin : l'en-cas de base peut avoir été retiré, renommé, ou doublé d'un « Collation du matin ».
+// Écrire « snack » en dur revenait à taguer une recette avec un repas qui n'existe pas chez lui —
+// et le serveur refusait, au milieu d'une création de recette qui, elle, avait réussi.
+const FIXED_MEALS = ['breakfast', 'lunch', 'dinner'];
+
+function getCategoryGroups(t, meals) {
+  const snackKeys = meals.filter((m) => !FIXED_MEALS.includes(m.key)).map((m) => m.key);
   return [
     { key: 'lunch_dinner', label: t('recipeList.categoryLunchDinner'), meals: ['lunch', 'dinner'], icon: 'utensils' },
     { key: 'breakfast', label: t('recipeList.categoryBreakfast'), meals: ['breakfast'], icon: 'sunrise' },
-    { key: 'snack', label: t('recipeList.categorySnack'), meals: ['snack'], icon: 'apple' },
+    // Sans en-cas configuré, la catégorie disparaît plutôt que de pointer dans le vide.
+    ...(snackKeys.length > 0
+      ? [{ key: 'snack', label: t('recipeList.categorySnack'), meals: snackKeys, icon: 'apple' }]
+      : []),
   ];
 }
 
@@ -84,7 +94,7 @@ export default function RecipeList({
     );
   }
 
-  const groups = getCategoryGroups(t).map((g) => ({
+  const groups = getCategoryGroups(t, meals).map((g) => ({
     ...g,
     recipes: recipes.filter((r) => {
       const favs = favoriteMealsFor(r.id);
@@ -129,9 +139,9 @@ export default function RecipeList({
       return null;
     }
     const cat = allGroups.find((g) => g.recipes.some((r) => r.id === recipe.id));
-    const recipeCategoryGroups = getCategoryGroups(t);
+    const recipeCategoryGroups = getCategoryGroups(t, meals);
     const activeCategoryKeys = new Set(
-      recipeCategoryGroups.filter((g) => g.meals.every((m) => favoriteMealsFor(recipe.id).has(m))).map((g) => g.key)
+      recipeCategoryGroups.filter((g) => g.meals.some((m) => favoriteMealsFor(recipe.id).has(m))).map((g) => g.key)
     );
     return (
       <RecipeDetail
