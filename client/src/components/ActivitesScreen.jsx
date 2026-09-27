@@ -116,7 +116,10 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
   }, [session?.running, session?.runStartedAt]);
 
 
-  const totalKcal = activities.reduce((s, a) => s + a.kcal, 0);
+  // Les pas du jour comptent dans la dépense au même titre qu'une séance : c'est souvent la plus
+  // grosse des deux, et un compteur qui les ignore contredit la carte juste en dessous.
+  const [stepsKcal, setStepsKcal] = useState(0);
+  const totalKcal = activities.reduce((s, a) => s + a.kcal, 0) + stepsKcal;
   const totalMin = activities.reduce((s, a) => s + a.duration_minutes, 0);
 
   async function handleDelete(id) {
@@ -296,13 +299,14 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
           </div>
           <div className="activites-burn-sub">
             {t('activityLog.summaryLine').replace('{count}', activities.length).replace('{min}', totalMin)}
+            {stepsKcal > 0 && ` · ${stepsKcal} ${t('activityLog.fromSteps')}`}
           </div>
         </div>
       </div>
 
       {/* Les pas du jour : une dépense qui n'est pas une séance, mais qui pèse souvent plus lourd
           qu'elle sur le total de la journée. */}
-      <DailySteps date={date} onChanged={refresh} />
+      <DailySteps date={date} onChanged={refresh} onNeatChange={setStepsKcal} />
 
       <h2>{t('activityLog.today')}</h2>
       <div className="meal-card-list">

@@ -14,7 +14,7 @@ const STEP = 500;
  * chiffre, c'est lui qui compte : la NEAT est la part du TDEE qui bouge le plus d'une journée à
  * l'autre, et une journée de bureau ne vaut pas une journée de marche.
  */
-export default function DailySteps({ date, onChanged }) {
+export default function DailySteps({ date, onChanged, onNeatChange }) {
   const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [value, setValue] = useState(0);
@@ -53,11 +53,17 @@ export default function DailySteps({ date, onChanged }) {
   }
 
 
+  const neatKcal = data ? Math.round(data.kcalPerStep * value) : 0;
+  // Le compteur de la page additionne les séances et la marche : il doit suivre le stepper tout
+  // de suite, pas attendre l'enregistrement différé.
+  useEffect(() => {
+    onNeatChange?.(neatKcal);
+  }, [neatKcal, onNeatChange]);
+
   if (!data) return null;
 
   // Ce que la saisie ajoute ou retire par rapport au jour tel qu'il comptait sans elle.
-  const neat = Math.round(data.kcalPerStep * value);
-  const delta = neat - Math.round(data.kcalPerStep * (data.defaultSteps || 0));
+  const delta = neatKcal - Math.round(data.kcalPerStep * (data.defaultSteps || 0));
 
   return (
     <div className="card daily-steps">
@@ -89,7 +95,7 @@ export default function DailySteps({ date, onChanged }) {
       <div className="row" style={{ borderBottom: 0 }}>
         <span className="name hint" style={{ padding: 0 }}>{t('steps.neat')}</span>
         <b>
-          {neat} kcal
+          {neatKcal} kcal
           {delta !== 0 && (
             <span className={delta > 0 ? 'daily-steps-delta up' : 'daily-steps-delta down'}>
               {delta > 0 ? '+' : ''}
