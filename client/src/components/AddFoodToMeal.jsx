@@ -19,8 +19,9 @@ function recipeMacrosPer100g(recipe) {
     { kcal: 0, protein: 0, carbs: 0, fat: 0 }
   );
   // Pour 100 g : une recette s'ajoute au gramme comme un aliment, donc elle s'annonce dans la
-  // même unité — sans quoi la liste mélangerait deux échelles sans le dire.
-  const per100 = recipe.weight_g ? 100 / recipe.weight_g : 0;
+  // même unité — sans quoi la liste mélangerait deux échelles sans le dire. Faute de poids
+  // calculable, elle reste en portions et c'est la portion qui est annoncée.
+  const per100 = recipe.weight_g ? 100 / recipe.weight_g : 1 / (recipe.portions || 1);
   return {
     kcal: totals.kcal * per100,
     protein: totals.protein * per100,
@@ -141,7 +142,7 @@ export default function AddFoodToMeal({
         type: 'recipe',
         id: r.id,
         name: r.title,
-        subtitle: `${Math.round(per100.kcal)} kcal / 100 g`,
+        subtitle: `${Math.round(per100.kcal)} kcal / ${r.weight_g ? '100 g' : t('addFood.portion')}`,
         macros: { protein: per100.protein, carbs: per100.carbs, fat: per100.fat, fiber: per100.fiber },
       };
     });
@@ -345,7 +346,9 @@ export default function AddFoodToMeal({
       }
     }
     setViewingItem(item);
-    setModalQty('100');
+    // Une recette sans poids calculable se compte encore en portions : commencer à « 100 »
+    // voudrait dire cent portions.
+    setModalQty(item.type === 'recipe' && !recipes.find((r) => r.id === item.id)?.weight_g ? '1' : '100');
     setModalUnit('g');
     // Always starts unchecked — it's a one-shot "mark this as recurring right now" action, not
     // a reflection of whatever the current status happens to be.
@@ -381,7 +384,8 @@ export default function AddFoodToMeal({
         viewingItem.type === 'recipe' && (excludedIngredients.size > 0 || Object.keys(ingredientOverrides).length > 0)
           ? { excluded: [...excludedIngredients], overrides: ingredientOverrides }
           : null;
-      await onAddEntry(viewingItem.type, viewingItem.id, qty, viewingItem.type === 'food' ? modalUnit : 'g', adjustments);
+      const recipeUnit = recipes.find((r) => r.id === viewingItem.id)?.weight_g ? 'g' : 'portion';
+      await onAddEntry(viewingItem.type, viewingItem.id, qty, viewingItem.type === 'food' ? modalUnit : recipeUnit, adjustments);
       await syncRecurring(viewingItem.type, viewingItem.id, qty, modalRecurring);
       setViewingItem(null);
       // Adding a recipe used to push straight on into its ingredient list, so a specific
@@ -392,6 +396,11 @@ export default function AddFoodToMeal({
       setSavingModal(false);
     }
   }
+
+  // Le pas du stepper d'une recette : dix grammes, ou une portion quand la recette n'a pas de
+  // poids calculable et se compte encore comme avant.
+  const recipeStep =
+    viewingItem?.type === 'recipe' && !recipes.find((r) => r.id === viewingItem.id)?.weight_g ? 1 : 10;
 
   const viewingItemMacros = useMemo(() => {
     if (!viewingItem) return null;
@@ -419,7 +428,7 @@ export default function AddFoodToMeal({
     const recipe = recipes.find((r) => r.id === viewingItem.id);
     if (!recipe) return null;
     const per100 = recipeMacrosPer100g(recipe);
-    const factor = qty / 100;
+    const factor = recipe.weight_g ? qty / 100 : qty;
     return {
       kcal: per100.kcal * factor,
       protein: per100.protein * factor,
@@ -1000,18 +1009,18 @@ export default function AddFoodToMeal({
               <button
                 type="button"
                 className="weight-minus-btn"
-                onClick={() => setModalQty(String(Math.max(5, Number(modalQty) - 10)))}
+                onClick={() => setModalQty(String(Math.max(recipeStep === 1 ? 1 : 5, Number(modalQty) - recipeStep)))}
               >
                 <Icon name="minus" size={18} />
               </button>
               <div className="qty-stepper-value">
                 <span className="weight-value">{modalQty}</span>{' '}
-                <span className="rate">{viewingItem.type === 'food' ? modalUnit : 'g'}</span>
+                <span className="rate">{viewingItem.type === 'food' ? modalUnit : recipeStep === 1 ? t('addFood.portion') : 'g'}</span>
               </div>
               <button
                 type="button"
                 className="weight-plus-btn qty-stepper-plus"
-                onClick={() => setModalQty(String(Number(modalQty) + 10))}
+                onClick={() => setModalQty(String(Number(modalQty) + recipeStep))}
               >
                 <Icon name="plus" size={18} />
               </button>
@@ -1067,7 +1076,9 @@ export default function AddFoodToMeal({
               if (!recipe) return null;
               // Les grammes demandés rapportés au poids de la recette : chaque ingrédient est
               // mis à cette échelle, donc « 250 g » se répartit dans les proportions du plat.
-              const scale = recipe.weight_g ? (Number(modalQty) || 0) / recipe.weight_g : 0;
+              const scale = recipe.weight_g
+                ? (Number(modalQty) || 0) / recipe.weight_g
+                : (Number(modalQty) || 0) / (recipe.portions || 1);
               return (
                 <>
                   <h4 className="section-label">

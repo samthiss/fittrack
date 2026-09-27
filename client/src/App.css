@@ -6180,12 +6180,6 @@ h1 {
   padding-bottom: 10px;
 }
 
-.daily-steps-jumps {
-  justify-content: center;
-  margin-top: 8px;
-  margin-bottom: 4px;
-}
-
 /* L'écart avec la journée telle qu'elle comptait sans la saisie : c'est lui qui répond à
    « qu'est-ce que ça change ? », pas le total. */
 .daily-steps-delta {

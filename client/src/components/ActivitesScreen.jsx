@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useReducer, useRef, useCallback } from 'react';
+import { useState, useEffect, useReducer, useRef, useCallback } from 'react';
 import { api } from '../api';
 import Icon from './Icon';
 import ActivityDetail from './ActivityDetail';
@@ -15,16 +15,6 @@ import { computeSessionElapsed } from '../data/sessionTiming';
 import { iconForType } from '../data/activityIcons';
 import { activityTitle } from '../data/activityTitle';
 
-const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-
-
-function mondayOfWeek(dateStr) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  const jsDay = d.getUTCDay();
-  const diff = (jsDay + 6) % 7; // days since Monday
-  d.setUTCDate(d.getUTCDate() - diff);
-  return d.toISOString().slice(0, 10);
-}
 
 function shiftDateStr(dateStr, delta) {
   const d = new Date(`${dateStr}T00:00:00Z`);
@@ -62,7 +52,6 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
   // which one is showing, and a workout in progress is unaffected either way.
   const [tab, setTab] = useState('sessions');
   const { t, lang } = useLanguage();
-  const [weekPresence, setWeekPresence] = useState({});
   const [showAdd, setShowAdd] = useState(false);
   const [openActivity, setOpenActivity] = useState(null);
   const [finishingSession, setFinishingSession] = useState(false);
@@ -108,11 +97,6 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
     }
   }, [activities, loadExercises]);
 
-  const weekDays = useMemo(() => {
-    const monday = mondayOfWeek(date);
-    return DAY_ORDER.map((key, i) => ({ key, date: shiftDateStr(monday, i) }));
-  }, [date]);
-
   // The session's elapsed time is a timestamp in `session` (not state inside ActivitySession)
   // because this screen renders either ActivitySession or ExerciseSession, never both — opening an
   // exercise unmounts ActivitySession, which would reset a local timer back to 0 on the way back.
@@ -131,18 +115,6 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
     };
   }, [session?.running, session?.runStartedAt]);
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all(weekDays.map((d) => api.getActivities(d.date).then((logs) => [d.date, logs.length > 0]))).then(
-      (pairs) => {
-        if (cancelled) return;
-        setWeekPresence(Object.fromEntries(pairs));
-      }
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [weekDays]);
 
   const totalKcal = activities.reduce((s, a) => s + a.kcal, 0);
   const totalMin = activities.reduce((s, a) => s + a.duration_minutes, 0);
@@ -159,10 +131,6 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
     timeZone: 'UTC',
   }).format(new Date(`${date}T00:00:00Z`));
 
-  const WEEKDAY_LETTERS =
-    lang === 'en'
-      ? { mon: 'M', tue: 'T', wed: 'W', thu: 'T', fri: 'F', sat: 'S', sun: 'S' }
-      : { mon: 'L', tue: 'M', wed: 'M', thu: 'J', fri: 'V', sat: 'S', sun: 'D' };
 
   if (sessionExercise) {
     const exIndex = session.exercises.findIndex((e) => e.id === sessionExercise.id);
@@ -335,23 +303,6 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
       {/* Les pas du jour : une dépense qui n'est pas une séance, mais qui pèse souvent plus lourd
           qu'elle sur le total de la journée. */}
       <DailySteps date={date} onChanged={refresh} />
-
-      <div className="activites-week-card">
-        <div className="activites-week-row">
-          {weekDays.map((d) => (
-            <button
-              type="button"
-              key={d.key}
-              className={d.date === date ? 'activites-week-day active' : 'activites-week-day'}
-              onClick={() => onDateChange(d.date)}
-            >
-              <span className="activites-week-letter">{WEEKDAY_LETTERS[d.key]}</span>
-              <span className="activites-week-number">{Number(d.date.slice(8, 10))}</span>
-              <i className={weekPresence[d.date] ? 'activites-week-dot' : 'activites-week-dot empty'} />
-            </button>
-          ))}
-        </div>
-      </div>
 
       <h2>{t('activityLog.today')}</h2>
       <div className="meal-card-list">

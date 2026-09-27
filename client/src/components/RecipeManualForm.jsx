@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Icon from './Icon';
 import { recipeWeight } from '../data/recipeWeight';
+import { matchesSearch } from '../data/searchText';
 import RecipeImport from './RecipeImport';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -226,7 +227,9 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
     }
   }
 
-  const filteredFoods = foods.filter((f) => f.name.toLowerCase().includes(pickerSearch.trim().toLowerCase()));
+  // Même recherche que dans le journal : insensible aux accents et aux ligatures, sans quoi
+  // « oeuf » ne trouve pas « Œuf » — et c'est précisément ce qu'on tape sur un clavier iPhone.
+  const filteredFoods = foods.filter((f) => matchesSearch(f.name, pickerSearch));
 
   return (
     <div>

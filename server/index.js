@@ -2625,6 +2625,10 @@ function recipeTotals(userId, recipeId) {
   return { title: recipe.title, totals, weightG: recipeWeight(ingredients, recipe.total_weight_g).grams };
 }
 
+function getRecipePortions(userId, recipeId) {
+  return db.prepare('SELECT portions FROM recipes WHERE id = ? AND user_id = ?').get(recipeId, userId)?.portions || 1;
+}
+
 /** Les mêmes, ramenées au gramme. Null si la recette n'a pas de poids connu. */
 function recipeMacrosPerGram(userId, recipeId) {
   const base = recipeTotals(userId, recipeId);
@@ -2744,14 +2748,11 @@ function insertFoodLog(userId, date, meal, source_type, source_id, quantity, uni
     // L'ancienne unité — un nombre de portions — reste acceptée pour ce qui l'envoie encore (un
     // plan de repas enregistré avant le changement, par exemple) : « 2 » ne veut pas dire la même
     // chose que « 2 g », et se tromper d'un facteur 400 serait pire que porter les deux cas.
-    let scale;
-    if (unit === 'g') {
-      const weight = recipeWeight(ingredients, recipe.total_weight_g);
-      if (!weight.grams) throw new Error('poids de la recette inconnu');
-      scale = qty / weight.grams;
-    } else {
-      scale = qty / (recipe.portions || 1);
-    }
+    // Faute de poids calculable — une recette dont aucun ingrédient ne se pèse (« 2 unités ») —
+    // on retombe sur la portion plutôt que de refuser l'ajout : mieux vaut l'ancienne unité que
+    // pas d'entrée du tout. Le client le sait et affiche « portion » dans ce cas.
+    const weight = recipeWeight(ingredients, recipe.total_weight_g);
+    const scale = unit === 'g' && weight.grams ? qty / weight.grams : qty / (recipe.portions || 1);
     const excluded = new Set(Array.isArray(adjustments?.excluded) ? adjustments.excluded : []);
     const overrides = adjustments?.overrides && typeof adjustments.overrides === 'object' ? adjustments.overrides : {};
 
@@ -4107,14 +4108,16 @@ function macrosForSource(userId, source_type, source_id, quantity) {
     };
   }
   if (source_type === 'recipe') {
-    const perGram = recipeMacrosPerGram(userId, source_id);
-    if (!perGram) return null;
+    const base = recipeTotals(userId, source_id);
+    if (!base) return null;
+    // Sans poids, la quantité est un nombre de portions : le total divisé par les portions.
+    const per = base.weightG ? 1 / base.weightG : 1 / (getRecipePortions(userId, source_id) || 1);
     return {
-      label: perGram.title,
-      kcal: perGram.kcal * qty,
-      protein: perGram.protein * qty,
-      carbs: perGram.carbs * qty,
-      fat: perGram.fat * qty,
+      label: base.title,
+      kcal: base.totals.kcal * per * qty,
+      protein: base.totals.protein * per * qty,
+      carbs: base.totals.carbs * per * qty,
+      fat: base.totals.fat * per * qty,
     };
   }
   return null;

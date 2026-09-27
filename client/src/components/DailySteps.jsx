@@ -3,10 +3,9 @@ import { api } from '../api';
 import Icon from './Icon';
 import { useLanguage } from '../i18n/LanguageContext';
 
-// Les paliers du stepper. Cent pas ne se sentent pas ; mille, si — et c'est l'ordre de grandeur
-// auquel on se souvient de sa journée (« j'ai dû faire dans les 8 000 »).
+// Le palier du stepper. Cent pas ne se sentent pas ; cinq cents, si — et c'est l'ordre de
+// grandeur auquel on se souvient de sa journée (« j'ai dû faire dans les 8 000 »).
 const STEP = 500;
-const BIG_STEP = 2000;
 
 /**
  * Les pas du jour, et ce qu'ils changent à la dépense.
@@ -53,12 +52,6 @@ export default function DailySteps({ date, onChanged }) {
     scheduleSave(next);
   }
 
-  async function clear() {
-    clearTimeout(saveTimer.current);
-    await api.clearSteps(date);
-    await refresh();
-    onChanged?.();
-  }
 
   if (!data) return null;
 
@@ -78,11 +71,6 @@ export default function DailySteps({ date, onChanged }) {
             {data.logged ? t('steps.logged') : t('steps.usingAverage').replace('{value}', data.defaultSteps ?? 0)}
           </div>
         </div>
-        {data.logged && (
-          <button type="button" className="entry-icon-btn" onClick={clear} aria-label={t('steps.clear')}>
-            <Icon name="rotate-ccw" size={16} />
-          </button>
-        )}
       </div>
 
       <div className="qty-stepper-row">
@@ -95,15 +83,6 @@ export default function DailySteps({ date, onChanged }) {
         </div>
         <button type="button" className="weight-plus-btn qty-stepper-plus" onClick={() => adjust(STEP)}>
           <Icon name="plus" size={18} />
-        </button>
-      </div>
-
-      <div className="type-list-row daily-steps-jumps">
-        <button type="button" className="type-pill" onClick={() => adjust(-BIG_STEP)}>
-          −{BIG_STEP.toLocaleString('fr-FR')}
-        </button>
-        <button type="button" className="type-pill" onClick={() => adjust(BIG_STEP)}>
-          +{BIG_STEP.toLocaleString('fr-FR')}
         </button>
       </div>
 
