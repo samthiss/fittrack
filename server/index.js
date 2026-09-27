@@ -15,7 +15,7 @@ import { parseFoodPhoto } from './foodPhotoParse.js';
 import { buildMicroList, MICRO_REFERENCE, NUTRIENT_SUGGESTIONS, SUPPLEMENT_SUGGESTIONS, hasDailyGoal, COMMON_FOODS } from './nutrientReference.js';
 import { estimateMissingNutrients, estimateNutrientsForFood } from './nutrientEstimation.js';
 import { classifyFoodsBatch, classifyFood, classifyIngredientsBatch } from './microbiomeClassification.js';
-import { computeTdee, computeBmr, BMR_METHODS, ageFromBirthdate } from './tdee.js';
+import { computeTdee, computeBmr, neatFromSteps, BMR_METHODS, ageFromBirthdate } from './tdee.js';
 import { grossKcalPerHour, netKcalPerHour } from './activityMets.js';
 import { bandFor, categoryFor, suggestedGoal, trend as vo2maxTrend } from './vo2maxReference.js';
 import { computeEnergyBalance as energyBalanceFor } from './energyBalance.js';
@@ -498,8 +498,15 @@ function durationFromDistance(userId, type, distanceM) {
   return (Number(distanceM) / 100) * setting.sec_per_100m / 60;
 }
 
+const stepsForDate = db.prepare('SELECT steps FROM step_logs WHERE user_id = ? AND date = ?');
+
 function computeSummary(userId, date, profileOverride) {
-  const profile = profileOverride || getProfile(userId);
+  const base = profileOverride || getProfile(userId);
+  // Les pas saisis pour ce jour-là remplacent la moyenne du profil : la NEAT est la part du TDEE
+  // qui bouge le plus d'un jour à l'autre, et la lisser sur une moyenne efface justement ce qu'on
+  // cherche à voir.
+  const logged = stepsForDate.get(userId, date);
+  const profile = logged ? { ...base, steps_per_day: logged.steps } : base;
   const logs = db
     .prepare('SELECT * FROM activity_logs WHERE user_id = ? AND date = ? ORDER BY id')
     .all(userId, date);
@@ -580,6 +587,56 @@ const lastEntryByType = db.prepare(
     WHERE user_id = ? AND protocol IS NULL
       AND id IN (SELECT MAX(id) FROM activity_logs WHERE user_id = ? AND protocol IS NULL GROUP BY type)`
 );
+
+// --- Pas du jour ---
+// Saisis à la main, un chiffre par jour. Le profil garde sa moyenne comme valeur de repli, donc
+// un jour non renseigné continue de compter comme avant.
+const MAX_STEPS = 100000;
+
+app.get('/api/steps', (req, res) => {
+  const date = req.query.date || todayStr();
+  const row = stepsForDate.get(req.userId, date);
+  const profile = getProfile(req.userId);
+  res.json({
+    date,
+    steps: row ? row.steps : null,
+    logged: !!row,
+    // Ce qui s'applique faute de saisie, et ce qu'un pas vaut en calories : sans ça, le chiffre
+    // ne dit rien de ce qu'il change. La NEAT est linéaire en nombre de pas, donc un seul
+    // coefficient suffit au client pour suivre le stepper sans rappeler le serveur.
+    defaultSteps: profile.steps_per_day ?? null,
+    kcalPerStep: neatFromSteps(1, profile.weight_kg),
+    neatKcal: Math.round(neatFromSteps(row ? row.steps : profile.steps_per_day, profile.weight_kg)),
+  });
+});
+
+app.put('/api/steps', (req, res) => {
+  const date = req.body.date || todayStr();
+  const steps = Number(req.body.steps);
+  if (!Number.isFinite(steps) || steps < 0 || steps > MAX_STEPS) {
+    return res.status(400).json({ error: 'steps invalide' });
+  }
+  db.prepare(
+    `INSERT INTO step_logs (user_id, date, steps) VALUES (?, ?, ?)
+     ON CONFLICT(user_id, date) DO UPDATE SET steps = excluded.steps`
+  ).run(req.userId, date, Math.round(steps));
+  const profile = getProfile(req.userId);
+  res.json({
+    date,
+    steps: Math.round(steps),
+    logged: true,
+    defaultSteps: profile.steps_per_day ?? null,
+    kcalPerStep: neatFromSteps(1, profile.weight_kg),
+    neatKcal: Math.round(neatFromSteps(Math.round(steps), profile.weight_kg)),
+  });
+});
+
+// Effacer la saisie rend la main à la moyenne du profil plutôt que de poser un zéro — un jour
+// sans chiffre n'est pas un jour sans marcher.
+app.delete('/api/steps', (req, res) => {
+  db.prepare('DELETE FROM step_logs WHERE user_id = ? AND date = ?').run(req.userId, req.query.date || todayStr());
+  res.status(204).end();
+});
 
 app.get('/api/activity-types', (req, res) => {
   // Les taux sont calculés ici et pas dans le navigateur : l'estimation affichée avant

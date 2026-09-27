@@ -266,6 +266,19 @@ db.exec(`
   -- HealthKit, et une valeur saisie de temps en temps suffit pour ce qu'on en fait — suivre une
   -- tendance sur des mois. Une seule valeur par jour : deux mesures le même jour sont deux
   -- estimations de la même chose, pas deux points de suivi.
+  -- Les pas du jour, relevés à la main. Le profil porte une moyenne (« 7 500 pas par jour »)
+  -- qui sert de repère tant que rien n'est saisi ; dès qu'un jour a son chiffre, c'est lui qui
+  -- compte, parce qu'une journée de bureau et une journée de randonnée n'ont pas la même NEAT et
+  -- que les moyenner revient à se tromper deux fois.
+  CREATE TABLE IF NOT EXISTS step_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    steps INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, date)
+  );
+
   CREATE TABLE IF NOT EXISTS vo2max_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,

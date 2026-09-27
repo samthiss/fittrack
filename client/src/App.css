@@ -6170,3 +6170,29 @@ h1 {
   line-height: 1.4;
   color: var(--text-muted);
 }
+
+/* ── Pas du jour ────────────────────────────────────────────────────────── */
+
+.daily-steps-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 10px;
+}
+
+.daily-steps-jumps {
+  justify-content: center;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+/* L'écart avec la journée telle qu'elle comptait sans la saisie : c'est lui qui répond à
+   « qu'est-ce que ça change ? », pas le total. */
+.daily-steps-delta {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.daily-steps-delta.up { color: var(--success); }
+.daily-steps-delta.down { color: var(--text-muted); }

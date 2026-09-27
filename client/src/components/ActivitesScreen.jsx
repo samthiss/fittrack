@@ -8,6 +8,7 @@ import SessionFinish from './SessionFinish';
 import ExerciseSession from './ExerciseSession';
 import AddActivityModal from './AddActivityModal';
 import GymChecklist from './GymChecklist';
+import DailySteps from './DailySteps';
 import Vo2maxScreen from './Vo2maxScreen';
 import { useLanguage } from '../i18n/LanguageContext';
 import { computeSessionElapsed } from '../data/sessionTiming';
@@ -330,6 +331,10 @@ export default function ActivitesScreen({ date, onDateChange, activityTypes, act
           </div>
         </div>
       </div>
+
+      {/* Les pas du jour : une dépense qui n'est pas une séance, mais qui pèse souvent plus lourd
+          qu'elle sur le total de la journée. */}
+      <DailySteps date={date} onChanged={refresh} />
 
       <div className="activites-week-card">
         <div className="activites-week-row">
