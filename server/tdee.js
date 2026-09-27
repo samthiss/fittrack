@@ -63,16 +63,45 @@ export function computeBmr(profile, today = new Date()) {
 }
 
 // NEAT — everything burned outside deliberate exercise, which for a phone-less tracker means the
-// step count. 0.04 kcal/step is the usual rule of thumb at 70 kg and scales with body weight.
-// The step count stays manual for now; importing it from Apple Santé would only change where this
-// number comes from, not the formula.
-export const KCAL_PER_STEP_AT_70KG = 0.04;
+// step count.
+//
+// Elle est comptée NETTE, comme toute dépense de l'app : le métabolisme de base de ces minutes-là
+// est déjà dans le BMR des 24 heures, et le laisser ici le compterait deux fois. C'est ce qui
+// distingue ce calcul de la règle empirique qu'il remplace (0,04 kcal/pas, une valeur brute), et
+// ce qui le met d'accord avec la marche loguée comme activité : les mêmes dix mille pas coûtaient
+// 423 kcal ici et 279 là-bas.
+//
+// La chaîne est celle des activités : les pas donnent une distance, la distance une durée, et la
+// durée se facture au MET de la marche, moins le repos.
 export const DEFAULT_STEPS_PER_DAY = 7500;
 
-export function neatFromSteps(stepsPerDay, weightKg) {
+// La longueur de pas se déduit de la taille (≈ 0,415 × taille), faute de quoi 75 cm — la moyenne
+// adulte. Mesurer la foulée de quelqu'un de 1,60 m avec celle de quelqu'un de 1,90 m fait 20 %
+// d'écart sur la distance, donc autant sur la dépense.
+const STRIDE_RATIO = 0.415;
+const DEFAULT_STRIDE_M = 0.75;
+// Une allure de marche ordinaire, celle d'un déplacement quotidien — pas une sortie sportive.
+const WALK_SPEED_KMH = 4.8;
+const WALK_MET = 3.5;
+
+export function strideMeters(heightCm) {
+  return heightCm > 0 ? (heightCm * STRIDE_RATIO) / 100 : DEFAULT_STRIDE_M;
+}
+
+/**
+ * Ce que les pas d'une journée ajoutent à la dépense, le repos déduit.
+ *
+ * `restingKcalPerHour` vient du métabolisme de base du profil (voir computeBmr) : c'est lui qui
+ * fait que deux personnes ne paient pas le même prix pour les mêmes dix mille pas.
+ */
+export function neatFromSteps(stepsPerDay, profile = {}) {
   const steps = stepsPerDay ?? DEFAULT_STEPS_PER_DAY;
   if (!steps || steps < 0) return 0;
-  return steps * KCAL_PER_STEP_AT_70KG * ((weightKg || 70) / 70);
+  const restingPerHour = (profile.restingKcalPerHour ?? 0) || 0;
+  if (!restingPerHour) return 0;
+  const km = (steps * strideMeters(profile.height_cm)) / 1000;
+  const hours = km / WALK_SPEED_KMH;
+  return (WALK_MET - 1) * restingPerHour * hours;
 }
 
 // TEF — the energy spent digesting. Per-macro thermic effect (protein is expensive to process,
@@ -116,7 +145,7 @@ export function tefFor(baseKcal, factor, { goal, goalKcal = 0, manualTargetKcal 
 // a rest day contributes 0, a long session raises the day's TDEE on its own.
 export function computeTdee(profile, { activitiesKcal = 0, today = new Date() } = {}) {
   const bmr = computeBmr(profile, today);
-  const neat = neatFromSteps(profile.steps_per_day, profile.weight_kg);
+  const neat = neatFromSteps(profile.steps_per_day, { height_cm: profile.height_cm, restingKcalPerHour: bmr.value / 24 });
   const eat = activitiesKcal;
   const factor = tefFactor(profile);
   const tef = tefFor(bmr.value + neat + eat, factor, {

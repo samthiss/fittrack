@@ -593,6 +593,12 @@ const lastEntryByType = db.prepare(
 // un jour non renseigné continue de compter comme avant.
 const MAX_STEPS = 100000;
 
+// Ce dont le calcul des pas a besoin : la taille pour la longueur de foulée, et le repos horaire
+// pour le prix de la marche. Les deux sortent du profil, comme partout ailleurs.
+function stepProfile(profile) {
+  return { height_cm: profile.height_cm, restingKcalPerHour: computeBmr(profile).value / 24 };
+}
+
 app.get('/api/steps', (req, res) => {
   const date = req.query.date || todayStr();
   const row = stepsForDate.get(req.userId, date);
@@ -605,8 +611,8 @@ app.get('/api/steps', (req, res) => {
     // ne dit rien de ce qu'il change. La NEAT est linéaire en nombre de pas, donc un seul
     // coefficient suffit au client pour suivre le stepper sans rappeler le serveur.
     defaultSteps: profile.steps_per_day ?? null,
-    kcalPerStep: neatFromSteps(1, profile.weight_kg),
-    neatKcal: Math.round(neatFromSteps(row ? row.steps : profile.steps_per_day, profile.weight_kg)),
+    kcalPerStep: neatFromSteps(1, stepProfile(profile)),
+    neatKcal: Math.round(neatFromSteps(row ? row.steps : profile.steps_per_day, stepProfile(profile))),
   });
 });
 
@@ -626,8 +632,8 @@ app.put('/api/steps', (req, res) => {
     steps: Math.round(steps),
     logged: true,
     defaultSteps: profile.steps_per_day ?? null,
-    kcalPerStep: neatFromSteps(1, profile.weight_kg),
-    neatKcal: Math.round(neatFromSteps(Math.round(steps), profile.weight_kg)),
+    kcalPerStep: neatFromSteps(1, stepProfile(profile)),
+    neatKcal: Math.round(neatFromSteps(Math.round(steps), stepProfile(profile))),
   });
 });
 

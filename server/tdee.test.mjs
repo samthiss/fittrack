@@ -70,11 +70,23 @@ test('a method whose inputs are missing falls back instead of collapsing to zero
   assert.equal(bare.value, 1500);
 });
 
-test('NEAT scales with steps and body weight, and defaults rather than zeroing out', () => {
-  assert.equal(neatFromSteps(10000, 70), 400);
-  assert.ok(neatFromSteps(10000, 90) > neatFromSteps(10000, 70));
-  assert.equal(neatFromSteps(0, 70), 0);
-  assert.equal(neatFromSteps(null, 70), 7500 * 0.04); // unset profile -> DEFAULT_STEPS_PER_DAY
+test('NEAT is net, personal, and defaults rather than zeroing out', () => {
+  // 10 000 pas à 1,80 m : 0,747 m de foulée → 7,47 km → 1,56 h à 4,8 km/h → (3,5 − 1) × 71,5 =
+  // 179 kcal/h → 278 kcal. La vieille règle empirique en donnait 423, parce qu'elle comptait le
+  // repos une deuxième fois.
+  const moi = { height_cm: 180, restingKcalPerHour: 71.5 };
+  assert.equal(Math.round(neatFromSteps(10000, moi)), 278);
+
+  // La foulée suit la taille : même nombre de pas, moins de distance donc moins de dépense.
+  assert.ok(neatFromSteps(10000, { ...moi, height_cm: 160 }) < neatFromSteps(10000, moi));
+  // Le prix de l'heure suit le métabolisme de base.
+  assert.ok(neatFromSteps(10000, { ...moi, restingKcalPerHour: 55 }) < neatFromSteps(10000, moi));
+
+  assert.equal(neatFromSteps(0, moi), 0);
+  // Profil sans repos exploitable : zéro plutôt qu'un nombre inventé.
+  assert.equal(neatFromSteps(10000, {}), 0);
+  // Pas de compte de pas : la moyenne par défaut, pas zéro.
+  assert.equal(neatFromSteps(null, moi), neatFromSteps(7500, moi));
 });
 
 test('TEF is macro-weighted: more protein means a bigger thermic effect', () => {
