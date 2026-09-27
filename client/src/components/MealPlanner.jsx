@@ -56,9 +56,10 @@ function formatDayLong(dateStr, lang) {
   return fmt.format(d);
 }
 
-function recipeKcalPerPortion(recipe) {
+function recipeKcalPer100g(recipe) {
   const total = (recipe.ingredients || []).reduce((s, i) => s + (Number(i.kcal) || 0), 0);
-  return total / (recipe.portions || 1);
+  // Pour 100 g : la recette s'ajoute au gramme, donc c'est l'unité qui se compare.
+  return recipe.weight_g ? (total * 100) / recipe.weight_g : 0;
 }
 
 // A dish is "recurring" for a meal when it appears on every single day of the week — a meal
@@ -492,7 +493,7 @@ export default function MealPlanner({ recipes, foods }) {
                       </span>
                       <div className="plan-pick-body">
                         <div className="plan-pick-name">{r.title}</div>
-                        <div className="plan-pick-sub">{Math.round(recipeKcalPerPortion(r))} kcal</div>
+                        <div className="plan-pick-sub">{Math.round(recipeKcalPer100g(r))} kcal</div>
                       </div>
                       <button
                         type="button"

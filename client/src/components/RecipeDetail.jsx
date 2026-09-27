@@ -37,18 +37,22 @@ export default function RecipeDetail({
   const { t } = useLanguage();
   const [showAdd, setShowAdd] = useState(false);
   const [addMeal, setAddMeal] = useState('lunch');
-  const [addPortions, setAddPortions] = useState(recipe.portions || 1);
+  // La recette s'ajoute en grammes. Par défaut, ce qu'elle pèse en entier — c'est le point de
+  // départ le plus lisible, et le stepper descend de là.
+  const [addGrams, setAddGrams] = useState(recipe.weight_g || 100);
   const [saving, setSaving] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
 
   const totals = recipeTotals(recipe);
-  const p = recipe.portions || 1;
+  // Les valeurs affichées le sont pour 100 g : la seule unité qui se compare à un aliment, et
+  // celle dans laquelle la recette est ajoutée.
+  const per100 = recipe.weight_g ? 100 / recipe.weight_g : 0;
 
   async function handleConfirmAdd() {
     if (saving) return;
     setSaving(true);
     try {
-      await onQuickAdd(addMeal, recipe.id, addPortions);
+      await onQuickAdd(addMeal, recipe.id, addGrams);
       setShowAdd(false);
     } finally {
       setSaving(false);
@@ -95,27 +99,27 @@ export default function RecipeDetail({
             </span>
           )}
           <span>
-            <Icon name="users" size={15} />
-            {p} {t('addFood.portion')}
+            <Icon name="scale" size={15} />
+            {recipe.weight_g ? `${recipe.weight_g} g` : '—'}
           </span>
           <span>
             <Icon name="flame" size={15} />
-            {Math.round(totals.kcal / p)} kcal
+            {Math.round(totals.kcal * per100)} kcal / 100 g
           </span>
         </div>
       </div>
 
       <div className="portion-tile-row" style={{ marginTop: 16 }}>
         <div className="portion-tile">
-          <b style={{ color: 'var(--macro-protein)' }}>{Math.round(totals.protein / p)}g</b>
+          <b style={{ color: 'var(--macro-protein)' }}>{Math.round(totals.protein * per100)}g</b>
           <span>{t('nutrient.protein')}</span>
         </div>
         <div className="portion-tile">
-          <b style={{ color: 'var(--macro-carb)' }}>{Math.round(totals.carbs / p)}g</b>
+          <b style={{ color: 'var(--macro-carb)' }}>{Math.round(totals.carbs * per100)}g</b>
           <span>{t('nutrient.carbs')}</span>
         </div>
         <div className="portion-tile">
-          <b style={{ color: 'var(--macro-fat)' }}>{Math.round(totals.fat / p)}g</b>
+          <b style={{ color: 'var(--macro-fat)' }}>{Math.round(totals.fat * per100)}g</b>
           <span>{t('nutrient.fat')}</span>
         </div>
       </div>
@@ -233,32 +237,32 @@ export default function RecipeDetail({
 
             <h4 className="section-label">{t('addFood.quantity')}</h4>
             <div className="qty-stepper-row">
-              <button type="button" className="weight-minus-btn" onClick={() => setAddPortions((v) => Math.max(0.5, v - 0.5))}>
+              <button type="button" className="weight-minus-btn" onClick={() => setAddGrams((v) => Math.max(10, v - 10))}>
                 <Icon name="minus" size={18} />
               </button>
               <div className="qty-stepper-value">
-                <span className="weight-value">{addPortions}</span> <span className="rate">{t('addFood.portion')}</span>
+                <span className="weight-value">{addGrams}</span> <span className="rate">g</span>
               </div>
-              <button type="button" className="weight-plus-btn qty-stepper-plus" onClick={() => setAddPortions((v) => v + 0.5)}>
+              <button type="button" className="weight-plus-btn qty-stepper-plus" onClick={() => setAddGrams((v) => v + 10)}>
                 <Icon name="plus" size={18} />
               </button>
             </div>
 
             <div className="portion-tile-row" style={{ marginTop: 16 }}>
               <div className="portion-tile">
-                <b>{Math.round((totals.kcal / p) * addPortions)}</b>
+                <b>{Math.round(totals.kcal * per100 * (addGrams / 100))}</b>
                 <span>kcal</span>
               </div>
               <div className="portion-tile">
-                <b style={{ color: 'var(--macro-protein)' }}>{Math.round((totals.protein / p) * addPortions)}</b>
+                <b style={{ color: 'var(--macro-protein)' }}>{Math.round(totals.protein * per100 * (addGrams / 100))}</b>
                 <span>{t('nutrient.protein')}</span>
               </div>
               <div className="portion-tile">
-                <b style={{ color: 'var(--macro-carb)' }}>{Math.round((totals.carbs / p) * addPortions)}</b>
+                <b style={{ color: 'var(--macro-carb)' }}>{Math.round(totals.carbs * per100 * (addGrams / 100))}</b>
                 <span>{t('nutrient.carbs')}</span>
               </div>
               <div className="portion-tile">
-                <b style={{ color: 'var(--macro-fat)' }}>{Math.round((totals.fat / p) * addPortions)}</b>
+                <b style={{ color: 'var(--macro-fat)' }}>{Math.round(totals.fat * per100 * (addGrams / 100))}</b>
                 <span>{t('nutrient.fat')}</span>
               </div>
             </div>

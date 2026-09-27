@@ -7,7 +7,7 @@ import { findRecurringItems } from './MealPlanner';
 import { useLanguage } from '../i18n/LanguageContext';
 import Icon from './Icon';
 
-function recipeMacrosPerPortion(recipe) {
+function recipeMacrosPer100g(recipe) {
   const totals = recipe.ingredients.reduce(
     (acc, i) => {
       acc.kcal += Number(i.kcal) || 0;
@@ -18,12 +18,14 @@ function recipeMacrosPerPortion(recipe) {
     },
     { kcal: 0, protein: 0, carbs: 0, fat: 0 }
   );
-  const portions = recipe.portions || 1;
+  // Pour 100 g : une recette s'ajoute au gramme comme un aliment, donc elle s'annonce dans la
+  // même unité — sans quoi la liste mélangerait deux échelles sans le dire.
+  const per100 = recipe.weight_g ? 100 / recipe.weight_g : 0;
   return {
-    kcal: totals.kcal / portions,
-    protein: totals.protein / portions,
-    carbs: totals.carbs / portions,
-    fat: totals.fat / portions,
+    kcal: totals.kcal * per100,
+    protein: totals.protein * per100,
+    carbs: totals.carbs * per100,
+    fat: totals.fat * per100,
   };
 }
 
@@ -134,13 +136,13 @@ export default function AddFoodToMeal({
       macros: { protein: f.protein_per_100g, carbs: f.carbs_per_100g, fat: f.fat_per_100g, fiber: f.fiber_per_100g },
     }));
     const recipeItems = recipes.map((r) => {
-      const perPortion = recipeMacrosPerPortion(r);
+      const per100 = recipeMacrosPer100g(r);
       return {
         type: 'recipe',
         id: r.id,
         name: r.title,
-        subtitle: '1 portion',
-        macros: { protein: perPortion.protein, carbs: perPortion.carbs, fat: perPortion.fat, fiber: perPortion.fiber },
+        subtitle: `${Math.round(per100.kcal)} kcal / 100 g`,
+        macros: { protein: per100.protein, carbs: per100.carbs, fat: per100.fat, fiber: per100.fiber },
       };
     });
     return [...foodItems, ...recipeItems];
@@ -343,7 +345,7 @@ export default function AddFoodToMeal({
       }
     }
     setViewingItem(item);
-    setModalQty(item.type === 'food' ? '100' : '1');
+    setModalQty('100');
     setModalUnit('g');
     // Always starts unchecked — it's a one-shot "mark this as recurring right now" action, not
     // a reflection of whatever the current status happens to be.
@@ -352,14 +354,14 @@ export default function AddFoodToMeal({
     setIngredientOverrides({});
     setSavingModal(false);
     // Default quantity is more useful as whatever amount was last logged for this same meal
-    // (e.g. Flexpresso is always 30g at breakfast, a recipe is always 2 portions at dinner) —
-    // falls back to 100g / 1 portion the first time a food/recipe is logged for that meal.
+    // (e.g. Flexpresso is always 30 g at breakfast, a cheesecake always 250 g at snack) — falls
+    // back to 100 g the first time a food or recipe is logged for that meal.
     if (!mealKey) return;
     try {
       const { quantity } = await api.getLastQuantity(item.type, item.id, mealKey);
       if (quantity) setModalQty(String(quantity));
     } catch {
-      // keep the 100g / 1 portion default if the lookup fails
+      // keep the 100 g default if the lookup fails
     }
   }
 
@@ -384,7 +386,7 @@ export default function AddFoodToMeal({
       setViewingItem(null);
       // Adding a recipe used to push straight on into its ingredient list, so a specific
       // ingredient could be trimmed before the add was really "done". It read as the app asking
-      // for the portions twice — that screen opens with the same portions stepper — so the add now
+      // for the quantity twice — that screen opens with the same stepper — so the add now
       // ends here. Tapping the recipe in the meal still opens it for anyone who wants to adjust.
     } finally {
       setSavingModal(false);
@@ -416,13 +418,14 @@ export default function AddFoodToMeal({
     }
     const recipe = recipes.find((r) => r.id === viewingItem.id);
     if (!recipe) return null;
-    const perPortion = recipeMacrosPerPortion(recipe);
+    const per100 = recipeMacrosPer100g(recipe);
+    const factor = qty / 100;
     return {
-      kcal: perPortion.kcal * qty,
-      protein: perPortion.protein * qty,
-      carbs: perPortion.carbs * qty,
-      fat: perPortion.fat * qty,
-      fiber: (perPortion.fiber || 0) * qty,
+      kcal: per100.kcal * factor,
+      protein: per100.protein * factor,
+      carbs: per100.carbs * factor,
+      fat: per100.fat * factor,
+      fiber: (per100.fiber || 0) * factor,
     };
   }, [viewingItem, modalQty, foods, recipes]);
 
@@ -997,18 +1000,18 @@ export default function AddFoodToMeal({
               <button
                 type="button"
                 className="weight-minus-btn"
-                onClick={() => setModalQty(String(Math.max(viewingItem.type === 'food' ? 5 : 0.5, Number(modalQty) - (viewingItem.type === 'food' ? 10 : 0.5))))}
+                onClick={() => setModalQty(String(Math.max(5, Number(modalQty) - 10)))}
               >
                 <Icon name="minus" size={18} />
               </button>
               <div className="qty-stepper-value">
                 <span className="weight-value">{modalQty}</span>{' '}
-                <span className="rate">{viewingItem.type === 'food' ? modalUnit : t('addFood.portion')}</span>
+                <span className="rate">{viewingItem.type === 'food' ? modalUnit : 'g'}</span>
               </div>
               <button
                 type="button"
                 className="weight-plus-btn qty-stepper-plus"
-                onClick={() => setModalQty(String(Number(modalQty) + (viewingItem.type === 'food' ? 10 : 0.5)))}
+                onClick={() => setModalQty(String(Number(modalQty) + 10))}
               >
                 <Icon name="plus" size={18} />
               </button>
@@ -1062,7 +1065,9 @@ export default function AddFoodToMeal({
             {viewingItem.type === 'recipe' && (() => {
               const recipe = recipes.find((r) => r.id === viewingItem.id);
               if (!recipe) return null;
-              const scale = (Number(modalQty) || 0) / (recipe.portions || 1);
+              // Les grammes demandés rapportés au poids de la recette : chaque ingrédient est
+              // mis à cette échelle, donc « 250 g » se répartit dans les proportions du plat.
+              const scale = recipe.weight_g ? (Number(modalQty) || 0) / recipe.weight_g : 0;
               return (
                 <>
                   <h4 className="section-label">

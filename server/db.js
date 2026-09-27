@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { recipeWeight } from './recipeWeight.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -669,6 +670,30 @@ function addColumnIfMissing(table, columnName, columnDef) {
 // La distance saisie, gardée telle quelle pour l'afficher — « 1000 m » dit quelque chose que
 // « 4 min » ne dit pas, même si les deux décrivent le même effort.
 addColumnIfMissing('activity_logs', 'distance_m', 'distance_m REAL');
+
+// Le poids de la recette entière, pesé après cuisson. Facultatif : sans lui, le poids se déduit
+// de la somme des ingrédients — ce qui ignore l'eau perdue au four (voir recipeWeight.js).
+addColumnIfMissing('recipes', 'total_weight_g', 'total_weight_g REAL');
+
+// La quantité d'une entrée de plan était un nombre de portions pour une recette ; c'est
+// maintenant des grammes. La colonne dit dans quelle unité chaque ligne est écrite, ce qui rend
+// la conversion ci-dessous rejouable sans risque et lève toute ambiguïté ensuite : « 2 » et
+// « 2 g » ne décrivent pas le même repas, et se tromper d'un facteur 400 passerait inaperçu.
+addColumnIfMissing('meal_plan_entries', 'quantity_unit', "quantity_unit TEXT NOT NULL DEFAULT 'portion'");
+
+for (const entry of db
+  .prepare("SELECT id, source_id, quantity FROM meal_plan_entries WHERE source_type = 'recipe' AND quantity_unit = 'portion'")
+  .all()) {
+  const recipe = db.prepare('SELECT ingredients, portions, total_weight_g FROM recipes WHERE id = ?').get(entry.source_id);
+  if (!recipe) continue;
+  const weight = recipeWeight(JSON.parse(recipe.ingredients), recipe.total_weight_g);
+  if (!weight.grams) continue;
+  const grams = (entry.quantity / (recipe.portions || 1)) * weight.grams;
+  db.prepare("UPDATE meal_plan_entries SET quantity = ?, quantity_unit = 'g' WHERE id = ?").run(
+    Math.round(grams),
+    entry.id
+  );
+}
 // Quel protocole d'intervalles a été choisi (4 × 4, 20/40 s…). Le libellé seul ne suffit pas :
 // il est modifiable par l'utilisateur, alors que c'est cette clé qui permet de rejouer la séance
 // phase par phase quand il l'ouvre pour la faire.

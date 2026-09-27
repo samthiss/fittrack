@@ -12,14 +12,16 @@ function getCategoryGroups(t) {
   ];
 }
 
-function recipeKcalPerPortion(recipe) {
+function recipeKcalPer100g(recipe) {
   const total = recipe.ingredients.reduce((s, i) => s + (Number(i.kcal) || 0), 0);
-  return total / (recipe.portions || 1);
+  // Pour 100 g : la recette s'ajoute au gramme, donc c'est l'unité qui se compare.
+  return recipe.weight_g ? (total * 100) / recipe.weight_g : 0;
 }
 
-function recipeProteinPerPortion(recipe) {
+function recipeProteinPer100g(recipe) {
   const total = recipe.ingredients.reduce((s, i) => s + (Number(i.proteines) || 0), 0);
-  return total / (recipe.portions || 1);
+  // Pour 100 g : la recette s'ajoute au gramme, donc c'est l'unité qui se compare.
+  return recipe.weight_g ? (total * 100) / recipe.weight_g : 0;
 }
 
 function RecipeRow({ recipe, onOpen, onToggleFavorite }) {
@@ -32,12 +34,13 @@ function RecipeRow({ recipe, onOpen, onToggleFavorite }) {
         <div className="recipe-row-title">{recipe.title}</div>
         <div className="recipe-row-stats">
           <span>
-            <b>{Math.round(recipeKcalPerPortion(recipe))}</b> kcal
+            <b>{Math.round(recipeKcalPer100g(recipe))}</b> kcal / 100 g
           </span>
           <span>
             <i style={{ background: 'var(--macro-protein)' }} />
-            {Math.round(recipeProteinPerPortion(recipe))}g
+            {Math.round(recipeProteinPer100g(recipe))}g
           </span>
+          {recipe.weight_g && <span>{recipe.weight_g} g</span>}
         </div>
       </div>
       <button
@@ -113,8 +116,8 @@ export default function RecipeList({
 
   function sortRecipes(list) {
     const sorted = [...list];
-    if (sortMode === 'kcal') sorted.sort((a, b) => recipeKcalPerPortion(a) - recipeKcalPerPortion(b));
-    else if (sortMode === 'protein') sorted.sort((a, b) => recipeProteinPerPortion(b) - recipeProteinPerPortion(a));
+    if (sortMode === 'kcal') sorted.sort((a, b) => recipeKcalPer100g(a) - recipeKcalPer100g(b));
+    else if (sortMode === 'protein') sorted.sort((a, b) => recipeProteinPer100g(b) - recipeProteinPer100g(a));
     return sorted;
   }
 

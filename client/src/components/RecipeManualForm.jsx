@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Icon from './Icon';
+import { recipeWeight } from '../data/recipeWeight';
 import RecipeImport from './RecipeImport';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -95,7 +96,9 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
   const [title, setTitle] = useState(initialRecipe?.title || '');
   const [description, setDescription] = useState(initialRecipe?.description || '');
   const [image, setImage] = useState(initialRecipe?.image || '');
-  const [portions, setPortions] = useState(initialRecipe?.portions || 4);
+  // Le poids pesé après cuisson, facultatif. Vide, le poids se déduit de la somme des
+  // ingrédients — ce qui ignore l'eau partie au four.
+  const [measuredWeight, setMeasuredWeight] = useState(initialRecipe?.total_weight_g || '');
   const [ingredients, setIngredients] = useState(initialRecipe?.ingredients || []);
   const [steps, setSteps] = useState(initialRecipe?.steps?.length ? initialRecipe.steps : ['']);
   const [status, setStatus] = useState(null);
@@ -118,7 +121,10 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
     },
     { kcal: 0, protein: 0, carbs: 0, fat: 0 }
   );
-  const p = Number(portions) || 1;
+  const weight = recipeWeight(ingredients, measuredWeight);
+  // Les macros s'affichent pour 100 g : c'est dans cette unité que la recette sera ajoutée au
+  // journal, et c'est la seule qui se compare à un aliment.
+  const per100 = weight.grams ? 100 / weight.grams : 0;
 
   // Picking a food drops straight into the quantity editor: the ingredient's own quantity is the
   // next thing anyone wants to set, and leaving it at a silent 100 g sent people to the "portions"
@@ -189,7 +195,8 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
         title: title.trim(),
         description: description.trim() || null,
         image: image.trim() || null,
-        portions: p,
+        portions: initialRecipe?.portions || 1,
+        total_weight_g: Number(measuredWeight) > 0 ? Number(measuredWeight) : null,
         ingredients: ingredients.map((i) => ({
           nom: i.nom,
           qte: Number(i.qte) || 0,
@@ -285,17 +292,33 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
         />
       </div>
 
-      <h4 className="section-label">{t('recipeManual.portions')}</h4>
-      <div className="qty-stepper-row">
-        <button type="button" className="weight-minus-btn" onClick={() => setPortions((v) => Math.max(1, Number(v) - 1))}>
-          <Icon name="minus" size={18} />
-        </button>
-        <div className="qty-stepper-value">
-          <span className="weight-value">{portions}</span> <span className="rate">{t('addFood.portion')}</span>
-        </div>
-        <button type="button" className="weight-plus-btn qty-stepper-plus" onClick={() => setPortions((v) => Number(v) + 1)}>
-          <Icon name="plus" size={18} />
-        </button>
+      <h4 className="section-label">{t('recipeManual.totalWeight')}</h4>
+      <div className="row">
+        <span className="name">
+          {weight.grams ? `${weight.grams} g` : '—'}
+          <div className="hint" style={{ padding: 0 }}>
+            {weight.measured
+              ? t('recipeManual.weightMeasured')
+              : weight.complete
+              ? t('recipeManual.weightSummed')
+              : t('recipeManual.weightPartial')}
+          </div>
+        </span>
+      </div>
+      {/* Le poids pesé se saisit après coup, une fois le plat sorti du four : c'est le seul qui
+          tienne compte de l'eau évaporée, et il l'emporte sur la somme. */}
+      <div className="search-input-row">
+        <Icon name="scale" size={18} color="var(--text-muted)" />
+        <input
+          type="number"
+          min="0"
+          className="search-input"
+          inputMode="decimal"
+          value={measuredWeight}
+          placeholder={t('recipeManual.weighedPlaceholder')}
+          onChange={(e) => setMeasuredWeight(e.target.value)}
+        />
+        <span className="rate">g</span>
       </div>
 
       <h4 className="section-label">{t('recipeManual.ingredients')}</h4>
@@ -340,22 +363,22 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
         {t('recipeManual.addStep')}
       </button>
 
-      <h4 className="section-label">{t('recipeManual.perPortionComputed')}</h4>
+      <h4 className="section-label">{t('recipeManual.per100gComputed')}</h4>
       <div className="portion-tile-row">
         <div className="portion-tile">
-          <b>{Math.round(totals.kcal / p)}</b>
+          <b>{Math.round(totals.kcal * per100)}</b>
           <span>kcal</span>
         </div>
         <div className="portion-tile">
-          <b style={{ color: 'var(--macro-protein)' }}>{Math.round(totals.protein / p)}</b>
+          <b style={{ color: 'var(--macro-protein)' }}>{Math.round(totals.protein * per100)}</b>
           <span>P</span>
         </div>
         <div className="portion-tile">
-          <b style={{ color: 'var(--macro-carb)' }}>{Math.round(totals.carbs / p)}</b>
+          <b style={{ color: 'var(--macro-carb)' }}>{Math.round(totals.carbs * per100)}</b>
           <span>G</span>
         </div>
         <div className="portion-tile">
-          <b style={{ color: 'var(--macro-fat)' }}>{Math.round(totals.fat / p)}</b>
+          <b style={{ color: 'var(--macro-fat)' }}>{Math.round(totals.fat * per100)}</b>
           <span>L</span>
         </div>
       </div>

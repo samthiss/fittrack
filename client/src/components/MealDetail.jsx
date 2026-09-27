@@ -206,7 +206,7 @@ export default function MealDetail({
   onAddEntry,
   onDeleteEntry,
   onUpdateEntry,
-  onSetRecipePortions,
+  onSetRecipeGrams,
   onDeleteRecipeGroup,
   onLookupBarcode,
   onSearchOnline,
@@ -223,7 +223,7 @@ export default function MealDetail({
   const [entryUnit, setEntryUnit] = useState('g');
   const [savingEntry, setSavingEntry] = useState(false);
   const [editingGroupId, setEditingGroupId] = useState(null);
-  const [groupPortions, setGroupPortions] = useState(1);
+  const [groupGrams, setGroupGrams] = useState(100);
   const [savingGroupPortions, setSavingGroupPortions] = useState(false);
   const [recurringKeys, setRecurringKeys] = useState(new Set());
   const swipeRef = useRef(null);
@@ -258,15 +258,15 @@ export default function MealDetail({
     for (const e of g.entries) await onDeleteEntry(e.id);
   }
 
-  // Logged recipe ingredients don't store the portions count directly (only each ingredient's
-  // already-scaled quantity), so it's recovered from the ratio between what's logged and what
-  // the recipe's own definition says for that same ingredient.
-  function currentPortionsForGroup(g, recipe) {
-    if (!recipe || g.entries.length === 0) return recipe?.portions || 1;
+  // Les lignes enregistrées ne portent pas la quantité de recette (seulement celle, déjà mise à
+  // l'échelle, de chaque ingrédient) : on la retrouve par le rapport entre ce qui est enregistré
+  // et ce que la recette dit du même ingrédient.
+  function currentGramsForGroup(g, recipe) {
+    if (!recipe || !recipe.weight_g || g.entries.length === 0) return recipe?.weight_g || 100;
     const defIngredient = recipe.ingredients.find((i) => i.nom === g.entries[0].label);
-    if (!defIngredient || !defIngredient.qte) return recipe.portions || 1;
+    if (!defIngredient || !defIngredient.qte) return recipe.weight_g;
     const ratio = g.entries[0].quantity / defIngredient.qte;
-    return Math.round(ratio * (recipe.portions || 1) * 100) / 100;
+    return Math.round(ratio * recipe.weight_g);
   }
 
   function openViewingEntry(e) {
@@ -290,21 +290,21 @@ export default function MealDetail({
 
   function openEditGroup(g, recipe) {
     setEditingGroupId(g.recipeId);
-    setGroupPortions(currentPortionsForGroup(g, recipe));
+    setGroupGrams(currentGramsForGroup(g, recipe));
   }
 
-  async function handleSaveGroupPortions(g, basePortions) {
-    if (savingGroupPortions || !groupPortions || groupPortions <= 0) return;
+  async function handleSaveGroupGrams(g, baseGrams) {
+    if (savingGroupPortions || !groupGrams || groupGrams <= 0) return;
     // Saving without having touched the stepper is just a way of closing the sheet — rebuilding
     // the recipe's rows to land on the exact same numbers would be pure churn (and would reset any
     // per-ingredient tweak made just above).
-    if (groupPortions === basePortions) {
+    if (groupGrams === baseGrams) {
       setEditingGroupId(null);
       return;
     }
     setSavingGroupPortions(true);
     try {
-      await onSetRecipePortions(g.recipeId, groupPortions);
+      await onSetRecipeGrams(g.recipeId, groupGrams);
       setEditingGroupId(null);
     } finally {
       setSavingGroupPortions(false);
@@ -605,18 +605,18 @@ export default function MealDetail({
         const groupProtein = g.entries.reduce((s, e) => s + e.protein, 0);
         const groupCarbs = g.entries.reduce((s, e) => s + e.carbs, 0);
         const groupFat = g.entries.reduce((s, e) => s + e.fat, 0);
-        const basePortions = currentPortionsForGroup(g, recipe) || 1;
-        const factor = groupPortions / basePortions;
+        const baseGrams = currentGramsForGroup(g, recipe) || 100;
+        const factor = groupGrams / baseGrams;
         return (
           <EditEntrySheet
             headerLabel={mealTitle}
             title={recipe.title}
             subtitle={`${g.entries.length} ${t('meal.ingredients')}`}
             icon="utensils"
-            quantity={groupPortions}
-            onQuantityChange={setGroupPortions}
-            step={0.5}
-            unit="portion(s)"
+            quantity={groupGrams}
+            onQuantityChange={setGroupGrams}
+            step={10}
+            unit="g"
             macros={{
               kcal: groupKcal * factor,
               protein: groupProtein * factor,
@@ -625,9 +625,9 @@ export default function MealDetail({
             }}
             showRecurring
             recurring={recurringKeys.has(`recipe-${g.recipeId}`)}
-            onToggleRecurring={(checked) => handleToggleRecurring('recipe', g.recipeId, groupPortions, checked)}
+            onToggleRecurring={(checked) => handleToggleRecurring('recipe', g.recipeId, groupGrams, checked)}
             onClose={() => setEditingGroupId(null)}
-            onSave={() => handleSaveGroupPortions(g, basePortions)}
+            onSave={() => handleSaveGroupGrams(g, baseGrams)}
             saving={savingGroupPortions}
           >
             {recipe.description && <p className="hint">{recipe.description}</p>}

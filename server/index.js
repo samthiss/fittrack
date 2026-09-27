@@ -23,6 +23,7 @@ import webpush from 'web-push';
 import { buildRestDoneMessage, isValidRestSeconds, isWorthSending } from './restTimer.js';
 import { BASE_FOODS, groupOfCategory } from './baseFoods.js';
 import { findDuplicateGroups, pickSurvivor } from './foodDuplicates.js';
+import { recipeWeight } from './recipeWeight.js';
 import { MAIL_ENABLED, isMailReady, sendMail, verifyMailer } from './mailer.js';
 import {
   TOKEN_TTL_MS,
@@ -2024,12 +2025,21 @@ app.get('/api/summary', (req, res) => {
 
 // --- Recipes ---
 function serializeRecipe(row) {
+  const ingredients = JSON.parse(row.ingredients);
+  // Le poids est calculé ici plutôt que par le client : c'est lui qui convertit « 250 g » en une
+  // fraction de la recette, et l'aperçu affiché doit donner le même nombre que ce qui sera
+  // enregistré.
+  const weight = recipeWeight(ingredients, row.total_weight_g);
   return {
     ...row,
-    ingredients: JSON.parse(row.ingredients),
+    ingredients,
     steps: JSON.parse(row.steps),
     favorite: !!row.favorite,
     tags: JSON.parse(row.tags || '[]'),
+    weight_g: weight.grams,
+    weight_measured: weight.measured,
+    weight_complete: weight.complete,
+    weight_missing: weight.missing,
   };
 }
 
@@ -2039,7 +2049,7 @@ app.get('/api/recipes', (req, res) => {
 });
 
 app.post('/api/recipes', (req, res) => {
-  const { title, description, image, portions, ingredients, steps } = req.body;
+  const { title, description, image, portions, ingredients, steps, total_weight_g } = req.body;
   if (!title || !title.trim() || !Array.isArray(ingredients) || ingredients.length === 0) {
     return res.status(400).json({ error: 'title et ingredients requis' });
   }
@@ -2063,8 +2073,8 @@ app.post('/api/recipes', (req, res) => {
 
   const result = db
     .prepare(
-      `INSERT INTO recipes (user_id, title, description, image, portions, ingredients, steps)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO recipes (user_id, title, description, image, portions, ingredients, steps, total_weight_g)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       req.userId,
@@ -2073,7 +2083,8 @@ app.post('/api/recipes', (req, res) => {
       image || null,
       Number(portions) || 1,
       JSON.stringify(cleanIngredients),
-      JSON.stringify(cleanSteps)
+      JSON.stringify(cleanSteps),
+      Number(total_weight_g) > 0 ? Number(total_weight_g) : null
     );
 
   const row = db.prepare('SELECT * FROM recipes WHERE id = ?').get(result.lastInsertRowid);
@@ -2130,7 +2141,7 @@ function friendlyImportError(err) {
 }
 
 app.put('/api/recipes/:id', (req, res) => {
-  const { title, description, steps, portions, ingredients, image, favorite, tags } = req.body;
+  const { title, description, steps, portions, ingredients, image, favorite, tags, total_weight_g } = req.body;
   const current = db.prepare('SELECT * FROM recipes WHERE id = ? AND user_id = ?').get(req.params.id, req.userId);
   if (!current) return res.status(404).json({ error: 'recette introuvable' });
 
@@ -2142,12 +2153,16 @@ app.put('/api/recipes/:id', (req, res) => {
   const nextImage = image !== undefined ? image : current.image;
   const nextFavorite = favorite !== undefined ? (favorite ? 1 : 0) : current.favorite;
   const nextTags = tags !== undefined ? JSON.stringify(tags) : current.tags;
+  // Envoyer 0 (ou vide) efface le poids pesé et rend la main à la somme des ingrédients ; ne rien
+  // envoyer le laisse tel quel.
+  const nextWeight =
+    total_weight_g === undefined ? current.total_weight_g : Number(total_weight_g) > 0 ? Number(total_weight_g) : null;
 
   db.prepare(
-    'UPDATE recipes SET title = ?, description = ?, steps = ?, portions = ?, ingredients = ?, image = ?, favorite = ?, tags = ? WHERE id = ? AND user_id = ?'
+    'UPDATE recipes SET title = ?, description = ?, steps = ?, portions = ?, ingredients = ?, image = ?, favorite = ?, tags = ?, total_weight_g = ? WHERE id = ? AND user_id = ?'
   ).run(
     nextTitle, nextDescription, nextSteps, nextPortions, JSON.stringify(nextIngredients), nextImage,
-    nextFavorite, nextTags, req.params.id, req.userId
+    nextFavorite, nextTags, nextWeight, req.params.id, req.userId
   );
 
   const row = db.prepare('SELECT * FROM recipes WHERE id = ?').get(req.params.id);
@@ -2521,7 +2536,14 @@ app.get('/api/foods/frequent', (req, res) => {
 });
 
 // --- Macro log ---
-function recipeMacrosPerPortion(userId, recipeId) {
+/**
+ * Les macros et micros d'une recette entière, avec ce qu'elle pèse.
+ *
+ * Tout ce qui parle d'une fraction de recette part d'ici : « 250 g de cheesecake » est le total
+ * multiplié par 250 / poids. La portion n'est plus l'unité — elle ne se pesait pas, et deux
+ * personnes ne se servaient jamais la même.
+ */
+function recipeTotals(userId, recipeId) {
   const recipe = db.prepare('SELECT * FROM recipes WHERE id = ? AND user_id = ?').get(recipeId, userId);
   if (!recipe) return null;
 
@@ -2543,12 +2565,16 @@ function recipeMacrosPerPortion(userId, recipeId) {
     ])
   );
 
-  const portions = recipe.portions || 1;
-  const perPortion = { title: recipe.title };
-  for (const key of Object.keys(totals)) {
-    perPortion[key] = totals[key] / portions;
-  }
-  return perPortion;
+  return { title: recipe.title, totals, weightG: recipeWeight(ingredients, recipe.total_weight_g).grams };
+}
+
+/** Les mêmes, ramenées au gramme. Null si la recette n'a pas de poids connu. */
+function recipeMacrosPerGram(userId, recipeId) {
+  const base = recipeTotals(userId, recipeId);
+  if (!base || !base.weightG) return null;
+  const perGram = { title: base.title, weightG: base.weightG };
+  for (const key of Object.keys(base.totals)) perGram[key] = base.totals[key] / base.weightG;
+  return perGram;
 }
 
 // Recipes are logged as one row per ingredient (source_type 'recipe_ingredient'), so the portions
@@ -2580,9 +2606,11 @@ app.get('/api/food-logs/last-quantity', (req, res) => {
       )
       .get(req.userId, source_id, meal);
     if (!group) return res.json({ quantity: null });
-    const perPortion = recipeMacrosPerPortion(req.userId, Number(source_id));
-    if (!perPortion || !perPortion.kcal) return res.json({ quantity: null });
-    return res.json({ quantity: Math.round((group.total_kcal / perPortion.kcal) * 100) / 100 });
+    const perGram = recipeMacrosPerGram(req.userId, Number(source_id));
+    if (!perGram || !perGram.kcal) return res.json({ quantity: null });
+    // Les lignes enregistrées ne portent pas la quantité de recette, seulement celle de chaque
+    // ingrédient : on la retrouve par les calories, qui sont proportionnelles.
+    return res.json({ quantity: Math.round(group.total_kcal / perGram.kcal) });
   }
 
   res.json({ quantity: null });
@@ -2652,7 +2680,21 @@ function insertFoodLog(userId, date, meal, source_type, source_id, quantity, uni
     const recipe = db.prepare('SELECT * FROM recipes WHERE id = ? AND user_id = ?').get(source_id, userId);
     if (!recipe) throw new Error('recette introuvable');
     const ingredients = JSON.parse(recipe.ingredients);
-    const scale = qty / (recipe.portions || 1);
+    // Une recette s'ajoute en grammes du plat fini : 250 g de cheesecake, c'est 250 g rapportés à
+    // ce que pèse le cheesecake entier. Chaque ingrédient est ensuite mis à cette échelle, donc
+    // les 250 g se répartissent entre eux dans les proportions de la recette.
+    //
+    // L'ancienne unité — un nombre de portions — reste acceptée pour ce qui l'envoie encore (un
+    // plan de repas enregistré avant le changement, par exemple) : « 2 » ne veut pas dire la même
+    // chose que « 2 g », et se tromper d'un facteur 400 serait pire que porter les deux cas.
+    let scale;
+    if (unit === 'g') {
+      const weight = recipeWeight(ingredients, recipe.total_weight_g);
+      if (!weight.grams) throw new Error('poids de la recette inconnu');
+      scale = qty / weight.grams;
+    } else {
+      scale = qty / (recipe.portions || 1);
+    }
     const excluded = new Set(Array.isArray(adjustments?.excluded) ? adjustments.excluded : []);
     const overrides = adjustments?.overrides && typeof adjustments.overrides === 'object' ? adjustments.overrides : {};
 
@@ -2711,10 +2753,12 @@ app.post('/api/food-log', (req, res) => {
 // Declared above PUT /api/food-log/:id: Express matches in order, and ":id" would otherwise
 // swallow "recipe-portions" as an id.
 app.put('/api/food-log/recipe-portions', (req, res) => {
-  const { date, meal, recipe_id, portions } = req.body;
-  const qty = Number(portions);
+  // `grams` est la forme actuelle ; `portions` reste acceptée pour ce qui l'envoie encore.
+  const { date, meal, recipe_id, portions, grams } = req.body;
+  const inGrams = grams !== undefined && grams !== null;
+  const qty = Number(inGrams ? grams : portions);
   if (!recipe_id || !Number.isFinite(qty) || qty <= 0) {
-    return res.status(400).json({ error: 'recipe_id et portions requis' });
+    return res.status(400).json({ error: 'recipe_id et grams requis' });
   }
   if (!mealsFor(getProfile(req.userId)).some((m) => m.key === meal)) {
     return res.status(400).json({ error: 'meal invalide' });
@@ -2727,7 +2771,7 @@ app.put('/api/food-log/recipe-portions', (req, res) => {
         `DELETE FROM food_logs
          WHERE user_id = ? AND date = ? AND meal = ? AND source_type = 'recipe_ingredient' AND source_id = ?`
       ).run(req.userId, day, meal, recipe_id);
-      return insertFoodLog(req.userId, day, meal, 'recipe', recipe_id, qty);
+      return insertFoodLog(req.userId, day, meal, 'recipe', recipe_id, qty, inGrams ? 'g' : 'portion');
     });
     res.json(replace());
   } catch (err) {
@@ -4006,14 +4050,14 @@ function macrosForSource(userId, source_type, source_id, quantity) {
     };
   }
   if (source_type === 'recipe') {
-    const perPortion = recipeMacrosPerPortion(userId, source_id);
-    if (!perPortion) return null;
+    const perGram = recipeMacrosPerGram(userId, source_id);
+    if (!perGram) return null;
     return {
-      label: perPortion.title,
-      kcal: perPortion.kcal * qty,
-      protein: perPortion.protein * qty,
-      carbs: perPortion.carbs * qty,
-      fat: perPortion.fat * qty,
+      label: perGram.title,
+      kcal: perGram.kcal * qty,
+      protein: perGram.protein * qty,
+      carbs: perGram.carbs * qty,
+      fat: perGram.fat * qty,
     };
   }
   return null;
@@ -4023,10 +4067,10 @@ function macrosForSource(userId, source_type, source_id, quantity) {
 // several distinct items (e.g. yogurt + a fruit) — re-picking the SAME item just updates it.
 const upsertPlanEntry = () =>
   db.prepare(
-    `INSERT INTO meal_plan_entries (user_id, day, meal, source_type, source_id, label, quantity, kcal, protein, carbs, fat)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO meal_plan_entries (user_id, day, meal, source_type, source_id, label, quantity, kcal, protein, carbs, fat, quantity_unit)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'g')
      ON CONFLICT(user_id, day, meal, source_type, source_id) DO UPDATE SET
-       label = excluded.label, quantity = excluded.quantity,
+       label = excluded.label, quantity = excluded.quantity, quantity_unit = 'g',
        kcal = excluded.kcal, protein = excluded.protein, carbs = excluded.carbs, fat = excluded.fat`
   );
 
@@ -4169,12 +4213,15 @@ app.delete('/api/meal-plan/by-source', (req, res) => {
 });
 
 // Turns a recipe or food into a common shape for macro-ratio matching: kcal/protein/carbs/fat
-// "per unit" (per portion for a recipe, per 100g for a food) plus the unit each is quantified in.
+// per 100 g for both, now that a recipe is quantified in grams like a food.
 function toMatchItem(userId, source_type, source_id) {
   if (source_type === 'recipe') {
-    const p = recipeMacrosPerPortion(userId, source_id);
+    const p = recipeMacrosPerGram(userId, source_id);
     if (!p || p.kcal <= 0) return null;
-    return { source_type, source_id, label: p.title, kcal: p.kcal, protein: p.protein, carbs: p.carbs, fat: p.fat };
+    return {
+      source_type, source_id, label: p.title,
+      kcal: p.kcal * 100, protein: p.protein * 100, carbs: p.carbs * 100, fat: p.fat * 100,
+    };
   }
   if (source_type === 'food') {
     const food = db.prepare('SELECT * FROM foods WHERE id = ? AND user_id = ?').get(source_id, userId);
@@ -4352,11 +4399,11 @@ app.post('/api/meal-plan/generate', async (req, res) => {
       );
 
     const recipeRow = db.prepare('SELECT * FROM recipes WHERE id = ?').get(result.lastInsertRowid);
-    const perPortion = recipeMacrosPerPortion(req.userId, result.lastInsertRowid);
+    const perGram = recipeMacrosPerGram(req.userId, result.lastInsertRowid);
 
-    // Scale quantity (fractional portions) so the logged kcal lands exactly on kcalTarget,
-    // even though the AI's estimate for "1 portion" is rarely spot on.
-    const quantity = perPortion.kcal > 0 ? kcalTarget / perPortion.kcal : 1;
+    // La quantité est le nombre de grammes qui tombe exactement sur la cible calorique :
+    // l'estimation du modèle pour la recette entière est rarement pile dessus.
+    const quantity = perGram && perGram.kcal > 0 ? Math.round(kcalTarget / perGram.kcal) : 100;
     const macros = macrosForSource(req.userId, 'recipe', result.lastInsertRowid, quantity);
 
     upsertPlanEntry().run(
@@ -4405,7 +4452,7 @@ app.post('/api/meal-plan/apply-to-journal', (req, res) => {
       continue;
     }
     try {
-      const rows = insertFoodLog(req.userId, date, entry.meal, entry.source_type, entry.source_id, entry.quantity);
+      const rows = insertFoodLog(req.userId, date, entry.meal, entry.source_type, entry.source_id, entry.quantity, entry.quantity_unit || 'g');
       added.push(...rows);
     } catch {
       skipped.push(entry.meal);
