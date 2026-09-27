@@ -412,7 +412,14 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
       {showPicker && (
         <div className="modal-overlay" onClick={() => setShowPicker(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{t('recipeManual.pickFood')}</h2>
+            {/* Une croix en haut, dès l'ouverture : le bouton « Fermer » du bas suppose qu'on
+                sache qu'il est là, et il est loin quand la liste d'aliments est longue. */}
+            <div className="meal-detail-header">
+              <button type="button" className="meal-detail-back-btn" onClick={() => setShowPicker(false)} aria-label={t('meal.close')}>
+                <Icon name="x" size={20} />
+              </button>
+              <h2 className="meal-detail-title">{t('recipeManual.pickFood')}</h2>
+            </div>
             <div className="search-input-row">
               <Icon name="search" size={18} color="var(--text-muted)" />
               <input
@@ -508,7 +515,12 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
       {editingIndex != null && (
         <div className="modal-overlay" onClick={() => setEditingIndex(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{ingredients[editingIndex].nom}</h2>
+            <div className="meal-detail-header">
+              <button type="button" className="meal-detail-back-btn" onClick={() => setEditingIndex(null)} aria-label={t('meal.close')}>
+                <Icon name="x" size={20} />
+              </button>
+              <h2 className="meal-detail-title">{ingredients[editingIndex].nom}</h2>
+            </div>
             <h4 className="section-label">{t('meal.quantity')}</h4>
             <div className="qty-stepper-row">
               <button type="button" className="weight-minus-btn" onClick={() => setEditingQty((v) => Math.max(0, v - 10))}>
