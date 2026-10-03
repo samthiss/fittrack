@@ -667,6 +667,7 @@ app.get('/api/activity-types', (req, res) => {
       // enregistrée, donc ces valeurs viennent d'ici plutôt que d'un second appel.
       weight_kg: profile.weight_kg,
       age: ageFromBirthdate(profile.birthdate),
+      resting_hr: profile.resting_hr ?? null,
       vo2max: latestVo2max?.value ?? null,
       last_duration_minutes: last.get(a.type)?.duration_minutes ?? null,
       last_distance_m: last.get(a.type)?.distance_m ?? null,
@@ -693,7 +694,7 @@ const REP_RANGE_KEYS = ['5-9', '8-12', '10-15', '15-20', 'Max'];
 const MAX_REST_SECONDS = 600;
 
 app.put('/api/profile', (req, res) => {
-  const { bmr, bmr_method, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks, default_water_ml, water_goal_ml, rest_by_reps, reminder_morning_at, reminder_evening_at, reminder_timezone, reminder_repeat } = req.body;
+  const { bmr, bmr_method, daily_movement_kcal, digestion_kcal, weight_kg, goal, goal_kcal, sex, birthdate, height_cm, body_fat_pct, manual_target_kcal, target_weight_kg, steps_per_day, protein_pct, carbs_pct, meal_shares, extra_snacks, default_water_ml, water_goal_ml, rest_by_reps, reminder_morning_at, reminder_evening_at, reminder_timezone, reminder_repeat, resting_hr } = req.body;
 
   if (goal !== undefined && !GOALS.includes(goal)) {
     return res.status(400).json({ error: 'goal invalide' });
@@ -704,6 +705,9 @@ app.put('/api/profile', (req, res) => {
   }
   if (steps_per_day !== undefined && steps_per_day !== null && (!Number.isFinite(Number(steps_per_day)) || Number(steps_per_day) < 0 || Number(steps_per_day) > 100000)) {
     return res.status(400).json({ error: 'steps_per_day invalide' });
+  }
+  if (resting_hr !== undefined && resting_hr !== null && (!Number.isFinite(Number(resting_hr)) || Number(resting_hr) < 25 || Number(resting_hr) > 120)) {
+    return res.status(400).json({ error: 'resting_hr invalide' });
   }
   if (sex !== undefined && sex !== null && !SEX_OPTIONS.includes(sex)) {
     return res.status(400).json({ error: 'sex invalide' });
@@ -757,6 +761,7 @@ app.put('/api/profile', (req, res) => {
     birthdate: birthdate !== undefined ? birthdate : current.birthdate,
     height_cm: height_cm !== undefined ? height_cm : current.height_cm,
     body_fat_pct: body_fat_pct !== undefined ? body_fat_pct : current.body_fat_pct,
+    resting_hr: resting_hr !== undefined ? (resting_hr === null ? null : Number(resting_hr)) : current.resting_hr,
     manual_target_kcal: manual_target_kcal !== undefined ? manual_target_kcal : current.manual_target_kcal,
     target_weight_kg: target_weight_kg !== undefined ? target_weight_kg : current.target_weight_kg,
     steps_per_day: steps_per_day !== undefined ? steps_per_day : current.steps_per_day,
@@ -782,7 +787,7 @@ app.put('/api/profile', (req, res) => {
      sex = ?, birthdate = ?, height_cm = ?, body_fat_pct = ?, manual_target_kcal = ?, target_weight_kg = ?, steps_per_day = ?,
      protein_pct = ?, carbs_pct = ?, meal_shares = ?, extra_snacks = ?, default_water_ml = ?, water_goal_ml = ?,
      reminder_morning_at = ?, reminder_evening_at = ?, reminder_timezone = ?, reminder_repeat = ?,
-     rest_by_reps = ?
+     rest_by_reps = ?, resting_hr = ?
      WHERE user_id = ?`
   ).run(
     next.bmr,
@@ -810,6 +815,7 @@ app.put('/api/profile', (req, res) => {
     next.reminder_timezone,
     next.reminder_repeat,
     next.rest_by_reps,
+    next.resting_hr,
     req.userId
   );
 

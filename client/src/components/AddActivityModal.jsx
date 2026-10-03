@@ -1,9 +1,9 @@
-// Les zones sont construites à la volée : leurs battements dépendent de l'âge de l'utilisateur,
-// donc elles ne peuvent pas être une constante du module.
-function zoneOptions(age) {
+// Les zones sont construites à la volée : leurs battements dépendent de l'âge et de la FC de repos
+// de l'utilisateur, donc elles ne peuvent pas être une constante du module.
+function zoneOptions(age, restingHr) {
   const maxHr = maxHrFromAge(age);
   return ZONES.map((z) => {
-    const hr = zoneHrRange(z.zone, maxHr);
+    const hr = zoneHrRange(z.zone, maxHr, restingHr);
     return { value: z.zone, label: hr ? `Zone ${z.zone} · ${hr.from}-${hr.to} bpm` : `Zone ${z.zone}` };
   });
 }
@@ -15,7 +15,7 @@ function ellipticalChoice(at) {
     zone: DEFAULT_ZONE,
     watts: 0,
     settings: [
-      { field: 'zone', options: zoneOptions(at?.age) },
+      { field: 'zone', options: zoneOptions(at?.age, at?.resting_hr) },
       {
         field: 'watts',
         options: [
@@ -480,6 +480,7 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
         vo2max: at.vo2max,
         weightKg: at.weight_kg,
         restingKcalPerHour: at.resting_kcal_per_hour,
+        restingHr: at.resting_hr,
         minutes: picked.minutes,
       });
     }

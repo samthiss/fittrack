@@ -145,6 +145,7 @@ export default function Settings({
   const [stepsPerDay, setStepsPerDay] = useState('');
   const [sex, setSex] = useState('');
   const [birthdate, setBirthdate] = useState('');
+  const [restingHr, setRestingHr] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
   const [targetWeightKg, setTargetWeightKg] = useState('');
@@ -163,6 +164,7 @@ export default function Settings({
       setStepsPerDay(profile.steps_per_day ?? '');
       setSex(profile.sex || '');
       setBirthdate(profile.birthdate || '');
+      setRestingHr(profile.resting_hr ?? '');
       setHeightCm(profile.height_cm ?? '');
       setWeightKg(profile.weight_kg ?? '');
       setTargetWeightKg(profile.target_weight_kg ?? '');
@@ -196,7 +198,11 @@ export default function Settings({
     if (saving) return;
     setSaving(true);
     try {
-      await onSaveProfile({ sex: sex || null, birthdate: birthdate || null });
+      await onSaveProfile({
+        sex: sex || null,
+        birthdate: birthdate || null,
+        resting_hr: restingHr !== '' ? Number(restingHr) : null,
+      });
       setScreen('home');
     } finally {
       setSaving(false);
@@ -420,7 +426,7 @@ export default function Settings({
   const initials = (email || '?').slice(0, 2).toUpperCase();
   const targetIntake = summary?.targetIntake;
 
-  // --- Informations screen (sex + birthdate) ---
+  // --- Informations screen (sex + birthdate + resting heart rate) ---
   if (screen === 'info') {
     return (
       <div>
@@ -439,6 +445,15 @@ export default function Settings({
         <div className="search-input-row">
           <input type="date" className="search-input" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} />
         </div>
+
+        <h4 className="section-label">
+          {t('profile.restingHr')} <span style={{ textTransform: 'none', fontWeight: 400 }}>({t('profile.optional')})</span>
+        </h4>
+        <div className="search-input-row">
+          <input type="number" min="25" max="120" step="1" inputMode="numeric" className="search-input" value={restingHr} onChange={(e) => setRestingHr(e.target.value)} />
+          <span className="unit">bpm</span>
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6 }}>{t('profile.restingHrHint')}</p>
 
         <button
           type="button"

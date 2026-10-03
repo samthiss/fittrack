@@ -37,10 +37,27 @@ export function maxHrFromAge(age) {
   return Math.round(208 - 0.7 * age);
 }
 
-/** Les battements par minute d'une zone : « 112-130 », ce que la montre affiche pendant l'effort. */
-export function zoneHrRange(zone, maxHr) {
+/**
+ * Les battements par minute d'une zone : « 135-147 », ce que la montre affiche pendant l'effort.
+ *
+ * Avec la FC de repos, les bornes se placent sur la réserve cardiaque (Karvonen) :
+ *
+ *     borne = repos + fraction × (max − repos)
+ *
+ * C'est le calcul de l'Apple Watch — ses zones font toutes la même largeur, 10 % de la réserve —
+ * et c'est elle que l'utilisateur regarde pendant l'effort : la zone choisie ici doit être celle
+ * qu'elle affichait. Chaque zone commence au battement entier au-dessus de sa borne et s'arrête
+ * juste avant la suivante, comme sur la montre. Sans FC de repos, on retombe sur des pourcentages
+ * de la FC max seule.
+ */
+export function zoneHrRange(zone, maxHr, restingHr) {
   if (!maxHr) return null;
   const z = zoneByNumber(zone);
+  if (restingHr > 0 && restingHr < maxHr) {
+    const bound = (fraction) => Math.ceil(restingHr + fraction * (maxHr - restingHr));
+    const next = ZONES.find((n) => n.zone === z.zone + 1);
+    return { from: bound(z.hrFrom), to: next ? bound(next.hrFrom) - 1 : maxHr };
+  }
   return { from: Math.round(z.hrFrom * maxHr), to: Math.round(z.hrTo * maxHr) };
 }
 
@@ -50,24 +67,37 @@ export function zoneByNumber(zone) {
   return ZONES.find((z) => z.zone === Number(zone)) || ZONES[DEFAULT_ZONE - 1];
 }
 
+// La consommation d'oxygène au repos, 1 MET : le plancher de la réserve d'O₂ comme la FC de repos
+// est celui de la réserve cardiaque.
+const RESTING_VO2 = 3.5; // ml/kg/min
+
 /**
  * La dépense brute d'une zone, en kcal/h.
+ *
+ * Quand la FC de repos est connue, les zones sont placées sur la réserve cardiaque (voir
+ * zoneHrRange) ; or un pourcentage de réserve cardiaque vaut à peu près le même pourcentage de
+ * réserve d'O₂ (Swain, 1997). La zone 2 de la montre, 60-70 % de réserve, consomme donc
+ * 3,5 + 65 % × (VO2max − 3,5), pas les 47 % de VO2max qui allaient avec des zones en % de FC max —
+ * plus basses, donc moins chères. Garder ces 47 % sous-estimerait la séance d'un tiers.
  *
  * Sans VO2max relevée, on retombe sur le MET de population de la zone : moins juste, mais l'écran
  * doit fonctionner avant que la première mesure soit saisie.
  */
-export function zoneKcalPerHour({ zone, vo2max, weightKg, restingKcalPerHour }) {
+export function zoneKcalPerHour({ zone, vo2max, weightKg, restingKcalPerHour, restingHr }) {
   const z = zoneByNumber(zone);
   if (vo2max > 0 && weightKg > 0) {
-    const vo2 = z.vo2Fraction * vo2max; // ml/kg/min
+    const vo2 =
+      restingHr > 0
+        ? RESTING_VO2 + ((z.hrFrom + z.hrTo) / 2) * Math.max(0, vo2max - RESTING_VO2)
+        : z.vo2Fraction * vo2max; // ml/kg/min
     return (vo2 * weightKg * 5 * 60) / 1000;
   }
   return z.fallbackMet * Math.max(0, restingKcalPerHour || 0);
 }
 
 /** Ce que la séance ajoute, le repos déduit — même convention que partout ailleurs. */
-export function zoneKcal({ zone, vo2max, weightKg, restingKcalPerHour, minutes }) {
-  const gross = zoneKcalPerHour({ zone, vo2max, weightKg, restingKcalPerHour });
+export function zoneKcal({ zone, vo2max, weightKg, restingKcalPerHour, restingHr, minutes }) {
+  const gross = zoneKcalPerHour({ zone, vo2max, weightKg, restingKcalPerHour, restingHr });
   const net = Math.max(0, gross - Math.max(0, restingKcalPerHour || 0));
   return Math.round((net * (Number(minutes) || 0)) / 60);
 }

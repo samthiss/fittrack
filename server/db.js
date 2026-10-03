@@ -898,6 +898,11 @@ if (!profileCols2.includes('manual_target_kcal')) {
 if (!profileCols2.includes('target_weight_kg')) {
   db.exec(`ALTER TABLE profile ADD COLUMN target_weight_kg REAL`);
 }
+// La FC de repos, recopiée depuis Santé : avec la FC max, elle place les zones de fréquence
+// cardiaque comme la montre les calcule (réserve cardiaque), plutôt qu'en % de la FC max seule.
+if (!profileCols2.includes('resting_hr')) {
+  db.exec(`ALTER TABLE profile ADD COLUMN resting_hr REAL`);
+}
 if (!profileCols2.includes('steps_per_day')) {
   db.exec(`ALTER TABLE profile ADD COLUMN steps_per_day REAL`);
 }

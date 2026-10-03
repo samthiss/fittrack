@@ -59,3 +59,21 @@ test('chaque zone donne des battements, pas des pourcentages', () => {
   assert.deepEqual(zoneHrRange(5, 186), { from: 167, to: 186 });
   assert.equal(zoneHrRange(2, null), null);
 });
+
+test('avec la FC de repos, les zones sont celles de l\'Apple Watch', () => {
+  // FC max 186 (31 ans), repos 57 : la montre affiche <134, 135-147, 148-160, 161-173, >174.
+  assert.deepEqual(zoneHrRange(1, 186, 57).to, 134);
+  assert.deepEqual(zoneHrRange(2, 186, 57), { from: 135, to: 147 });
+  assert.deepEqual(zoneHrRange(3, 186, 57), { from: 148, to: 160 });
+  assert.deepEqual(zoneHrRange(4, 186, 57), { from: 161, to: 173 });
+  assert.deepEqual(zoneHrRange(5, 186, 57), { from: 174, to: 186 });
+});
+
+test('avec la FC de repos, la zone coûte ce que coûte la zone de la montre', () => {
+  // Zone 2 = 65 % de réserve : 3,5 + 0,65 × 46,3 = 33,6 ml/kg/min ; × 74 / 1000 × 5 × 60 = 746
+  // kcal/h brut, 675 une fois le repos déduit.
+  assert.equal(Math.round(zoneKcalPerHour({ ...MOI, zone: 2, restingHr: 57 })), 746);
+  assert.equal(zoneKcal({ ...MOI, zone: 2, restingHr: 57, minutes: 60 }), 675);
+  const couts = ZONES.map((z) => zoneKcal({ ...MOI, restingHr: 57, zone: z.zone, minutes: 60 }));
+  for (let i = 1; i < couts.length; i += 1) assert.ok(couts[i] > couts[i - 1]);
+});
