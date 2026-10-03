@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Icon from './Icon';
 import { recipeWeight } from '../data/recipeWeight';
-import { matchesSearch } from '../data/searchText';
 import RecipeImport from './RecipeImport';
+import AddFoodToMeal from './AddFoodToMeal';
 import { useLanguage } from '../i18n/LanguageContext';
 
 const INGREDIENT_MICRO_FIELDS = [
@@ -85,13 +85,11 @@ function rescaleIngredient(ing, newQty) {
   return next;
 }
 
-const EMPTY_CUSTOM = { nom: '', qte: '100', unite: 'g', kcal: '', proteines: '', glucides: '', lipides: '' };
-
 const INGREDIENT_UNITS = ['g', 'ml'];
 
 // Full-screen "Créer/Modifier une recette" form. mode='create' posts via onCreate (optionally
 // auto-categorizing via presetCategory); mode='edit' patches the existing recipe via onUpdate.
-export default function RecipeManualForm({ mode = 'create', initialRecipe, onCreate, onUpdate, onSetCategories, onImportRecipe, foods = [], presetCategory, onBack, onSaved }) {
+export default function RecipeManualForm({ mode = 'create', initialRecipe, onCreate, onUpdate, onSetCategories, onImportRecipe, foods = [], baseFoods = [], frequentItems = [], onCreateFood, onLookupBarcode, onSearchOnline, onParseText, onParsePhoto, presetCategory, onBack, onSaved }) {
   const { t } = useLanguage();
   const [entryMode, setEntryMode] = useState('manual');
   const [title, setTitle] = useState(initialRecipe?.title || '');
@@ -105,9 +103,6 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
   const [status, setStatus] = useState(null);
   const [saving, setSaving] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
-  const [pickerSearch, setPickerSearch] = useState('');
-  const [showCustom, setShowCustom] = useState(false);
-  const [customForm, setCustomForm] = useState(EMPTY_CUSTOM);
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingQty, setEditingQty] = useState(0);
   const [editingUnit, setEditingUnit] = useState('g');
@@ -130,33 +125,24 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
   // Picking a food drops straight into the quantity editor: the ingredient's own quantity is the
   // next thing anyone wants to set, and leaving it at a silent 100 g sent people to the "portions"
   // stepper above instead — the only quantity control visible on the form.
-  function addFromFood(food) {
-    setIngredients((prev) => [...prev, ingredientFromFood(food)]);
-    setEditingIndex(ingredients.length);
-    setEditingQty(100);
-    setEditingUnit('g');
-    setShowPicker(false);
-    setPickerSearch('');
+  // Les aliments créés depuis l'écran d'ajout (catalogue, code-barre, photo…) : `foods` ne les
+  // contient qu'au rendu suivant, alors que l'ingrédient s'ajoute tout de suite après.
+  const createdFoods = useRef(new Map());
+
+  async function createFood(data) {
+    const food = await onCreateFood(data);
+    createdFoods.current.set(food.id, food);
+    return food;
   }
 
-  function addCustom() {
-    if (!customForm.nom.trim()) return;
-    setIngredients((prev) => [
-      ...prev,
-      {
-        nom: customForm.nom.trim(),
-        qte: Number(customForm.qte) || 0,
-        unite: customForm.unite || 'g',
-        kcal: Number(customForm.kcal) || 0,
-        proteines: Number(customForm.proteines) || 0,
-        glucides: Number(customForm.glucides) || 0,
-        lipides: Number(customForm.lipides) || 0,
-      },
-    ]);
-    setCustomForm(EMPTY_CUSTOM);
-    setShowCustom(false);
-    setShowPicker(false);
+  // L'écran d'ajout a déjà demandé la quantité : l'ingrédient arrive pesé, et l'écran reste
+  // ouvert pour le suivant, comme dans le journal.
+  function addPickedFood(sourceType, id, quantity, unit = 'g') {
+    const food = createdFoods.current.get(id) || foods.find((f) => f.id === id);
+    if (sourceType !== 'food' || !food) return;
+    setIngredients((prev) => [...prev, { ...ingredientFromFood(food, Number(quantity) || 100), unite: unit === 'ml' ? 'ml' : 'g' }]);
   }
+
 
   function removeIngredient(index) {
     setIngredients((prev) => prev.filter((_, i) => i !== index));
@@ -235,9 +221,6 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
     }
   }
 
-  // Même recherche que dans le journal : insensible aux accents et aux ligatures, sans quoi
-  // « oeuf » ne trouve pas « Œuf » — et c'est précisément ce qu'on tape sur un clavier iPhone.
-  const filteredFoods = foods.filter((f) => matchesSearch(f.name, pickerSearch));
 
   return (
     <div>
@@ -409,105 +392,29 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
         </>
       )}
 
+      {/* Le même écran que « Ajouter » dans le journal — liste, catalogue, code-barre, écrire, photo,
+          manuel — sauf que l'aliment choisi devient un ingrédient au lieu d'une entrée du jour. */}
       {showPicker && (
-        <div className="modal-overlay" onClick={() => setShowPicker(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            {/* Une croix en haut, dès l'ouverture : le bouton « Fermer » du bas suppose qu'on
-                sache qu'il est là, et il est loin quand la liste d'aliments est longue. */}
-            <div className="meal-detail-header">
-              <button type="button" className="meal-detail-back-btn" onClick={() => setShowPicker(false)} aria-label={t('meal.close')}>
-                <Icon name="x" size={20} />
-              </button>
-              <h2 className="meal-detail-title">{t('recipeManual.pickFood')}</h2>
-            </div>
-            <div className="search-input-row">
-              <Icon name="search" size={18} color="var(--text-muted)" />
-              <input
-                type="text"
-                className="search-input"
-                placeholder={t('recipeManual.searchFood')}
-                value={pickerSearch}
-                onChange={(e) => setPickerSearch(e.target.value)}
-              />
-            </div>
-            <div className="entry-list" style={{ marginTop: 12 }}>
-              {filteredFoods.map((f) => (
-                <div className="entry-card" key={f.id} onClick={() => addFromFood(f)} style={{ cursor: 'pointer' }}>
-                  <div className="entry-card-body">
-                    <div className="entry-card-name">{f.name}</div>
-                    <div className="entry-card-sub">{Math.round(f.kcal_per_100g)} kcal / 100 g</div>
-                  </div>
-                  <Icon name="plus" size={19} color="var(--acc)" />
-                </div>
-              ))}
-              {filteredFoods.length === 0 && <p className="hint">{t('recipeManual.noFoodFound')}</p>}
-            </div>
-
-            <button type="button" className="btn-ghost" style={{ marginTop: 12 }} onClick={() => setShowCustom((v) => !v)}>
-              {t('recipeManual.customIngredient')}
-            </button>
-            {showCustom && (
-              <div style={{ marginTop: 10 }}>
-                <div className="row">
-                  <label>{t('recipeManual.name')}</label>
-                  <div className="field">
-                    <input type="text" value={customForm.nom} onChange={(e) => setCustomForm((f) => ({ ...f, nom: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="row">
-                  <label>{t('recipeManual.qty')}</label>
-                  <div className="field">
-                    <input type="number" min="0" step="any" value={customForm.qte} onChange={(e) => setCustomForm((f) => ({ ...f, qte: e.target.value }))} />
-                    <span className="unit">{customForm.unite || 'g'}</span>
-                  </div>
-                </div>
-                <div className="type-list-row">
-                  {INGREDIENT_UNITS.map((u) => (
-                    <button
-                      key={u}
-                      type="button"
-                      className={(customForm.unite || 'g') === u ? 'type-pill active' : 'type-pill'}
-                      onClick={() => setCustomForm((f) => ({ ...f, unite: u }))}
-                    >
-                      {u}
-                    </button>
-                  ))}
-                </div>
-                <div className="row">
-                  <label>{t('recipeManual.kcal')}</label>
-                  <div className="field">
-                    <input type="number" min="0" step="any" value={customForm.kcal} onChange={(e) => setCustomForm((f) => ({ ...f, kcal: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="row">
-                  <label>{t('recipeManual.protein')}</label>
-                  <div className="field">
-                    <input type="number" min="0" step="any" value={customForm.proteines} onChange={(e) => setCustomForm((f) => ({ ...f, proteines: e.target.value }))} />
-                    <span className="unit">g</span>
-                  </div>
-                </div>
-                <div className="row">
-                  <label>{t('recipeManual.carbs')}</label>
-                  <div className="field">
-                    <input type="number" min="0" step="any" value={customForm.glucides} onChange={(e) => setCustomForm((f) => ({ ...f, glucides: e.target.value }))} />
-                    <span className="unit">g</span>
-                  </div>
-                </div>
-                <div className="row">
-                  <label>{t('recipeManual.fat')}</label>
-                  <div className="field">
-                    <input type="number" min="0" step="any" value={customForm.lipides} onChange={(e) => setCustomForm((f) => ({ ...f, lipides: e.target.value }))} />
-                    <span className="unit">g</span>
-                  </div>
-                </div>
-                <button type="button" className="btn btn-block" onClick={addCustom}>
-                  {t('recipeManual.add')}
-                </button>
-              </div>
-            )}
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <AddFoodToMeal
+              mealLabel={title.trim() || t('recipeManual.createRecipe')}
+              foods={foods}
+              baseFoods={baseFoods}
+              recipes={[]}
+              allowRecipes={false}
+              favorites={[]}
+              frequentItems={frequentItems}
+              onAddEntry={addPickedFood}
+              onLookupBarcode={onLookupBarcode}
+              onSearchOnline={onSearchOnline}
+              onCreateFood={createFood}
+              onParseText={onParseText}
+              onParsePhoto={onParsePhoto}
+            />
           </div>
           <button type="button" className="done-btn" onClick={() => setShowPicker(false)}>
-            {t('recipeManual.close')}
+            {t('meal.done')}
           </button>
         </div>
       )}
@@ -545,12 +452,18 @@ export default function RecipeManualForm({ mode = 'create', initialRecipe, onCre
                 </button>
               ))}
             </div>
-            <button type="button" className="btn btn-block" style={{ marginTop: 16 }} onClick={saveQtyEditor}>
-              {t('meal.save')}
-            </button>
           </div>
-          <button type="button" className="done-btn" onClick={() => setEditingIndex(null)}>
-            {t('meal.close')}
+          {/* Un seul bouton en bas, comme dans le journal : « Enregistrer » au-dessus de
+              « Fermer » laissait deviner lequel validait. La croix et le fond ferment. */}
+          <button
+            type="button"
+            className="done-btn done-btn-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              saveQtyEditor();
+            }}
+          >
+            {t('meal.save')}
           </button>
         </div>
       )}

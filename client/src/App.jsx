@@ -467,6 +467,13 @@ function MainApp({ onLogout, account }) {
               favorites={recipeFavorites}
               onToggleFavorite={handleToggleRecipeFavorite}
               foods={foods}
+              baseFoods={baseFoods}
+              frequentItems={frequentFoods}
+              onCreateFood={handleCreateFoodInline}
+              onLookupBarcode={api.lookupFood}
+              onSearchOnline={api.searchFoodsOnline}
+              onParseText={api.parseFoodText}
+              onParsePhoto={api.parseFoodPhoto}
               meals={dashboard?.meals || []}
               onImportRecipe={handleImportRecipe}
               onCreateRecipe={handleCreateRecipe}

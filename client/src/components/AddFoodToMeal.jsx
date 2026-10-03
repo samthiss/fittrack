@@ -78,6 +78,8 @@ export default function AddFoodToMeal({
   onDeleteFood,
   onParseText,
   onParsePhoto,
+  // Faux depuis une recette : on y ajoute des ingrédients, pas une recette dans une recette.
+  allowRecipes = true,
 }) {
   const { t, lang } = useLanguage();
   const TOOLS = [
@@ -694,22 +696,24 @@ export default function AddFoodToMeal({
         />
       )}
       <div className="card">
-        <div className="type-list-row">
-          <button
-            type="button"
-            className={itemKind === 'food' ? 'type-pill active' : 'type-pill'}
-            onClick={() => setItemKind('food')}
-          >
-            {t('addFood.kindFood')}
-          </button>
-          <button
-            type="button"
-            className={itemKind === 'recipe' ? 'type-pill active' : 'type-pill'}
-            onClick={() => setItemKind('recipe')}
-          >
-            {t('addFood.kindRecipe')}
-          </button>
-        </div>
+        {allowRecipes && (
+          <div className="type-list-row">
+            <button
+              type="button"
+              className={itemKind === 'food' ? 'type-pill active' : 'type-pill'}
+              onClick={() => setItemKind('food')}
+            >
+              {t('addFood.kindFood')}
+            </button>
+            <button
+              type="button"
+              className={itemKind === 'recipe' ? 'type-pill active' : 'type-pill'}
+              onClick={() => setItemKind('recipe')}
+            >
+              {t('addFood.kindRecipe')}
+            </button>
+          </div>
+        )}
 
         <div className="tool-menu-row">
           {TOOLS.map((tool) => (
@@ -782,7 +786,8 @@ export default function AddFoodToMeal({
                   {[
                     ['frequent', t('addFood.modeFrequent')],
                     ['recent', t('addFood.modeRecent')],
-                    ['favorite', t('addFood.modeFavorite')],
+                    // Les favoris sont rangés par repas : hors d'un repas, il n'y en a pas.
+                    ...(mealKey ? [['favorite', t('addFood.modeFavorite')]] : []),
                     ['all', t('addFood.modeAll')],
                     // Only for foods: the catalogue holds no recipes. Without this the staples
                     // were reachable only by typing their name, which is no help at all when the

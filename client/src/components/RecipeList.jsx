@@ -74,6 +74,13 @@ export default function RecipeList({
   favorites = [],
   onToggleFavorite,
   foods = [],
+  baseFoods = [],
+  frequentItems = [],
+  onCreateFood,
+  onLookupBarcode,
+  onSearchOnline,
+  onParseText,
+  onParsePhoto,
   meals = [],
   onImportRecipe,
   onCreateRecipe,
@@ -177,6 +184,13 @@ export default function RecipeList({
         onSetCategories={onSetCategories}
         onImportRecipe={onImportRecipe}
         foods={foods}
+        baseFoods={baseFoods}
+        frequentItems={frequentItems}
+        onCreateFood={onCreateFood}
+        onLookupBarcode={onLookupBarcode}
+        onSearchOnline={onSearchOnline}
+        onParseText={onParseText}
+        onParsePhoto={onParsePhoto}
         presetCategory={screen === 'create' ? presetCategory : null}
         onBack={() => setScreen(editingRecipe ? 'detail' : selectedCategoryKey ? 'category' : 'home')}
         onSaved={(id) => {
