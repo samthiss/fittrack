@@ -8,21 +8,27 @@ function zoneOptions(age, restingHr) {
   });
 }
 
-function ellipticalChoice(at) {
+// Une ligne de cardio réglée par zone. L'elliptique y ajoute les watts, que sa console affiche ;
+// le tapis de course n'a que la zone — sa vitesse ne dit pas l'effort, la montre si.
+function zoneChoice(at, { watts = false } = {}) {
   return {
-    type: ELLIPTICAL_TYPE,
+    type: at.type,
     minutes: 30,
     zone: DEFAULT_ZONE,
-    watts: 0,
+    ...(watts ? { watts: 0 } : {}),
     settings: [
       { field: 'zone', options: zoneOptions(at?.age, at?.resting_hr) },
-      {
-        field: 'watts',
-        options: [
-          { value: 0, labelKey: 'activityLog.wattsNone' },
-          ...ELLIPTICAL_WATTS.map((w) => ({ value: w, label: `${w} W` })),
-        ],
-      },
+      ...(watts
+        ? [
+            {
+              field: 'watts',
+              options: [
+                { value: 0, labelKey: 'activityLog.wattsNone' },
+                ...ELLIPTICAL_WATTS.map((w) => ({ value: w, label: `${w} W` })),
+              ],
+            },
+          ]
+        : []),
     ],
   };
 }
@@ -79,10 +85,14 @@ function lastTreadmillSettings(label) {
 // l'estime par la zone d'intensité — calculée sur la VO2max relevée, affichée en battements (voir
 // data/zones.js) — ou par les watts quand la machine les affiche, auquel cas ils l'emportent.
 const ELLIPTICAL_TYPE = 'velo_elliptique';
+// La course sur tapis se règle de la même façon, par zone plutôt que par distance : c'est la zone
+// que la montre affiche pendant l'effort, pas les mètres parcourus.
+const RUN_TREADMILL_TYPE = 'course_tapis';
+const ZONE_TYPES = [ELLIPTICAL_TYPE, RUN_TREADMILL_TYPE];
 
 // Le dernier réglage se relit dans le nom de la séance : « 150 W » ou « Zone 2 ». Les deux sont
 // des étiquettes stables, indépendantes de la langue de l'app au moment où elles ont été écrites.
-function lastEllipticalSettings(label) {
+function lastZoneSettings(label) {
   const text = (label || '').trim();
   const watts = /^(\d+)\s*W$/.exec(text);
   if (watts) return { watts: Number(watts[1]) };
@@ -323,7 +333,7 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
     // celle qu'on veut à nouveau. Une demi-heure ne sert plus que la première fois.
     const treadmill = activityTypes.find((at) => at.type === TREADMILL_TYPE);
     const choices = list
-      .filter((at) => !TREADMILL_REPLACES.has(at.type) && at.type !== ELLIPTICAL_TYPE)
+      .filter((at) => !TREADMILL_REPLACES.has(at.type) && !ZONE_TYPES.includes(at.type))
       .map((at) =>
         at.unit === 'meters' && at.sec_per_100m > 0
           ? { type: at.type, distance: at.last_distance_m || 1000 }
@@ -333,10 +343,6 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
     // type parmi les autres.
     const matchesTreadmill =
       !cardioSearch.trim() || matchesSearch(t(`activityType.${TREADMILL_TYPE}`), cardioSearch);
-    const elliptical = activityTypes.find((at) => at.type === ELLIPTICAL_TYPE);
-    const matchesElliptical =
-      !cardioSearch.trim() || matchesSearch(t(`activityType.${ELLIPTICAL_TYPE}`), cardioSearch);
-
     const head = [];
     if (treadmill && matchesTreadmill) {
       head.push({
@@ -345,17 +351,19 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
         ...lastTreadmillSettings(treadmill.last_label),
       });
     }
-    if (elliptical && matchesElliptical) {
-      const base = ellipticalChoice(elliptical);
+    for (const type of ZONE_TYPES) {
+      const at = activityTypes.find((a) => a.type === type);
+      if (!at || (cardioSearch.trim() && !matchesSearch(t(`activityType.${type}`), cardioSearch))) continue;
+      const base = zoneChoice(at, { watts: type === ELLIPTICAL_TYPE });
       // Dire sur quoi la zone est calculée : sur la VO2max relevée, ou faute de mesure sur une
       // moyenne de population. La différence est grande, et elle se corrige en une saisie.
-      base.hint = zoneIsPersonal(elliptical.vo2max, elliptical.weight_kg)
-        ? t('activityLog.zoneFromVo2max').replace('{value}', elliptical.vo2max)
+      base.hint = zoneIsPersonal(at.vo2max, at.weight_kg)
+        ? t('activityLog.zoneFromVo2max').replace('{value}', at.vo2max)
         : t('activityLog.zoneNoVo2max');
       head.push({
         ...base,
-        minutes: elliptical.last_duration_minutes || base.minutes,
-        ...lastEllipticalSettings(elliptical.last_label),
+        minutes: at.last_duration_minutes || base.minutes,
+        ...lastZoneSettings(at.last_label),
       });
     }
     return [...head, ...choices];
