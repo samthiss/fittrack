@@ -88,7 +88,9 @@ const ELLIPTICAL_TYPE = 'velo_elliptique';
 // La course sur tapis se règle de la même façon, par zone plutôt que par distance : c'est la zone
 // que la montre affiche pendant l'effort, pas les mètres parcourus.
 const RUN_TREADMILL_TYPE = 'course_tapis';
-const ZONE_TYPES = [ELLIPTICAL_TYPE, RUN_TREADMILL_TYPE];
+// L'air bike, le vélo de salle et le rameur aussi : ce sont des stations Hyrox, réglées là en
+// mètres, mais une séance de cardio sur ces machines se vit en zone, comme l'elliptique.
+const ZONE_TYPES = [ELLIPTICAL_TYPE, RUN_TREADMILL_TYPE, 'assault_bike', 'velo_appartement', 'rameur'];
 
 // Le dernier réglage se relit dans le nom de la séance : « 150 W » ou « Zone 2 ». Les deux sont
 // des étiquettes stables, indépendantes de la langue de l'app au moment où elles ont été écrites.
@@ -360,10 +362,14 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
       base.hint = zoneIsPersonal(at.vo2max, at.weight_kg)
         ? t('activityLog.zoneFromVo2max').replace('{value}', at.vo2max)
         : t('activityLog.zoneNoVo2max');
+      // La dernière séance ne sert de point de départ que si elle était réglée en zone : un
+      // 1000 m de rameur en Hyrox ne dit rien de la durée d'une séance de cardio.
+      const last = lastZoneSettings(at.last_label);
+      const fromZone = last.zone != null || last.watts != null;
       head.push({
         ...base,
-        minutes: at.last_duration_minutes || base.minutes,
-        ...lastZoneSettings(at.last_label),
+        minutes: (fromZone && at.last_duration_minutes) || base.minutes,
+        ...last,
       });
     }
     return [...head, ...choices];
