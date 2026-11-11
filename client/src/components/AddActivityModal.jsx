@@ -43,7 +43,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { iconForType } from '../data/activityIcons';
 import { matchesSearch } from '../data/searchText';
 import { ELLIPTICAL_WATTS, ellipticalKcal } from '../data/elliptical';
-import { ZONES, DEFAULT_ZONE, maxHrFromAge, zoneHrRange, zoneKcal, zoneIsPersonal } from '../data/zones';
+import { ZONES, DEFAULT_ZONE, maxHrFromAge, zoneHrRange, zoneKcal, zoneIsPersonal, vo2maxFor } from '../data/zones';
 import {
   TREADMILL_SPEEDS,
   TREADMILL_GRADES,
@@ -491,7 +491,7 @@ export default function AddActivityModal({ activityTypes, date, onClose, onAdded
       }
       return zoneKcal({
         zone: picked.zone,
-        vo2max: at.vo2max,
+        vo2max: vo2maxFor(at.type, at.vo2max),
         weightKg: at.weight_kg,
         restingKcalPerHour: at.resting_kcal_per_hour,
         restingHr: at.resting_hr,

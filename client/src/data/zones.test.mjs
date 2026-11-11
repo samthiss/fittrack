@@ -9,6 +9,7 @@ import {
   maxHrFromAge,
   zoneHrRange,
   ZONES,
+  vo2maxFor,
 } from './zones.js';
 
 const MOI = { vo2max: 49.8, weightKg: 74, restingKcalPerHour: 71 };
@@ -76,4 +77,14 @@ test('avec la FC de repos, la zone coûte ce que coûte la zone de la montre', (
   assert.equal(zoneKcal({ ...MOI, zone: 2, restingHr: 57, minutes: 60 }), 675);
   const couts = ZONES.map((z) => zoneKcal({ ...MOI, restingHr: 57, zone: z.zone, minutes: 60 }));
   for (let i = 1; i < couts.length; i += 1) assert.ok(couts[i] > couts[i - 1]);
+});
+
+test('sur un vélo ou un rameur, la zone se calcule sur une VO2max réduite de 10 %', () => {
+  // VO2max 48 de la montre → 43,2 sur le vélo. 30 min en zone 2, 92 kg, repos 83 kcal/h :
+  // 3,5 + 0,65 × 39,7 = 29,3 ml/kg/min → 809 brut, 726 net par heure, 363 sur la demi-heure.
+  const moi = { weightKg: 92, restingKcalPerHour: 83, restingHr: 57, zone: 2, minutes: 30 };
+  assert.equal(zoneKcal({ ...moi, vo2max: vo2maxFor('velo_appartement', 48) }), 363);
+  assert.equal(vo2maxFor('velo_elliptique', 48), 48);
+  assert.equal(vo2maxFor('course_tapis', 48), 48);
+  assert.equal(vo2maxFor('rameur', null), null);
 });

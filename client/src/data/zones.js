@@ -102,6 +102,17 @@ export function zoneKcal({ zone, vo2max, weightKg, restingKcalPerHour, restingHr
   return Math.round((net * (Number(minutes) || 0)) / 60);
 }
 
+// La VO2max relevée vient de la montre, qui l'estime à la marche et à la course. Sur un vélo, un
+// air bike ou un rameur, moins de muscle travaille et le plafond est plus bas — 10 à 15 % chez
+// qui n'est pas cycliste ou rameur. Sans cette correction, 30 min de vélo en zone 2 se comptaient
+// comme 30 min de course en zone 2. L'elliptique et le tapis de course gardent la VO2max entière.
+const VO2MAX_FACTOR_BY_TYPE = { assault_bike: 0.9, velo_appartement: 0.9, rameur: 0.9 };
+
+/** La VO2max qui vaut pour cette machine. */
+export function vo2maxFor(type, vo2max) {
+  return vo2max > 0 ? vo2max * (VO2MAX_FACTOR_BY_TYPE[type] ?? 1) : vo2max;
+}
+
 /** Si la VO2max est connue, la zone est calculée sur elle ; sinon, elle est estimée. */
 export function zoneIsPersonal(vo2max, weightKg) {
   return vo2max > 0 && weightKg > 0;
